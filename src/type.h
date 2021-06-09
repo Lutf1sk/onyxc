@@ -41,22 +41,18 @@ struct Types {
 
 	LenStr* name_arr;
 	TypeInfo* info_arr;
-
-	struct Types* next;
 } Types;
 
 
 static inline INLINE
 Types make_type_tab() {
-	return (Types) { 0, NULL, NULL, NULL };
+	return (Types) { 0, NULL, NULL };
 }
 
 void free_type_tab(Types* tab);
 
 usz add_type(Types* tab, const LenStr name, TypeInfo* info);
 usz add_primitive(Types* tab, const LenStr name, TypeSType type);
-
-TypeHandle find_type(Types* tab, const LenStr name);
 
 static inline INLINE
 TypeHandle make_type_handle(Types* tab, usz offs) {

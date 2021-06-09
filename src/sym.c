@@ -29,17 +29,30 @@ usz add_symbol(Symbols* tab, SymbolType sym_stype, LenStr name, TypeHandle type)
 	return type_count;
 }
 
-SymbolHandle find_symbol(Symbols* tab, LenStr name) {
-	usz sym_count = tab->sym_count;
-	LenStr* name_arr = tab->names;
+SymbolHandle find_symbol(Symbols* tab, const LenStr name) {
+	Symbols* curr_tab = tab;
 
-	for (usz i = 0; i < sym_count; ++i) {
-		LenStr sym_name = name_arr[i];
-		if (name.len == sym_name.len && strncmp(name.str, sym_name.str, name.len) == 0)
-			return make_sym_handle(tab, i);
+	while (curr_tab) {
+		usz sym_count = curr_tab->sym_count;
+		LenStr* name_arr = curr_tab->names;
+
+		for (usz i = 0; i < sym_count; ++i) {
+			LenStr sym_name = name_arr[i];
+			if (name.len == sym_name.len && strncmp(name.str, sym_name.str, name.len) == 0)
+				return make_sym_handle(curr_tab, i);
+		}
+
+		curr_tab = curr_tab->next;
 	}
 
 	return INVALID_SYMBOL;
+}
+
+TypeHandle find_type(Symbols* tab, const LenStr name) {
+	SymbolHandle sym = find_symbol(tab, name);
+	if (!sym_handle_valid(sym) || sym.tab->syms[sym.offs].stype != SM_TYPE)
+		return INVALID_TYPE;
+	return sym.tab->syms[sym.offs].type;
 }
 
 void free_sym_tab(Symbols* tab) {

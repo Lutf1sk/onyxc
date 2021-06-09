@@ -7,6 +7,7 @@
 #include "ast.h"
 #include "err.h"
 #include "type.h"
+#include "sym.h"
 
 static inline INLINE
 const Token* peek(ParseCtx* cx, usz offs) {
@@ -189,7 +190,8 @@ void parse_stmt(ParseCtx* cx) {
 				Expression expr = parse_expr(cx);
 				// gen_expr(&expr);
 				free_expr_children(&expr);
-			}	break;
+				break;
+			}
 
 			Expression expr = parse_expr(cx);
 			// gen_expr(&expr);
@@ -203,21 +205,15 @@ b8 parse_type(ParseCtx* cx, TypeHandle* ret_hnd) {
 
 	switch (tk.type) {
 		case TK_IDENTIFIER: {
-			TypeHandle type_hnd = find_type(cx->types, LSTR(&cx->char_data[tk.start], tk.len));
+			TypeHandle type_hnd = find_type(cx->syms, LSTR(&cx->char_data[tk.start], tk.len));
 			if (!type_handle_valid(type_hnd))
 				return 0;
+
 			consume(cx);
 			if (ret_hnd)
 				*ret_hnd = type_hnd;
 			return 1;
 		}	break;
-
-		case TK_LEFT_PARENTH:
-			if (peek(cx, 1)->type != TK_RIGHT_PARENTH)
-				return 0;
-			consume(cx);
-
-			return 0;
 
 		default:
 			return 0;

@@ -35,16 +35,18 @@ struct Symbols {
 	usz sym_count;
 	Symbol* syms;
 	LenStr* names;
+	Symbols* next;
 } Symbols;
 
 static inline INLINE
 Symbols make_sym_tab() {
-	return (Symbols) { 0, NULL, NULL };
+	return (Symbols) { 0, NULL, NULL, NULL };
 }
 
 usz add_symbol(Symbols* tab, SymbolType sym_stype, LenStr name, TypeHandle type);
 
-SymbolHandle find_symbol(Symbols* tab, LenStr name);
+SymbolHandle find_symbol(Symbols* tab, const LenStr name);
+TypeHandle find_type(Symbols* tab, const LenStr name);
 
 void free_sym_tab(Symbols* tab);
 

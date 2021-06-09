@@ -42,15 +42,3 @@ usz add_primitive(Types* tab, const LenStr name, TypeSType type) {
 	inf.stype = type;
 	return add_type(tab, name, &inf);
 }
-
-TypeHandle find_type(Types* tab, const LenStr name) {
-	usz type_count = tab->type_count;
-	LenStr* name_arr = tab->name_arr;
-
-	for (usz i = 0; i < type_count; ++i) {
-		LenStr type_name = name_arr[i];
-		if (name.len == type_name.len && strncmp(name.str, type_name.str, name.len) == 0)
-			return make_type_handle(tab, i);
-	}
-	return INVALID_TYPE;
-}
