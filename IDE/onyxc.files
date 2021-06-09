@@ -7,4 +7,5 @@
 ../src/err.c 
 ../src/scan.c 
 ../src/tk.c 
-../src/sym.c
+../src/sym.c 
+../src/intermediate.c

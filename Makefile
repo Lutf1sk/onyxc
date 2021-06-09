@@ -10,7 +10,8 @@ OBJS = \
 	src/err.o \
 	src/scan.o \
 	src/tk.o \
-	src/sym.o
+	src/sym.o \
+	src/intermediate.o
 
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 
