@@ -1,0 +1,10 @@
+
+../src/type.c 
+../src/parse.c 
+../src/ast.c 
+../src/main.c 
+../src/filehl.c 
+../src/err.c 
+../src/scan.c 
+../src/tk.c 
+../src/sym.c

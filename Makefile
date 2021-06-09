@@ -35,7 +35,10 @@ $(OUT):	$(OBJS)
 
 -include $(DEPS)
 
+sync:
+	echo -e "$(patsubst %.o,\n../%.c,$(OBJS))" > IDE/onyxc.files
+
 clean:
 	rm $(OBJS) $(DEPS)
 
-.PHONY: all clean run
+.PHONY: all clean run sync
