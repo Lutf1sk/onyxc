@@ -1,0 +1,10 @@
+
+let do_stuff :: () {
+	return;
+}
+
+let main :: () {
+	let asdf :: 1 + 123;
+	u32 asdf2 :: 123 - 1;
+	return;
+}

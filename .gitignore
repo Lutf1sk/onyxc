@@ -1,0 +1,6 @@
+/**/*.deps
+/**/*.o
+*.pro
+*.pro.user
+gmon.out
+onyxc
