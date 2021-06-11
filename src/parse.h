@@ -13,9 +13,14 @@ struct ParseCtx {
 	usz tk_len;
 	usz tk_it;
 
-	Symbols* syms;
+	IntermediateFunc* funcs;
+	usz func_count;
+	usz func_alloc_count;
+	isz curr_func;
 
-	usz type_count;
+	usz regs_used;
+
+	Symbols* syms;
 
 	Types* types;
 } ParseCtx;

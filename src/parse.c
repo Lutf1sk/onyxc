@@ -8,6 +8,7 @@
 #include "err.h"
 #include "type.h"
 #include "sym.h"
+#include "intermediate.h"
 
 static inline INLINE
 const Token* peek(ParseCtx* cx, usz offs) {
@@ -38,6 +39,13 @@ const Token* consume_type(ParseCtx* cx, TokenType type) {
 	return tk;
 }
 
+static inline INLINE
+void emit(ParseCtx* cx, Instr instr) {
+	if (cx->curr_func == -1)
+		err("%s: Code can only be generated inside a function", cx->file_path);
+	add_instr(&cx->funcs[cx->curr_func], instr);
+}
+
 static
 unsigned long tk_to_int(ParseCtx* cx, const Token* tk) {
 	const char* c_it = &cx->char_data[tk->start + tk->len - 1];
@@ -58,6 +66,56 @@ double tk_to_float(ParseCtx* cx, const Token* tk) {
 	return 5.5f; // TODO: Fix this
 }
 
+static
+usz add_intermediate_func(ParseCtx* cx, const IntermediateFunc* func) {
+	if (cx->func_count >= cx->func_alloc_count) {
+		// Double the size and reallocate the array
+		// OR if the array has not been allocated yet, allocate space for 1024 instructions.
+		if (cx->func_alloc_count)
+			cx->func_alloc_count *= 2;
+		else
+			cx->func_alloc_count = 1024;
+
+		cx->funcs = realloc(cx->funcs, cx->func_alloc_count * sizeof(IntermediateFunc));
+		assert(cx->funcs);
+	}
+
+	cx->funcs[cx->func_count] = *func;
+	return cx->func_count++;
+}
+
+static
+usz gen_expr(ParseCtx* cx, Expression* expr) {
+	assert(expr->type != EXPR_INVALID);
+
+	switch (expr->type) {
+		case EXPR_INVALID: break;
+
+		case EXPR_ADD:
+			emit(cx, INSTR_0A(IN_ADD));
+			break;
+
+		case EXPR_SUBTRACT:
+			emit(cx, INSTR_0A(IN_SUB));
+			break;
+
+		case EXPR_MULTIPLY:
+			emit(cx, INSTR_0A(IN_MUL));
+			break;
+
+		case EXPR_DIVIDE:
+			emit(cx, INSTR_0A(IN_DIV));
+			break;
+
+		case EXPR_LAMBDA: break;
+		case EXPR_STRING: break;
+		case EXPR_INTEGER: break;
+		case EXPR_CHARACTER: break;
+
+		case EXPR_FLOAT: break;
+	}
+}
+
 Expression parse_primary(ParseCtx* cx) {
 	Token tk = *peek(cx, 0);
 
@@ -67,7 +125,14 @@ Expression parse_primary(ParseCtx* cx) {
 			if (peek(cx, 0)->type == TK_RIGHT_PARENTH) { // If it is a function definition
 				consume(cx);
 				Expression expr = make_expr(EXPR_LAMBDA);
+
+				IntermediateFunc new_func = make_intermediate_func();
+
+				usz last_func = cx->curr_func;
+				cx->curr_func = add_intermediate_func(cx, &new_func);
 				parse_compound(cx);
+				cx->curr_func = last_func;
+
 				return expr;
 			}
 			else { // If it is not a function definition
@@ -164,11 +229,16 @@ void parse_stmt(ParseCtx* cx) {
 			consume_type(cx, TK_DOUBLE_COLON);
 
 			Expression expr = parse_expr(cx);
-			// gen_expr(&expr);
+			gen_expr(cx, &expr);
 			free_expr_children(&expr);
 		}	break;
 
 		case TK_KW_RETURN: {
+			if (cx->curr_func == -1)
+				err("%s:%zu: Cannot return from global scope", cx->file_path, tk.line_index + 1, tk.len);
+
+			emit(cx, INSTR_0A(IN_RET));
+
 			consume(cx);
 			consume_type(cx, TK_SEMICOLON);
 		}	break;
@@ -178,6 +248,9 @@ void parse_stmt(ParseCtx* cx) {
 		}	break;
 
 		case TK_LEFT_BRACE: {
+			if (cx->curr_func == -1)
+				err("%s:%zu: Nested global scopes are not supported", cx->file_path, tk.line_index + 1, tk.len);
+
 			return parse_compound(cx);
 		}	break;
 
@@ -188,13 +261,17 @@ void parse_stmt(ParseCtx* cx) {
 				consume_type(cx, TK_DOUBLE_COLON);
 
 				Expression expr = parse_expr(cx);
-				// gen_expr(&expr);
+				gen_expr(cx, &expr);
+
 				free_expr_children(&expr);
 				break;
 			}
 
+			if (cx->curr_func == -1)
+				err("%s:%zu: Unexpected token '%.*s'", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
+
 			Expression expr = parse_expr(cx);
-			// gen_expr(&expr);
+			gen_expr(cx, &expr);
 			free_expr_children(&expr);
 		}	break;
 	}

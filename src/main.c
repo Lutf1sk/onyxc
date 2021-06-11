@@ -10,6 +10,7 @@
 #include "parse.h"
 #include "type.h"
 #include "sym.h"
+#include "intermediate.h"
 
 int main() {
 	const char* in_path = "test.nyx";
@@ -48,12 +49,12 @@ int main() {
 	Types type_tab = make_type_tab();
 
 	struct { LenStr name; TypeSType type; } primitives[] = {
-		{ LSTR("u8", 2), TP_U8 },
+		{ LSTR("u8",  2), TP_U8  },
 		{ LSTR("u16", 3), TP_U16 },
 		{ LSTR("u32", 3), TP_U32 },
 		{ LSTR("u64", 3), TP_U64 },
 
-		{ LSTR("i8", 2), TP_I8 },
+		{ LSTR("i8",  2), TP_I8  },
 		{ LSTR("i16", 3), TP_I16 },
 		{ LSTR("i32", 3), TP_I32 },
 		{ LSTR("i64", 3), TP_I64 },
@@ -75,10 +76,22 @@ int main() {
 	pcx.tk_data = scx.token_data;
 	pcx.tk_len = scx.token_count;
 	pcx.tk_it = 0;
+	pcx.funcs = NULL;
+	pcx.func_count = 0;
+	pcx.func_alloc_count = 0;
+	pcx.curr_func = -1;
+	pcx.regs_used = 0;
 	pcx.types = &type_tab;
 	pcx.syms = &sym_tab;
 
 	parse(&pcx);
+
+	for (usz i = 0; i < pcx.func_count; ++i) {
+		printf("Function %zu:\n", i);
+		IntermediateFunc func = pcx.funcs[i];
+		for (usz j = 0; j < func.instr_count; ++j)
+			printf("\t%s\n", instr_op_str(func.instrs[j].op));
+	}
 
 	free_type_tab(&type_tab);
 	free_sym_tab(&sym_tab);

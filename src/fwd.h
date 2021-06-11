@@ -14,4 +14,7 @@ typedef struct TypeHandle TypeHandle;
 typedef struct Symbols Symbols;
 typedef struct SymbolHandle SymbolHandle;
 
+typedef struct IntermediateFunc IntermediateFunc;
+typedef struct Instr Instr;
+
 #endif // FWD_H
