@@ -41,7 +41,7 @@ int main() {
 	printf("Got %zu tokens:\n", scx.token_count);
 	for (usz i = 0; i < scx.token_count; ++i) {
 		Token tk = scx.token_data[i];
-		printf("%20s %.*s\n", tk_type_str(tk.type), (int)tk.len, &char_data[tk.start]);
+		printf("%15s %.*s\n", tk_type_str(tk.type), (int)tk.len, &char_data[tk.start]);
 	}
 
 	Symbols sym_tab = make_sym_tab();
@@ -87,10 +87,10 @@ int main() {
 	parse(&pcx);
 
 	for (usz i = 0; i < pcx.func_count; ++i) {
-		printf("Function %zu:\n", i);
+		printf("\nFunction %zu:\n", i);
 		IntermediateFunc func = pcx.funcs[i];
 		for (usz j = 0; j < func.instr_count; ++j)
-			printf("\t%s\n", instr_op_str(func.instrs[j].op));
+			printf("\t%s\n", instr_op_str(func.instrs[j].op.op));
 	}
 
 	free_type_tab(&type_tab);

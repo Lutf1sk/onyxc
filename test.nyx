@@ -8,3 +8,4 @@ let main :: () {
 	u32 asdf2 :: 123 - 1;
 	return;
 }
+

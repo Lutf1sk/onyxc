@@ -63,6 +63,8 @@ unsigned long tk_to_int(ParseCtx* cx, const Token* tk) {
 
 static
 double tk_to_float(ParseCtx* cx, const Token* tk) {
+	(void)cx;
+	(void)tk;
 	return 5.5f; // TODO: Fix this
 }
 
@@ -92,19 +94,19 @@ usz gen_expr(ParseCtx* cx, Expression* expr) {
 		case EXPR_INVALID: break;
 
 		case EXPR_ADD:
-			emit(cx, INSTR_0A(IN_ADD));
+			emit(cx, make_instr_u(make_instr_op(IN_ADD, ISZ_64, ITP_UINT), 0, 0, 0));
 			break;
 
 		case EXPR_SUBTRACT:
-			emit(cx, INSTR_0A(IN_SUB));
+			emit(cx, make_instr_u(make_instr_op(IN_SUB, ISZ_64, ITP_UINT), 0, 0, 0));
 			break;
 
 		case EXPR_MULTIPLY:
-			emit(cx, INSTR_0A(IN_MUL));
+			emit(cx, make_instr_u(make_instr_op(IN_MUL, ISZ_64, ITP_UINT), 0, 0, 0));
 			break;
 
 		case EXPR_DIVIDE:
-			emit(cx, INSTR_0A(IN_DIV));
+			emit(cx, make_instr_u(make_instr_op(IN_DIV, ISZ_64, ITP_UINT), 0, 0, 0));
 			break;
 
 		case EXPR_LAMBDA: break;
@@ -114,6 +116,8 @@ usz gen_expr(ParseCtx* cx, Expression* expr) {
 
 		case EXPR_FLOAT: break;
 	}
+
+	return 0;
 }
 
 Expression parse_primary(ParseCtx* cx) {
@@ -237,7 +241,7 @@ void parse_stmt(ParseCtx* cx) {
 			if (cx->curr_func == -1)
 				err("%s:%zu: Cannot return from global scope", cx->file_path, tk.line_index + 1, tk.len);
 
-			emit(cx, INSTR_0A(IN_RET));
+			emit(cx, make_instr_u(make_instr_op(IN_RET, ISZ_64, 0), 0, 0, 0));
 
 			consume(cx);
 			consume_type(cx, TK_SEMICOLON);

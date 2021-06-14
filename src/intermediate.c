@@ -3,7 +3,7 @@
 
 #include "intermediate.h"
 
-const char* instr_op_str(InstrOp op) {
+const char* instr_op_str(InstrOpNum op) {
 	switch (op) {
 #define INSTR_OP(x) case IN_##x: return #x;
 		FOR_EACH_INSTR_OP();
