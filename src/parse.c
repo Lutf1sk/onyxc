@@ -14,6 +14,10 @@
 void parse_compound(ParseCtx* cx) {
 	consume_type(cx, TK_LEFT_BRACE);
 
+    Symbols sym_tab = make_sym_tab();
+    sym_tab.next = cx->syms;
+    cx->syms = &sym_tab;
+
 	for (;;) {
 		Token tk = *peek(cx, 0);
 
@@ -26,6 +30,8 @@ void parse_compound(ParseCtx* cx) {
 
 		parse_stmt(cx);
 	}
+
+    cx->syms = sym_tab.next;
 }
 
 static
