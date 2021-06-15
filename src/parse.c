@@ -32,6 +32,7 @@ void parse_compound(ParseCtx* cx) {
 	}
 
     cx->syms = sym_tab.next;
+    free_sym_tab(&sym_tab);
 }
 
 static
