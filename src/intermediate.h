@@ -6,20 +6,20 @@
 #include "sym.h"
 
 #define FOR_EACH_INSTR_OP() \
-	INSTR_OP(MOV) \
-	INSTR_OP(CALL) \
-	INSTR_OP(JMP) \
-	INSTR_OP(RET) \
-	\
-	INSTR_OP(LOAD_ADDR) \
+    INSTR_OP(MOV) \
+    INSTR_OP(CALL) \
+    INSTR_OP(JMP) \
+    INSTR_OP(RET) \
+    \
+    INSTR_OP(LOAD_ADDR) \
     INSTR_OP(STORE_ADDR) \
     INSTR_OP(LOAD_LABEL) \
-	INSTR_OP(LOAD_LIT) \
-	\
-	INSTR_OP(ADD) \
-	INSTR_OP(SUB) \
-	INSTR_OP(MUL) \
-	INSTR_OP(DIV)
+    INSTR_OP(LOAD_LIT) \
+    \
+    INSTR_OP(ADD) \
+    INSTR_OP(SUB) \
+    INSTR_OP(MUL) \
+    INSTR_OP(DIV)
 
 typedef enum InstrSize {
 	ISZ_8 = 0,
@@ -27,6 +27,8 @@ typedef enum InstrSize {
 	ISZ_32 = 2,
 	ISZ_64 = 3,
 } InstrSize;
+
+int instr_sz_bit_count(InstrSize sz);
 
 typedef enum InstrType {
 	ITP_NONE = 0,

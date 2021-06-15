@@ -11,6 +11,7 @@
 #include "type.h"
 #include "sym.h"
 #include "intermediate.h"
+#include "parse_helpers.h"
 
 int main() {
 	const char* in_path = "test.nyx";
@@ -86,7 +87,7 @@ int main() {
 
 	parse(&pcx);
 
-    printf("Got %zu global symbols:\n", sym_tab.sym_count);
+    printf("\nGot %zu global symbols:\n", sym_tab.sym_count);
     for (usz i = 0; i < sym_tab.sym_count; ++i) {
         LenStr name = sym_tab.names[i];
         printf("\t%.*s\n", (int)name.len, name.str);
@@ -95,8 +96,10 @@ int main() {
 	for (usz i = 0; i < pcx.func_count; ++i) {
 		printf("\nFunction %zu:\n", i);
 		IntermediateFunc func = pcx.funcs[i];
-		for (usz j = 0; j < func.instr_count; ++j)
-			printf("\t%s\n", instr_op_str(func.instrs[j].op.op));
+        for (usz j = 0; j < func.instr_count; ++j) {
+            Instr instr = func.instrs[j];
+            printf("\t%-2i %s\n", instr_sz_bit_count(instr.op.size), instr_op_str(instr.op.op));
+        }
 	}
 
 	free_type_tab(&type_tab);

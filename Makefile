@@ -4,6 +4,7 @@ OUT = onyxc
 OBJS = \
 	src/type.o \
 	src/parse.o \
+	src/parse_expr.o \
 	src/ast.o \
 	src/main.o \
 	src/filehl.o \

@@ -25,7 +25,9 @@ struct ParseCtx {
 	Types* types;
 } ParseCtx;
 
+
 Expression parse_expr(ParseCtx* cx);
+usz gen_expr(ParseCtx* cx, Expression* expr);
 
 void parse_compound(ParseCtx* cx);
 void parse_stmt(ParseCtx* cx);
