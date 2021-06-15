@@ -100,7 +100,11 @@ int main() {
             Instr instr = func.instrs[j];
             printf("\t%-2i %s\n", instr_sz_bit_count(instr.op.size), instr_op_str(instr.op.op));
         }
+        free_func(&func);
 	}
+
+    if (pcx.funcs)
+        free(pcx.funcs);
 
 	free_type_tab(&type_tab);
 	free_sym_tab(&sym_tab);
