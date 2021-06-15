@@ -15,7 +15,7 @@ const Token* peek(ParseCtx* cx, usz offs) {
 	static Token eof_tk = (Token) { TK_INVALID, 0, 0, 0 };
 
 	if (cx->tk_it + offs >= cx->tk_len)
-		return &eof_tk;
+        return &eof_tk;
 
 	return &cx->tk_data[cx->tk_it + offs];
 }
@@ -44,6 +44,11 @@ void emit(ParseCtx* cx, Instr instr) {
 	if (cx->curr_func == -1)
 		err("%s: Code can only be generated inside a function", cx->file_path);
 	add_instr(&cx->funcs[cx->curr_func], instr);
+}
+
+static inline INLINE
+b8 curr_scope_global(ParseCtx* cx) {
+    return cx->syms->next != NULL;
 }
 
 static
@@ -90,31 +95,52 @@ static
 usz gen_expr(ParseCtx* cx, Expression* expr) {
 	assert(expr->type != EXPR_INVALID);
 
+    usz left_res;
+    usz right_res;
+
 	switch (expr->type) {
-		case EXPR_INVALID: break;
+    case EXPR_ADD:
+        assert(expr->child_count == 2);
+        left_res = gen_expr(cx, &expr->children[0]);
+        right_res = gen_expr(cx, &expr->children[1]);
+        emit(cx, make_instr_u(make_instr_op(IN_ADD, ISZ_64, ITP_UINT), 0, left_res, right_res));
+        break;
 
-		case EXPR_ADD:
-			emit(cx, make_instr_u(make_instr_op(IN_ADD, ISZ_64, ITP_UINT), 0, 0, 0));
-			break;
+    case EXPR_SUBTRACT:
+        assert(expr->child_count == 2);
+        left_res = gen_expr(cx, &expr->children[0]);
+        right_res = gen_expr(cx, &expr->children[1]);
+        emit(cx, make_instr_u(make_instr_op(IN_SUB, ISZ_64, ITP_UINT), 0, left_res, right_res));
+        break;
 
-		case EXPR_SUBTRACT:
-			emit(cx, make_instr_u(make_instr_op(IN_SUB, ISZ_64, ITP_UINT), 0, 0, 0));
-			break;
+    case EXPR_MULTIPLY:
+        assert(expr->child_count == 2);
+        left_res = gen_expr(cx, &expr->children[0]);
+        right_res = gen_expr(cx, &expr->children[1]);
+        emit(cx, make_instr_u(make_instr_op(IN_MUL, ISZ_64, ITP_UINT), 0, left_res, right_res));
+        break;
 
-		case EXPR_MULTIPLY:
-			emit(cx, make_instr_u(make_instr_op(IN_MUL, ISZ_64, ITP_UINT), 0, 0, 0));
-			break;
+    case EXPR_DIVIDE:
+        assert(expr->child_count == 2);
+        left_res = gen_expr(cx, &expr->children[0]);
+        right_res = gen_expr(cx, &expr->children[1]);
+        emit(cx, make_instr_u(make_instr_op(IN_DIV, ISZ_64, ITP_UINT), 0, left_res, right_res));
+        break;
 
-		case EXPR_DIVIDE:
-			emit(cx, make_instr_u(make_instr_op(IN_DIV, ISZ_64, ITP_UINT), 0, 0, 0));
-			break;
+    case EXPR_LABEL:
+        emit(cx, make_instr_u(make_instr_op(IN_LOAD_LABEL, ISZ_64, ITP_UINT), 0, 0, 0));
+        break;
 
-		case EXPR_LAMBDA: break;
-		case EXPR_STRING: break;
-		case EXPR_INTEGER: break;
-		case EXPR_CHARACTER: break;
+    case EXPR_INTEGER:
+        emit(cx, make_instr_u(make_instr_op(IN_LOAD_LIT, ISZ_64, ITP_UINT), 0, 0, 0));
+        break;
 
-		case EXPR_FLOAT: break;
+    case EXPR_FLOAT:
+        emit(cx, make_instr_u(make_instr_op(IN_LOAD_LIT, ISZ_64, ITP_FLOAT), 0, 0, 0));
+        break;
+
+    default:
+        err("Invalid expression type\n");
 	}
 
 	return 0;
@@ -127,16 +153,15 @@ Expression parse_primary(ParseCtx* cx) {
 		case TK_LEFT_PARENTH: {
 			consume(cx);
 			if (peek(cx, 0)->type == TK_RIGHT_PARENTH) { // If it is a function definition
-				consume(cx);
-				Expression expr = make_expr(EXPR_LAMBDA);
+                consume(cx);
+                IntermediateFunc new_func = make_intermediate_func();
 
-				IntermediateFunc new_func = make_intermediate_func();
+                usz last_func = cx->curr_func;
+                cx->curr_func = add_intermediate_func(cx, &new_func);
+                parse_compound(cx);
+                cx->curr_func = last_func;
 
-				usz last_func = cx->curr_func;
-				cx->curr_func = add_intermediate_func(cx, &new_func);
-				parse_compound(cx);
-				cx->curr_func = last_func;
-
+                Expression expr = make_expr(EXPR_LABEL);
 				return expr;
 			}
 			else { // If it is not a function definition
@@ -223,18 +248,48 @@ void parse_compound(ParseCtx* cx) {
 	}
 }
 
+static
+void parse_var_def(ParseCtx* cx, TypeHandle type_hnd) {
+    const Token* name_tk = consume_type(cx, TK_IDENTIFIER);
+
+    isz last_func = cx->curr_func;
+
+    b8 is_glob = cx->curr_func == -1;
+    b8 is_const = peek(cx, 0)->type == TK_DOUBLE_COLON;
+
+    if (is_const)
+        consume_type(cx, TK_DOUBLE_COLON);
+    else
+        consume_type(cx, TK_EQUAL);
+
+    if (is_glob || is_const) {
+        IntermediateFunc glob_init_func = make_intermediate_func();
+        cx->curr_func = add_intermediate_func(cx, &glob_init_func);
+    }
+
+    Expression expr = parse_expr(cx);
+    gen_expr(cx, &expr);
+    free_expr_children(&expr);
+
+    if (!type_handle_valid(type_hnd))
+        type_hnd = expr.datatype;
+
+    SymbolType sym_type = is_const ? SM_CONSTANT : (is_glob ? SM_GLOBAL_VAR : SM_LOCAL_VAR);
+    usz offs = add_symbol(cx->syms, sym_type, LSTR(&cx->char_data[name_tk->start], name_tk->len), type_hnd);
+
+    if (is_glob || is_const) {
+        cx->syms->syms[offs].init_func = cx->curr_func;
+        cx->curr_func = last_func;
+    }
+}
+
 void parse_stmt(ParseCtx* cx) {
 	Token tk = *peek(cx, 0);
 
 	switch (tk.type) {
 		case TK_KW_LET: {
 			consume(cx);
-			const Token* name_tk = consume_type(cx, TK_IDENTIFIER);
-			consume_type(cx, TK_DOUBLE_COLON);
-
-			Expression expr = parse_expr(cx);
-			gen_expr(cx, &expr);
-			free_expr_children(&expr);
+            parse_var_def(cx, INVALID_TYPE);
 		}	break;
 
 		case TK_KW_RETURN: {
@@ -261,13 +316,7 @@ void parse_stmt(ParseCtx* cx) {
 		default: {
 			TypeHandle type_hnd;
 			if (parse_type(cx, &type_hnd)) {
-				const Token* name_tk = consume_type(cx, TK_IDENTIFIER);
-				consume_type(cx, TK_DOUBLE_COLON);
-
-				Expression expr = parse_expr(cx);
-				gen_expr(cx, &expr);
-
-				free_expr_children(&expr);
+                parse_var_def(cx, type_hnd);
 				break;
 			}
 

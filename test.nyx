@@ -4,8 +4,8 @@ let do_stuff :: () {
 }
 
 let main :: () {
-	let asdf :: 1 + 123;
-	u32 asdf2 :: 123 - 1;
+	let asdf = 1 + 123;
+	u32 asdf2 = 123 - 1;
 	return;
 }
 

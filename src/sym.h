@@ -26,7 +26,7 @@ enum SymbolType {
 typedef
 struct Symbol {
 	SymbolType stype;
-
+    isz init_func;
 	TypeHandle type;
 } Symbol;
 

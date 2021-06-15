@@ -86,6 +86,12 @@ int main() {
 
 	parse(&pcx);
 
+    printf("Got %zu global symbols:\n", sym_tab.sym_count);
+    for (usz i = 0; i < sym_tab.sym_count; ++i) {
+        LenStr name = sym_tab.names[i];
+        printf("\t%.*s\n", (int)name.len, name.str);
+    }
+
 	for (usz i = 0; i < pcx.func_count; ++i) {
 		printf("\nFunction %zu:\n", i);
 		IntermediateFunc func = pcx.funcs[i];
