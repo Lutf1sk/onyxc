@@ -38,7 +38,7 @@ $(OUT):	$(OBJS)
 -include $(DEPS)
 
 sync:
-	echo -e "$(patsubst %.o,\n../%.c,$(OBJS))" > IDE/onyxc.files
+	git ls-files | sed -e 's/^/..\//' > IDE/onyxc.files
 
 clean:
 	rm $(OBJS) $(DEPS)
