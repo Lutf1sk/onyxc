@@ -31,10 +31,6 @@ void parse_compound(ParseCtx* cx) {
 		parse_stmt(cx);
 	}
 
-    for (isz i = sym_tab.sym_count - 1; i >= 0; --i)
-        if (sym_tab.syms[i].stype == SM_LOCAL_VAR)
-            free_register(cx, sym_tab.syms[i].reg);
-
     cx->syms = sym_tab.next;
     free_sym_tab(&sym_tab);
 }
@@ -70,7 +66,6 @@ void parse_var_def(ParseCtx* cx, TypeHandle type_hnd) {
     cx->syms->syms[offs].reg = reg;
 
     if (is_glob || is_const) {
-        free_register(cx, reg);
         cx->syms->syms[offs].init_func = cx->curr_func;
         cx->curr_func = last_func;
     }
@@ -117,7 +112,6 @@ void parse_stmt(ParseCtx* cx) {
 				err("%s:%zu: Unexpected token '%.*s'", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
 
 			Expression expr = parse_expr(cx);
-             free_register(cx, gen_expr(cx, &expr));
 			free_expr_children(&expr);
 		}	break;
 	}

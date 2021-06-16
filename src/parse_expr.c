@@ -5,78 +5,55 @@
 #include "intermediate.h"
 #include "parse_helpers.h"
 
+static
+usz gen_bin_expr(ParseCtx* cx, InstrOpNum op, Expression* expr) {
+    assert(expr->child_count == 2);
+    usz left_res = gen_expr(cx, &expr->children[0]);
+    usz right_res = gen_expr(cx, &expr->children[1]);
+    usz ret_reg = alloc_register(cx);
+    Instr instr = make_instr_r(make_instr_op(op, ISZ_64, ITP_UINT), ret_reg, left_res, right_res);
+    emit(cx, instr);
+    return ret_reg;
+}
+
 usz gen_expr(ParseCtx* cx, Expression* expr) {
     assert(expr->type != EXPR_INVALID);
 
-    isz left_res = -1;
-    isz right_res = -1;
-
-    usz ret_reg = alloc_register(cx);
-
     switch (expr->type) {
-    case EXPR_ADD: {
-        assert(expr->child_count == 2);
-        left_res = gen_expr(cx, &expr->children[0]);
-        right_res = gen_expr(cx, &expr->children[1]);
-        Instr instr = make_instr_r(make_instr_op(IN_ADD, ISZ_64, ITP_UINT), ret_reg, left_res, right_res);
-        free_register(cx, right_res);
-        free_register(cx, left_res);
-        emit(cx, instr);
-    }   break;
-
-    case EXPR_SUBTRACT: {
-        assert(expr->child_count == 2);
-        left_res = gen_expr(cx, &expr->children[0]);
-        right_res = gen_expr(cx, &expr->children[1]);
-        Instr instr = make_instr_r(make_instr_op(IN_SUB, ISZ_64, ITP_UINT), ret_reg, left_res, right_res);
-        free_register(cx, right_res);
-        free_register(cx, left_res);
-        emit(cx, instr);
-    }   break;
-
-    case EXPR_MULTIPLY: {
-        assert(expr->child_count == 2);
-        left_res = gen_expr(cx, &expr->children[0]);
-        right_res = gen_expr(cx, &expr->children[1]);
-        Instr instr = make_instr_r(make_instr_op(IN_MUL, ISZ_64, ITP_UINT), ret_reg, left_res, right_res);
-        free_register(cx, right_res);
-        free_register(cx, left_res);
-        emit(cx, instr);
-    }   break;
-
-    case EXPR_DIVIDE: {
-        assert(expr->child_count == 2);
-        left_res = gen_expr(cx, &expr->children[0]);
-        right_res = gen_expr(cx, &expr->children[1]);
-        Instr instr = make_instr_r(make_instr_op(IN_DIV, ISZ_64, ITP_UINT), ret_reg, left_res, right_res);
-        free_register(cx, right_res);
-        free_register(cx, left_res);
-        emit(cx, instr);
-    }   break;
+    case EXPR_ADD:      return gen_bin_expr(cx, IN_ADD, expr);
+    case EXPR_SUBTRACT: return gen_bin_expr(cx, IN_SUB, expr);
+    case EXPR_MULTIPLY: return gen_bin_expr(cx, IN_MUL, expr);
+    case EXPR_DIVIDE:   return gen_bin_expr(cx, IN_DIV, expr);
 
     case EXPR_LAMBDA: {
+        usz ret_reg = alloc_register(cx);
         Instr instr = make_instr(make_instr_op(IN_LOAD_FUNC, ISZ_64, ITP_UINT), ret_reg);
         instr.func_offs = expr->func_offs;
         emit(cx, instr);
+        return ret_reg;
     }   break;
 
     case EXPR_INTEGER: {
+        usz ret_reg = alloc_register(cx);
         Instr instr = make_instr(make_instr_op(IN_LOAD_LIT, ISZ_64, ITP_UINT), ret_reg);
         instr.lit_uint = expr->lit_uint;
         emit(cx, instr);
+        return ret_reg;
     }   break;
 
     case EXPR_FLOAT: {
+        usz ret_reg = alloc_register(cx);
         Instr instr = make_instr(make_instr_op(IN_LOAD_LIT, ISZ_64, ITP_FLOAT), ret_reg);
         instr.lit_float = expr->lit_float;
         emit(cx, instr);
+        return ret_reg;
     }   break;
 
     default:
         err("Invalid expression type\n");
     }
 
-    return ret_reg;
+    err("Internal compiler error");
 }
 
 Expression parse_primary(ParseCtx* cx) {
@@ -92,7 +69,6 @@ Expression parse_primary(ParseCtx* cx) {
                 usz last_func = cx->curr_func;
                 usz new_func_offs = cx->curr_func = add_intermediate_func(cx, &new_func);
                 parse_compound(cx);
-                assert(cx->funcs[cx->curr_func].registers == 0);
                 cx->curr_func = last_func;
 
                 Expression expr = make_expr(EXPR_LAMBDA);
