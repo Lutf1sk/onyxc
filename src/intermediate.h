@@ -72,6 +72,8 @@ struct IntermediateFunc {
 	usz instr_count;
 	usz instr_alloc_count;
 	Instr* instrs;
+
+    usz registers;
 } IntermediateFunc;
 
 const char* instr_op_str(InstrOpNum op);
@@ -82,7 +84,7 @@ void free_func(IntermediateFunc* func);
 
 static inline INLINE
 IntermediateFunc make_intermediate_func() {
-	return (IntermediateFunc) { 0, 0, NULL };
+    return (IntermediateFunc) { 0, 0, NULL, 0 };
 }
 
 static inline INLINE

@@ -20,7 +20,7 @@ usz add_symbol(Symbols* tab, SymbolType sym_stype, LenStr name, TypeHandle type)
 	}
 
 	name_arr[type_count] = name;
-    sym_arr[type_count] = (Symbol) { sym_stype, -1, type };
+    sym_arr[type_count] = (Symbol) { sym_stype, -1, type, -1 };
 
 	++tab->sym_count;
 	tab->names = name_arr;

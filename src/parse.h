@@ -5,6 +5,11 @@
 #include "fwd.h"
 
 typedef
+struct PACKED Register {
+    b8 allocated : 1;
+} Register;
+
+typedef
 struct ParseCtx {
 	const char* file_path;
 	char* char_data;

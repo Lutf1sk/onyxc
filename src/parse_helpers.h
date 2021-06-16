@@ -69,6 +69,19 @@ double tk_to_float(ParseCtx* cx, const Token* tk) {
     return 5.5f; // TODO: Fix this
 }
 
+static inline INLINE
+usz alloc_register(ParseCtx* cx) {
+    assert(cx->curr_func != -1);
+    return cx->funcs[cx->curr_func].registers++;
+}
+
+static inline INLINE
+void free_register(ParseCtx* cx, usz reg) {
+    assert(cx->curr_func != -1);
+    assert(reg + 1 == cx->funcs[cx->curr_func].registers);
+    cx->funcs[cx->curr_func].registers--;
+}
+
 static
 usz add_intermediate_func(ParseCtx* cx, const IntermediateFunc* func) {
     if (cx->func_count >= cx->func_alloc_count) {

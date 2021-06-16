@@ -28,6 +28,7 @@ struct Symbol {
 	SymbolType stype;
     isz init_func;
 	TypeHandle type;
+    isz reg;
 } Symbol;
 
 typedef
