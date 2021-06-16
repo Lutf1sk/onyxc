@@ -11,50 +11,57 @@ usz gen_expr(ParseCtx* cx, Expression* expr) {
     usz left_res;
     usz right_res;
 
+    Instr instr;
+
     switch (expr->type) {
     case EXPR_ADD:
         assert(expr->child_count == 2);
         left_res = gen_expr(cx, &expr->children[0]);
         right_res = gen_expr(cx, &expr->children[1]);
-        emit(cx, make_instr_u(make_instr_op(IN_ADD, ISZ_64, ITP_UINT), 0, left_res, right_res));
+        instr = make_instr_r(make_instr_op(IN_ADD, ISZ_64, ITP_UINT), 0, left_res, right_res);
         break;
 
     case EXPR_SUBTRACT:
         assert(expr->child_count == 2);
         left_res = gen_expr(cx, &expr->children[0]);
         right_res = gen_expr(cx, &expr->children[1]);
-        emit(cx, make_instr_u(make_instr_op(IN_SUB, ISZ_64, ITP_UINT), 0, left_res, right_res));
+        instr = make_instr_r(make_instr_op(IN_SUB, ISZ_64, ITP_UINT), 0, left_res, right_res);
         break;
 
     case EXPR_MULTIPLY:
         assert(expr->child_count == 2);
         left_res = gen_expr(cx, &expr->children[0]);
         right_res = gen_expr(cx, &expr->children[1]);
-        emit(cx, make_instr_u(make_instr_op(IN_MUL, ISZ_64, ITP_UINT), 0, left_res, right_res));
+        instr = make_instr_r(make_instr_op(IN_MUL, ISZ_64, ITP_UINT), 0, left_res, right_res);
         break;
 
     case EXPR_DIVIDE:
         assert(expr->child_count == 2);
         left_res = gen_expr(cx, &expr->children[0]);
         right_res = gen_expr(cx, &expr->children[1]);
-        emit(cx, make_instr_u(make_instr_op(IN_DIV, ISZ_64, ITP_UINT), 0, left_res, right_res));
+        instr = make_instr_r(make_instr_op(IN_DIV, ISZ_64, ITP_UINT), 0, left_res, right_res);
         break;
 
-    case EXPR_LABEL:
-        emit(cx, make_instr_u(make_instr_op(IN_LOAD_LABEL, ISZ_64, ITP_UINT), 0, 0, 0));
+    case EXPR_LAMBDA:
+        instr = make_instr(make_instr_op(IN_LOAD_FUNC, ISZ_64, ITP_UINT), 0);
+        instr.func_offs = expr->func_offs;
         break;
 
     case EXPR_INTEGER:
-        emit(cx, make_instr_u(make_instr_op(IN_LOAD_LIT, ISZ_64, ITP_UINT), 0, 0, 0));
+        instr = make_instr(make_instr_op(IN_LOAD_LIT, ISZ_64, ITP_UINT), 0);
+        instr.lit_uint = expr->lit_uint;
         break;
 
     case EXPR_FLOAT:
-        emit(cx, make_instr_u(make_instr_op(IN_LOAD_LIT, ISZ_64, ITP_FLOAT), 0, 0, 0));
+        instr = make_instr(make_instr_op(IN_LOAD_LIT, ISZ_64, ITP_FLOAT), 0);
+        instr.lit_float = expr->lit_float;
         break;
 
     default:
         err("Invalid expression type\n");
     }
+
+    emit(cx, instr);
 
     return 0;
 }
@@ -70,11 +77,12 @@ Expression parse_primary(ParseCtx* cx) {
                 IntermediateFunc new_func = make_intermediate_func();
 
                 usz last_func = cx->curr_func;
-                cx->curr_func = add_intermediate_func(cx, &new_func);
+                usz new_func_offs = cx->curr_func = add_intermediate_func(cx, &new_func);
                 parse_compound(cx);
                 cx->curr_func = last_func;
 
-                Expression expr = make_expr(EXPR_LABEL);
+                Expression expr = make_expr(EXPR_LAMBDA);
+                expr.func_offs = new_func_offs;
                 return expr;
             }
             else { // If it is not a function definition
@@ -87,7 +95,7 @@ Expression parse_primary(ParseCtx* cx) {
         case TK_INTEGER: {
             const Token* tk = consume(cx);
             Expression expr = make_expr(EXPR_INTEGER);
-            expr.lit_int = tk_to_int(cx, tk);
+            expr.lit_sint = tk_to_int(cx, tk);
             return expr;
         }	break;
 

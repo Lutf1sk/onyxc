@@ -83,7 +83,7 @@ void parse_stmt(ParseCtx* cx) {
 			if (cx->curr_func == -1)
 				err("%s:%zu: Cannot return from global scope", cx->file_path, tk.line_index + 1, tk.len);
 
-			emit(cx, make_instr_u(make_instr_op(IN_RET, ISZ_64, 0), 0, 0, 0));
+            emit(cx, make_instr_r(make_instr_op(IN_RET, ISZ_64, 0), 0, 0, 0));
 
 			consume(cx);
 			consume_type(cx, TK_SEMICOLON);

@@ -15,7 +15,7 @@
 	EXPR_OP(DIVIDE) \
 	EXPR_OP(INTEGER) \
 	EXPR_OP(FLOAT) \
-    EXPR_OP(LABEL)
+    EXPR_OP(LAMBDA)
 
 typedef
 enum ExpressionType {
@@ -34,10 +34,12 @@ struct Expression {
     TypeHandle datatype;
 
 	union {
-		long lit_int;
+        long lit_sint;
 		unsigned long lit_uint;
 		double lit_float;
+
         SymbolHandle sym_hnd;
+        usz func_offs;
 	};
 
 	b8 is_comp_time_const;

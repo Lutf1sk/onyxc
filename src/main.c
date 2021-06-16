@@ -98,7 +98,30 @@ int main() {
 		IntermediateFunc func = pcx.funcs[i];
         for (usz j = 0; j < func.instr_count; ++j) {
             Instr instr = func.instrs[j];
-            printf("\t%-2i %s\n", instr_sz_bit_count(instr.op.size), instr_op_str(instr.op.op));
+            printf("\t%-2i %-10s ", instr_sz_bit_count(instr.op.size), instr_op_str(instr.op.op));
+            switch (instr.op.op) {
+            case IN_JMP: printf("R:%zu", instr.reg); break;
+            case IN_CALL: printf("R:%zu", instr.reg); break;
+            case IN_RET: break;
+
+            case IN_MOV: printf("R:%zu <- R:%zu", instr.reg, instr.regs[0]); break;
+            case IN_ADD: printf("R:%zu <- R:%zu + R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
+            case IN_SUB: printf("R:%zu <- R:%zu - R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
+            case IN_MUL: printf("R:%zu <- R:%zu * R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
+            case IN_DIV: printf("R:%zu <- R:%zu / R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
+
+            case IN_LOAD: printf("R:%zu <- [R:%zu]", instr.reg, instr.regs[0]); break;
+            case IN_STORE: printf("[R:%zu] <- R:%zu", instr.reg, instr.regs[0]); break;
+
+            case IN_LOAD_LABEL: {
+                LenStr name = instr.sym_hnd.tab->names[instr.sym_hnd.offs];
+                printf("R:%zu <- G:%.*s", instr.reg, (int)name.len, name.str);
+            }   break;
+
+            case IN_LOAD_LIT: printf("R:%zu <- %lu", instr.reg, instr.lit_uint); break;
+            case IN_LOAD_FUNC: printf("R:%zu <- F:%zu", instr.reg, instr.func_offs); break;
+            }
+            putchar('\n');
         }
         free_func(&func);
 	}

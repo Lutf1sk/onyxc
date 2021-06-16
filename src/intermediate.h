@@ -11,8 +11,9 @@
     INSTR_OP(JMP) \
     INSTR_OP(RET) \
     \
-    INSTR_OP(LOAD_ADDR) \
-    INSTR_OP(STORE_ADDR) \
+    INSTR_OP(LOAD) \
+    INSTR_OP(STORE) \
+    INSTR_OP(LOAD_FUNC) \
     INSTR_OP(LOAD_LABEL) \
     INSTR_OP(LOAD_LIT) \
     \
@@ -46,7 +47,7 @@ enum InstrOpNum {
 
 typedef
 struct PACKED InstrOp {
-	u16 op : 12;
+    InstrOpNum op : 12;
 	u8 size : 2;
 	u8 type : 2;
 } InstrOp;
@@ -54,14 +55,15 @@ struct PACKED InstrOp {
 typedef
 struct Instr {
 	InstrOp op;
+    u64 reg;
 	union {
-		u64 uargs[3];
-		i64 iargs[3];
-		f64 fargs[3];
-		struct {
-			u64 sym_reg;
-			SymbolHandle sym_hnd;
-		};
+        u64 lit_uint;
+        i64 lit_sint;
+        f64 lit_float;
+
+        u64 regs[2];
+        SymbolHandle sym_hnd;
+        usz func_offs;
 	};
 } Instr;
 
@@ -89,18 +91,13 @@ InstrOp make_instr_op(InstrOpNum num, InstrSize size, InstrType type) {
 }
 
 static inline INLINE
-Instr make_instr_u(InstrOp op, u64 arg1, u64 arg2, u64 arg3) {
-	return (Instr) { op, .uargs = { arg1, arg2, arg3 } };
+Instr make_instr_r(InstrOp op, u64 reg, u64 arg2, u64 arg3) {
+    return (Instr) { op, reg, .regs = { arg2, arg3 } };
 }
 
 static inline INLINE
-Instr make_instr_i(InstrOp op, i64 arg1, i64 arg2, i64 arg3) {
-	return (Instr) { op, .iargs = { arg1, arg2, arg3 } };
-}
-
-static inline INLINE
-Instr make_instr_f(InstrOp op, f64 arg1, f64 arg2, f64 arg3) {
-	return (Instr) { op, .fargs = { arg1, arg2, arg3 } };
+Instr make_instr(InstrOp op, u64 reg) {
+    return (Instr) { op, reg };
 }
 
 #endif // INTERMEDIATE_H
