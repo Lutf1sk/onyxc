@@ -1,3 +1,6 @@
+// Copyright (C) 2021, Alex Edin <lutfisk@lutfisk.net>
+// SPDX-License-Identifier: GPL-2.0+
+
 #ifndef INTERMEDIATE_H
 #define INTERMEDIATE_H
 
