@@ -78,45 +78,53 @@ void parse_stmt(ParseCtx* cx) {
     Token tk = *peek(cx, 0);
 
     switch (tk.type) {
-        case TK_KW_LET: {
-            consume(cx);
-            parse_var_def(cx, INVALID_TYPE);
-        }   break;
+    case TK_KW_LET: {
+        consume(cx);
+        parse_var_def(cx, INVALID_TYPE);
+    }   break;
 
-        case TK_KW_RETURN: {
-            if (cx->curr_func == -1)
-                err("%s:%zu: Cannot return from global scope", cx->file_path, tk.line_index + 1, tk.len);
+    case TK_KW_RETURN: {
+        consume(cx);
+        if (cx->curr_func == -1)
+            err("%s:%zu: Cannot return from global scope", cx->file_path, tk.line_index + 1, tk.len);
 
-            emit(cx, make_instr_r(make_instr_op(IN_RET, ISZ_64, 0), 0, 0, 0));
-
-            consume(cx);
-            consume_type(cx, TK_SEMICOLON);
-        }   break;
-
-        case TK_SEMICOLON: {
-            consume(cx);
-        }   break;
-
-        case TK_LEFT_BRACE: {
-            if (cx->curr_func == -1)
-                err("%s:%zu: Nested global scopes are not supported", cx->file_path, tk.line_index + 1, tk.len);
-
-            return parse_compound(cx);
-        }   break;
-
-        default: {
-            TypeHandle type_hnd;
-            if (parse_type(cx, &type_hnd)) {
-                parse_var_def(cx, type_hnd);
-                break;
-            }
-
-            if (cx->curr_func == -1)
-                err("%s:%zu: Unexpected token '%.*s'", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
-
+        if (peek(cx, 0)->type != TK_SEMICOLON) {
             Expression expr = parse_expr(cx);
+            usz reg = gen_expr(cx, &expr);
             free_expr_children(&expr);
-        }   break;
+            emit(cx, make_instr(make_instr_op(IN_STORE_RETVAL, ISZ_64, 0), reg));
+        }
+
+        emit(cx, make_instr(make_instr_op(IN_RET, ISZ_64, 0), 0));
+
+        consume_type(cx, TK_SEMICOLON);
+    }   break;
+
+    case TK_SEMICOLON: {
+        consume(cx);
+    }   break;
+
+    case TK_LEFT_BRACE: {
+        if (cx->curr_func == -1)
+            err("%s:%zu: Nested global scopes are not supported", cx->file_path, tk.line_index + 1, tk.len);
+
+        return parse_compound(cx);
+    }   break;
+
+    default: {
+        TypeHandle type_hnd;
+        if (parse_type(cx, &type_hnd)) {
+            parse_var_def(cx, type_hnd);
+            break;
+        }
+
+        if (cx->curr_func == -1)
+            err("%s:%zu: Unexpected token '%.*s'", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
+
+        Expression expr = parse_expr(cx);
+        gen_expr(cx, &expr);
+        free_expr_children(&expr);
+    }   break;
     }
 }
 
@@ -124,19 +132,19 @@ b8 parse_type(ParseCtx* cx, TypeHandle* ret_hnd) {
     Token tk = *peek(cx, 0);
 
     switch (tk.type) {
-        case TK_IDENTIFIER: {
-            TypeHandle type_hnd = find_type(cx->syms, LSTR(&cx->char_data[tk.start], tk.len));
-            if (!type_handle_valid(type_hnd))
-                return 0;
-
-            consume(cx);
-            if (ret_hnd)
-                *ret_hnd = type_hnd;
-            return 1;
-        }   break;
-
-        default:
+    case TK_IDENTIFIER: {
+        TypeHandle type_hnd = find_type(cx->syms, LSTR(&cx->char_data[tk.start], tk.len));
+        if (!type_handle_valid(type_hnd))
             return 0;
+
+        consume(cx);
+        if (ret_hnd)
+            *ret_hnd = type_hnd;
+        return 1;
+    }   break;
+
+    default:
+        return 0;
     }
 }
 

@@ -18,7 +18,8 @@
     EXPR_OP(DIVIDE) \
     EXPR_OP(INTEGER) \
     EXPR_OP(FLOAT) \
-    EXPR_OP(LAMBDA)
+    EXPR_OP(LAMBDA) \
+    EXPR_OP(FUNC_CALL)
 
 typedef
 enum ExpressionType {

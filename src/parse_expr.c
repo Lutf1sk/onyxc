@@ -52,6 +52,24 @@ usz gen_expr(ParseCtx* cx, Expression* expr) {
         return ret_reg;
     }   break;
 
+    case EXPR_FUNC_CALL: {
+        for (usz i = 1; i < expr->child_count; ++i) {
+            usz arg_reg = gen_expr(cx, &expr->children[i]);
+            Instr arg_instr = make_instr(make_instr_op(IN_STORE_ARG, ISZ_64, ITP_UINT), arg_reg);
+            arg_instr.lit_uint = i - 1;
+            emit(cx, arg_instr);
+        }
+
+        usz func_reg = gen_expr(cx, &expr->children[0]);
+        Instr func_instr = make_instr(make_instr_op(IN_CALL, ISZ_64, ITP_UINT), func_reg);
+        emit(cx, func_instr);
+
+        usz ret_reg = alloc_register(cx);
+        Instr ret_instr = make_instr(make_instr_op(IN_LOAD_RETVAL, ISZ_64, ITP_UINT), ret_reg);
+        emit(cx, ret_instr);
+        return ret_reg;
+    }   break;
+
     default:
         err("Invalid expression type\n");
     }
@@ -59,6 +77,7 @@ usz gen_expr(ParseCtx* cx, Expression* expr) {
     err("Internal compiler error");
 }
 
+static
 Expression parse_primary(ParseCtx* cx) {
     Token tk = *peek(cx, 0);
 
@@ -103,6 +122,33 @@ Expression parse_primary(ParseCtx* cx) {
     }
 }
 
+static
+Expression parse_sfx(ParseCtx* cx, Expression child) {
+    Token tk = *peek(cx, 0);
+
+    switch (tk.type) {
+    case TK_LEFT_PARENTH:
+        consume(cx);
+        consume_type(cx, TK_RIGHT_PARENTH);
+        Expression expr = make_un_expr(EXPR_FUNC_CALL, &child);
+        return parse_sfx(cx, expr);
+        break;
+
+    default:
+        return child;
+    }
+}
+
+static
+Expression parse_pfx(ParseCtx* cx) {
+    Token tk = *peek(cx, 0);
+
+    switch (tk.type) {
+    default:
+        return parse_sfx(cx, parse_primary(cx));
+    }
+}
+
 typedef
 struct BinaryOperator {
     u8 tk_type;
@@ -128,7 +174,7 @@ const BinaryOperator* find_bin_op(TokenType tk_type) {
 
 static
 Expression parse_expr_binary(ParseCtx* cx, int prev_precd) {
-    Expression left = parse_primary(cx);
+    Expression left = parse_pfx(cx);
 
     const BinaryOperator* op = find_bin_op(peek(cx, 0)->type);
     while (op && op->precedence < prev_precd) {

@@ -20,6 +20,11 @@
     INSTR_OP(LOAD_LABEL) \
     INSTR_OP(LOAD_LIT) \
     \
+    INSTR_OP(STORE_ARG) \
+    INSTR_OP(STORE_RETVAL) \
+    INSTR_OP(LOAD_ARG) \
+    INSTR_OP(LOAD_RETVAL) \
+    \
     INSTR_OP(ADD) \
     INSTR_OP(SUB) \
     INSTR_OP(MUL) \

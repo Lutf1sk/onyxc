@@ -101,7 +101,7 @@ int main() {
         IntermediateFunc func = pcx.funcs[i];
         for (usz j = 0; j < func.instr_count; ++j) {
             Instr instr = func.instrs[j];
-            printf("\t%-2i %-10s ", instr_sz_bit_count(instr.op.size), instr_op_str(instr.op.op));
+            printf("\t%-2i %-12s ", instr_sz_bit_count(instr.op.size), instr_op_str(instr.op.op));
             switch (instr.op.op) {
             case IN_JMP: printf("R:%zu", instr.reg); break;
             case IN_CALL: printf("R:%zu", instr.reg); break;
@@ -123,6 +123,11 @@ int main() {
 
             case IN_LOAD_LIT: printf("R:%zu <- %lu", instr.reg, instr.lit_uint); break;
             case IN_LOAD_FUNC: printf("R:%zu <- F:%zu", instr.reg, instr.func_offs); break;
+
+            case IN_STORE_ARG: printf("A:%zu <- R:%zu", instr.lit_uint, instr.reg); break;
+            case IN_STORE_RETVAL: printf("R:%zu ->", instr.reg); break;
+            case IN_LOAD_ARG: printf("R:%zu <- A:%zu", instr.reg, instr.lit_uint); break;
+            case IN_LOAD_RETVAL: printf("R:%zu <-", instr.reg); break;
             }
             putchar('\n');
         }
