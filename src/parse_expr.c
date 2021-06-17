@@ -80,14 +80,14 @@ Expression parse_primary(ParseCtx* cx) {
                 consume_type(cx, TK_RIGHT_PARENTH);
                 return expr;
             }
-        }	break;
+        }   break;
 
         case TK_INTEGER: {
             const Token* tk = consume(cx);
             Expression expr = make_expr(EXPR_INTEGER);
             expr.lit_sint = tk_to_int(cx, tk);
             return expr;
-        }	break;
+        }   break;
 
         case TK_FLOAT: {
             const Token* tk = consume(cx);

@@ -12,24 +12,24 @@
 #include "parse_helpers.h"
 
 void parse_compound(ParseCtx* cx) {
-	consume_type(cx, TK_LEFT_BRACE);
+    consume_type(cx, TK_LEFT_BRACE);
 
     Symbols sym_tab = make_sym_tab();
     sym_tab.next = cx->syms;
     cx->syms = &sym_tab;
 
-	for (;;) {
-		Token tk = *peek(cx, 0);
+    for (;;) {
+        Token tk = *peek(cx, 0);
 
-		if (tk.type == TK_INVALID)
-			err("%s: Expected closing '}' before end of file", cx->file_path);
-		if (tk.type == TK_RIGHT_BRACE) {
-			consume(cx);
-			break;
-		}
+        if (tk.type == TK_INVALID)
+            err("%s: Expected closing '}' before end of file", cx->file_path);
+        if (tk.type == TK_RIGHT_BRACE) {
+            consume(cx);
+            break;
+        }
 
-		parse_stmt(cx);
-	}
+        parse_stmt(cx);
+    }
 
     cx->syms = sym_tab.next;
     free_sym_tab(&sym_tab);
@@ -72,72 +72,72 @@ void parse_var_def(ParseCtx* cx, TypeHandle type_hnd) {
 }
 
 void parse_stmt(ParseCtx* cx) {
-	Token tk = *peek(cx, 0);
+    Token tk = *peek(cx, 0);
 
-	switch (tk.type) {
-		case TK_KW_LET: {
-			consume(cx);
+    switch (tk.type) {
+        case TK_KW_LET: {
+            consume(cx);
             parse_var_def(cx, INVALID_TYPE);
-		}	break;
+        }   break;
 
-		case TK_KW_RETURN: {
-			if (cx->curr_func == -1)
-				err("%s:%zu: Cannot return from global scope", cx->file_path, tk.line_index + 1, tk.len);
+        case TK_KW_RETURN: {
+            if (cx->curr_func == -1)
+                err("%s:%zu: Cannot return from global scope", cx->file_path, tk.line_index + 1, tk.len);
 
             emit(cx, make_instr_r(make_instr_op(IN_RET, ISZ_64, 0), 0, 0, 0));
 
-			consume(cx);
-			consume_type(cx, TK_SEMICOLON);
-		}	break;
+            consume(cx);
+            consume_type(cx, TK_SEMICOLON);
+        }   break;
 
-		case TK_SEMICOLON: {
-			consume(cx);
-		}	break;
+        case TK_SEMICOLON: {
+            consume(cx);
+        }   break;
 
-		case TK_LEFT_BRACE: {
-			if (cx->curr_func == -1)
-				err("%s:%zu: Nested global scopes are not supported", cx->file_path, tk.line_index + 1, tk.len);
+        case TK_LEFT_BRACE: {
+            if (cx->curr_func == -1)
+                err("%s:%zu: Nested global scopes are not supported", cx->file_path, tk.line_index + 1, tk.len);
 
-			return parse_compound(cx);
-		}	break;
+            return parse_compound(cx);
+        }   break;
 
-		default: {
-			TypeHandle type_hnd;
-			if (parse_type(cx, &type_hnd)) {
+        default: {
+            TypeHandle type_hnd;
+            if (parse_type(cx, &type_hnd)) {
                 parse_var_def(cx, type_hnd);
-				break;
-			}
+                break;
+            }
 
-			if (cx->curr_func == -1)
-				err("%s:%zu: Unexpected token '%.*s'", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
+            if (cx->curr_func == -1)
+                err("%s:%zu: Unexpected token '%.*s'", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
 
-			Expression expr = parse_expr(cx);
-			free_expr_children(&expr);
-		}	break;
-	}
+            Expression expr = parse_expr(cx);
+            free_expr_children(&expr);
+        }   break;
+    }
 }
 
 b8 parse_type(ParseCtx* cx, TypeHandle* ret_hnd) {
-	Token tk = *peek(cx, 0);
+    Token tk = *peek(cx, 0);
 
-	switch (tk.type) {
-		case TK_IDENTIFIER: {
-			TypeHandle type_hnd = find_type(cx->syms, LSTR(&cx->char_data[tk.start], tk.len));
-			if (!type_handle_valid(type_hnd))
-				return 0;
+    switch (tk.type) {
+        case TK_IDENTIFIER: {
+            TypeHandle type_hnd = find_type(cx->syms, LSTR(&cx->char_data[tk.start], tk.len));
+            if (!type_handle_valid(type_hnd))
+                return 0;
 
-			consume(cx);
-			if (ret_hnd)
-				*ret_hnd = type_hnd;
-			return 1;
-		}	break;
+            consume(cx);
+            if (ret_hnd)
+                *ret_hnd = type_hnd;
+            return 1;
+        }   break;
 
-		default:
-			return 0;
-	}
+        default:
+            return 0;
+    }
 }
 
 void parse(ParseCtx* cx) {
-	while (cx->tk_it < cx->tk_len)
-		parse_stmt(cx);
+    while (cx->tk_it < cx->tk_len)
+        parse_stmt(cx);
 }

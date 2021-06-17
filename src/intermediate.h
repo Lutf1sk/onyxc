@@ -23,40 +23,40 @@
     INSTR_OP(DIV)
 
 typedef enum InstrSize {
-	ISZ_8 = 0,
-	ISZ_16 = 1,
-	ISZ_32 = 2,
-	ISZ_64 = 3,
+    ISZ_8 = 0,
+    ISZ_16 = 1,
+    ISZ_32 = 2,
+    ISZ_64 = 3,
 } InstrSize;
 
 int instr_sz_bit_count(InstrSize sz);
 
 typedef enum InstrType {
-	ITP_NONE = 0,
-	ITP_FLOAT = 1,
-	ITP_UINT = 2,
-	ITP_SINT = 3,
+    ITP_NONE = 0,
+    ITP_FLOAT = 1,
+    ITP_UINT = 2,
+    ITP_SINT = 3,
 } InstrType;
 
 typedef
 enum InstrOpNum {
 #define INSTR_OP(x) IN_##x,
-	FOR_EACH_INSTR_OP()
+    FOR_EACH_INSTR_OP()
 #undef INSTR_OP
 } InstrOpNum;
 
 typedef
 struct PACKED InstrOp {
     InstrOpNum op : 12;
-	u8 size : 2;
-	u8 type : 2;
+    u8 size : 2;
+    u8 type : 2;
 } InstrOp;
 
 typedef
 struct Instr {
-	InstrOp op;
+    InstrOp op;
     u64 reg;
-	union {
+    union {
         u64 lit_uint;
         i64 lit_sint;
         f64 lit_float;
@@ -64,14 +64,14 @@ struct Instr {
         u64 regs[2];
         SymbolHandle sym_hnd;
         usz func_offs;
-	};
+    };
 } Instr;
 
 typedef
 struct IntermediateFunc {
-	usz instr_count;
-	usz instr_alloc_count;
-	Instr* instrs;
+    usz instr_count;
+    usz instr_alloc_count;
+    Instr* instrs;
 
     usz registers;
 } IntermediateFunc;
@@ -89,7 +89,7 @@ IntermediateFunc make_intermediate_func() {
 
 static inline INLINE
 InstrOp make_instr_op(InstrOpNum num, InstrSize size, InstrType type) {
-	return (InstrOp) { num, size, type };
+    return (InstrOp) { num, size, type };
 }
 
 static inline INLINE

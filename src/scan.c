@@ -144,7 +144,7 @@ void scan(ScanCtx* cx) {
             }
 
             emit(cx, TK_STRING, tk_start);
-        }	break;
+        }   break;
 
         case '\'': {
             consume(cx);
@@ -162,7 +162,7 @@ void scan(ScanCtx* cx) {
             }
 
             emit(cx, TK_CHARACTER, tk_start);
-        }	break;
+        }   break;
 
         default:
             if (is_ident_start(c)) {

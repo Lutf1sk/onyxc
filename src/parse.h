@@ -11,23 +11,23 @@ struct PACKED Register {
 
 typedef
 struct ParseCtx {
-	const char* file_path;
-	char* char_data;
+    const char* file_path;
+    char* char_data;
 
-	const Token* tk_data;
-	usz tk_len;
-	usz tk_it;
+    const Token* tk_data;
+    usz tk_len;
+    usz tk_it;
 
-	IntermediateFunc* funcs;
-	usz func_count;
-	usz func_alloc_count;
-	isz curr_func;
+    IntermediateFunc* funcs;
+    usz func_count;
+    usz func_alloc_count;
+    isz curr_func;
 
-	usz regs_used;
+    usz regs_used;
 
-	Symbols* syms;
+    Symbols* syms;
 
-	Types* types;
+    Types* types;
 } ParseCtx;
 
 

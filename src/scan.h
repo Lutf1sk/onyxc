@@ -6,17 +6,17 @@
 
 typedef
 struct ScanCtx {
-	const char* file_path;
+    const char* file_path;
 
-	usz line_index;
+    usz line_index;
 
-	const char* char_data;
-	usz char_count;
-	usz char_it;
+    const char* char_data;
+    usz char_count;
+    usz char_it;
 
-	Token* token_data;
-	usz token_count;
-	usz token_avail_count;
+    Token* token_data;
+    usz token_count;
+    usz token_avail_count;
 } ScanCtx;
 
 
