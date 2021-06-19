@@ -1,4 +1,4 @@
-// Copyright (C) 2021, Alex Edin <lutfisk@lutfisk.net>
+﻿// Copyright (C) 2021, Alex Edin <lutfisk@lutfisk.net>
 // SPDX-License-Identifier: GPL-2.0+
 
 #include <stdio.h>
@@ -101,17 +101,12 @@ int main() {
         IntermediateFunc func = pcx.funcs[i];
         for (usz j = 0; j < func.instr_count; ++j) {
             Instr instr = func.instrs[j];
-            printf("\t%-2i %-12s ", instr_sz_bit_count(instr.op.size), instr_op_str(instr.op.op));
+            printf("\t%-2i %-12s ", instr_sz_bit_count(instr.op.out_sz), instr_op_str(instr.op.op));
             switch (instr.op.op) {
             case IN_JMP: printf("R:%zu", instr.reg); break;
             case IN_CALL: printf("R:%zu", instr.reg); break;
             case IN_RET: break;
 
-            case IN_MOV: printf("R:%zu <- R:%zu", instr.reg, instr.regs[0]); break;
-            case IN_ADD: printf("R:%zu <- R:%zu + R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
-            case IN_SUB: printf("R:%zu <- R:%zu - R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
-            case IN_MUL: printf("R:%zu <- R:%zu * R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
-            case IN_DIV: printf("R:%zu <- R:%zu / R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
 
             case IN_LOAD: printf("R:%zu <- [R:%zu]", instr.reg, instr.regs[0]); break;
             case IN_STORE: printf("[R:%zu] <- R:%zu", instr.reg, instr.regs[0]); break;
@@ -128,6 +123,14 @@ int main() {
             case IN_STORE_RETVAL: printf("R:%zu ->", instr.reg); break;
             case IN_LOAD_ARG: printf("R:%zu <- A:%zu", instr.reg, instr.lit_uint); break;
             case IN_LOAD_RETVAL: printf("R:%zu <-", instr.reg); break;
+
+            case IN_ADD: printf("R:%zu <- R:%zu + R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
+            case IN_SUB: printf("R:%zu <- R:%zu - R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
+            case IN_MUL: printf("R:%zu <- R:%zu * R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
+            case IN_DIV: printf("R:%zu <- R:%zu / R:%zu", instr.reg, instr.regs[0], instr.regs[1]); break;
+            case IN_MOV: printf("R:%zu <- R:%zu", instr.reg, instr.regs[0]); break;
+            case IN_WIDEN: printf("R:%zu <- %i:R:%zu", instr.reg, instr_sz_bit_count(instr.op.arg_sz), instr.regs[0]); break;
+            case IN_NARROW: printf("R:%zu <- %i:R:%zu", instr.reg, instr_sz_bit_count(instr.op.arg_sz), instr.regs[0]); break;
             }
             putchar('\n');
         }

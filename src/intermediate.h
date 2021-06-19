@@ -28,7 +28,9 @@
     INSTR_OP(ADD) \
     INSTR_OP(SUB) \
     INSTR_OP(MUL) \
-    INSTR_OP(DIV)
+    INSTR_OP(DIV) \
+    INSTR_OP(WIDEN) \
+    INSTR_OP(NARROW)
 
 typedef enum InstrSize {
     ISZ_8 = 0,
@@ -55,8 +57,9 @@ enum InstrOpNum {
 
 typedef
 struct PACKED InstrOp {
-    InstrOpNum op : 12;
-    u8 size : 2;
+    InstrOpNum op : 10;
+    u8 arg_sz : 2;
+    u8 out_sz : 2;
     u8 type : 2;
 } InstrOp;
 
@@ -96,8 +99,8 @@ IntermediateFunc make_intermediate_func() {
 }
 
 static inline INLINE
-InstrOp make_instr_op(InstrOpNum num, InstrSize size, InstrType type) {
-    return (InstrOp) { num, size, type };
+InstrOp make_instr_op(InstrOpNum num, InstrSize arg_sz, InstrType type) {
+    return (InstrOp) { num, arg_sz, arg_sz, type };
 }
 
 static inline INLINE
