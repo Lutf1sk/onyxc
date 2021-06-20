@@ -55,8 +55,8 @@ void print_expr(ParseCtx* cx, Expression* expr, usz indent);
 void free_expr_children(Expression* expr);
 
 void add_expr_child(Expression* parent, const Expression* child);
-Expression make_expr(ExpressionType type);
-Expression make_un_expr(ExpressionType type, Expression* expr);
-Expression make_bin_expr(ExpressionType type, Expression* left, Expression* right);
+Expression make_expr(ExpressionType type, TypeHandle datatype);
+Expression make_un_expr(ExpressionType type, TypeHandle datatype, Expression* expr);
+Expression make_bin_expr(ExpressionType type, TypeHandle datatype, Expression* left, Expression* right);
 
 #endif // AST_H

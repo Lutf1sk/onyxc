@@ -8,6 +8,19 @@
 #include "type.h"
 #include "parse.h"
 
+TypeHandle u8_hnd;
+TypeHandle u16_hnd;
+TypeHandle u32_hnd;
+TypeHandle u64_hnd;
+
+TypeHandle i8_hnd;
+TypeHandle i16_hnd;
+TypeHandle i32_hnd;
+TypeHandle i64_hnd;
+
+TypeHandle f32_hnd;
+TypeHandle f64_hnd;
+
 #define ALLOC_CHUNK_SIZE 2048
 
 void free_type_tab(Types* tab) {

@@ -52,25 +52,26 @@ int main() {
 
     Types type_tab = make_type_tab();
 
-    struct { LenStr name; TypeSType type; } primitives[] = {
-        { LSTR("u8",  2), TP_U8  },
-        { LSTR("u16", 3), TP_U16 },
-        { LSTR("u32", 3), TP_U32 },
-        { LSTR("u64", 3), TP_U64 },
+    struct { LenStr name; TypeSType type; TypeHandle* out_hnd; } primitives[] = {
+        { LSTR("u8",  2), TP_U8,  &u8_hnd  },
+        { LSTR("u16", 3), TP_U16, &u16_hnd },
+        { LSTR("u32", 3), TP_U32, &u32_hnd },
+        { LSTR("u64", 3), TP_U64, &u64_hnd },
 
-        { LSTR("i8",  2), TP_I8  },
-        { LSTR("i16", 3), TP_I16 },
-        { LSTR("i32", 3), TP_I32 },
-        { LSTR("i64", 3), TP_I64 },
+        { LSTR("i8",  2), TP_I8,  &i8_hnd  },
+        { LSTR("i16", 3), TP_I16, &i16_hnd },
+        { LSTR("i32", 3), TP_I32, &i32_hnd },
+        { LSTR("i64", 3), TP_I64, &i64_hnd },
 
-        { LSTR("f32", 3), TP_F32 },
-        { LSTR("f64", 3), TP_F64 },
+        { LSTR("f32", 3), TP_F32, &f32_hnd },
+        { LSTR("f64", 3), TP_F64, &f64_hnd },
     };
 
     const usz primitive_count = sizeof(primitives) / sizeof(*primitives);
 
     for (usz i = 0; i < primitive_count; ++i) {
         usz offs = add_primitive(&type_tab, primitives[i].name, primitives[i].type);
+        *primitives[i].out_hnd = make_type_handle(&type_tab, offs);
         add_symbol(&sym_tab, SM_TYPE, primitives[i].name, make_type_handle(&type_tab, offs));
     }
 

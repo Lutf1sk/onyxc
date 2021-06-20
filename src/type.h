@@ -46,6 +46,18 @@ struct Types {
     TypeInfo* info_arr;
 } Types;
 
+extern TypeHandle u8_hnd;
+extern TypeHandle u16_hnd;
+extern TypeHandle u32_hnd;
+extern TypeHandle u64_hnd;
+
+extern TypeHandle i8_hnd;
+extern TypeHandle i16_hnd;
+extern TypeHandle i32_hnd;
+extern TypeHandle i64_hnd;
+
+extern TypeHandle f32_hnd;
+extern TypeHandle f64_hnd;
 
 static inline INLINE
 Types make_type_tab() {

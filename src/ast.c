@@ -65,21 +65,21 @@ void add_expr_child(Expression* parent, const Expression* child) {
     parent->children[parent->child_count++] = *child;
 }
 
-Expression make_expr(ExpressionType type) {
+Expression make_expr(ExpressionType type, TypeHandle datatype) {
     Expression expr = {};
     memset(&expr, 0, sizeof(Expression));
     expr.type = type;
     return expr;
 }
 
-Expression FLATTEN make_un_expr(ExpressionType type, Expression* expr) {
-    Expression nexpr = make_expr(type);
+Expression FLATTEN make_un_expr(ExpressionType type, TypeHandle datatype, Expression* expr) {
+    Expression nexpr = make_expr(type, datatype);
     add_expr_child(&nexpr, expr);
     return nexpr;
 }
 
-Expression FLATTEN make_bin_expr(ExpressionType type, Expression* left, Expression* right) {
-    Expression nexpr = make_expr(type);
+Expression FLATTEN make_bin_expr(ExpressionType type, TypeHandle datatype, Expression* left, Expression* right) {
+    Expression nexpr = make_expr(type, datatype);
     add_expr_child(&nexpr, left);
     add_expr_child(&nexpr, right);
     return nexpr;
