@@ -84,43 +84,46 @@ Expression parse_primary(ParseCtx* cx) {
     Token tk = *peek(cx, 0);
 
     switch (tk.type) {
-        case TK_LEFT_PARENTH: {
+    case TK_LEFT_PARENTH: {
+        consume(cx);
+        // If it is a function definition
+        if (peek(cx, 0)->type == TK_RIGHT_PARENTH) {
             consume(cx);
-            if (peek(cx, 0)->type == TK_RIGHT_PARENTH) { // If it is a function definition
-                consume(cx);
-                IntermediateFunc new_func = make_intermediate_func();
+            IntermediateFunc new_func = make_intermediate_func();
 
-                usz last_func = cx->curr_func;
-                usz new_func_offs = cx->curr_func = add_intermediate_func(cx, &new_func);
-                parse_compound(cx);
-                cx->curr_func = last_func;
+            usz last_func = cx->curr_func;
+            usz new_func_offs = add_intermediate_func(cx, &new_func);
 
-                Expression expr = make_expr(EXPR_LAMBDA, u64_hnd);
-                expr.func_offs = new_func_offs;
-                return expr;
-            }
-            else { // If it is not a function definition
-                Expression expr = parse_expr(cx);
-                consume_type(cx, TK_RIGHT_PARENTH);
-                return expr;
-            }
-        }   break;
+            cx->curr_func = new_func_offs;
+            parse_compound(cx);
+            cx->curr_func = last_func;
 
-        case TK_INTEGER: {
-            const Token* tk = consume(cx);
-            Expression expr = make_expr(EXPR_INTEGER, u64_hnd);
-            expr.lit_sint = tk_to_int(cx, tk);
+            Expression expr = make_expr(EXPR_LAMBDA, u64_hnd);
+            expr.func_offs = new_func_offs;
             return expr;
-        }   break;
-
-        case TK_FLOAT: {
-            const Token* tk = consume(cx);
-            Expression expr = make_expr(EXPR_FLOAT, u64_hnd);
-            expr.lit_float = tk_to_float(cx, tk);
         }
+        else { // If it is not a function definition
+            Expression expr = parse_expr(cx);
+            consume_type(cx, TK_RIGHT_PARENTH);
+            return expr;
+        }
+    }   break;
 
-        default:
-            err("%s:%zu: Unexpected token '%.*s' in expression", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
+    case TK_INTEGER: {
+        const Token* tk = consume(cx);
+        Expression expr = make_expr(EXPR_INTEGER, u64_hnd);
+        expr.lit_sint = tk_to_int(cx, tk);
+        return expr;
+    }   break;
+
+    case TK_FLOAT: {
+        const Token* tk = consume(cx);
+        Expression expr = make_expr(EXPR_FLOAT, u64_hnd);
+        expr.lit_float = tk_to_float(cx, tk);
+    }
+
+    default:
+        err("%s:%zu: Unexpected token '%.*s' in expression", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
     }
 }
 

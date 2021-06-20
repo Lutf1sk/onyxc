@@ -106,7 +106,8 @@ void parse_stmt(ParseCtx* cx) {
 
     case TK_LEFT_BRACE: {
         if (cx->curr_func == -1)
-            err("%s:%zu: Nested global scopes are not supported", cx->file_path, tk.line_index + 1, tk.len);
+            err("%s:%zu: Nested global scopes are not supported",
+                cx->file_path, tk.line_index + 1, tk.len);
 
         return parse_compound(cx);
     }   break;
@@ -119,7 +120,8 @@ void parse_stmt(ParseCtx* cx) {
         }
 
         if (cx->curr_func == -1)
-            err("%s:%zu: Unexpected token '%.*s'", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
+            err("%s:%zu: Unexpected token '%.*s'",
+                cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
 
         Expression expr = parse_expr(cx);
         gen_expr(cx, &expr);

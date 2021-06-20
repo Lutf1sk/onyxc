@@ -15,10 +15,10 @@
 const char* expr_type_str(ExpressionType type) {
     switch (type) {
 #define EXPR_OP(x) case EXPR_##x: return #x;
-        FOR_EACH_EXPR()
-#undef EXPR_OP
-        default:
-            return "INVALID";
+    FOR_EACH_EXPR()
+        #undef EXPR_OP
+            default:
+        return "INVALID";
     }
 }
 
@@ -34,10 +34,10 @@ void print_expr(ParseCtx* cx, Expression* expr, usz indent) {
     printf("%s ", expr_type_str(expr->type));
 
     switch (expr->type) {
-        case EXPR_INTEGER: printf("%lu", expr->lit_uint); break;
-        case EXPR_FLOAT: printf("%fl", expr->lit_float); break;
-        default:
-            break;
+    case EXPR_INTEGER: printf("%lu", expr->lit_uint); break;
+    case EXPR_FLOAT: printf("%fl", expr->lit_float); break;
+    default:
+        break;
     }
 
     putchar('\n');
@@ -59,7 +59,8 @@ void free_expr_children(Expression* expr) {
 
 void add_expr_child(Expression* parent, const Expression* child) {
     if (parent->child_count % ALLOC_CHUNK_SIZE == 0) {
-        parent->children = realloc(parent->children, (parent->child_count + ALLOC_CHUNK_SIZE) * sizeof(Expression));
+        usz sz = (parent->child_count + ALLOC_CHUNK_SIZE) * sizeof(Expression);
+        parent->children = realloc(parent->children, sz);
         assert(parent->children);
     }
     parent->children[parent->child_count++] = *child;
