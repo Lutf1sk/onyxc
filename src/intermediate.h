@@ -90,7 +90,7 @@ struct IntermediateFunc {
 const char* instr_op_str(InstrOpNum op);
 
 void add_instr(IntermediateFunc* func, Instr instr);
-
+void print_instr(Instr instr);
 void free_func(IntermediateFunc* func);
 
 static inline INLINE
