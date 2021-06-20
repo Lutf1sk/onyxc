@@ -123,7 +123,8 @@ Expression parse_primary(ParseCtx* cx) {
     }
 
     default:
-        err("%s:%zu: Unexpected token '%.*s' in expression", cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
+        err("%s:%zu: Unexpected token '%.*s' in expression",
+            cx->file_path, tk.line_index + 1, tk.len, &cx->char_data[tk.start]);
     }
 }
 

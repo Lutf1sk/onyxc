@@ -78,7 +78,8 @@ void emit(ScanCtx* cx, TokenType type, usz tk_start) {
 
     if (tk_count >= avail_count) {
         // Double the size and reallocate the array
-        // OR if the array has not been allocated yet, allocate space for 1024 tokens.
+        // OR if the array has not been allocated yet
+        // then allocate space for 1024 tokens.
         if (avail_count)
             avail_count *= 2;
         else
@@ -116,8 +117,12 @@ void scan(ScanCtx* cx) {
         case '=': consume(cx); emit(cx, TK_EQUAL, tk_start); break;
 
         case ':': consume(cx);
-            if (peek(cx, 0) == ':') { consume(cx); emit(cx, TK_DOUBLE_COLON, tk_start); }
-            else emit(cx, TK_COLON, tk_start);
+            if (peek(cx, 0) == ':') {
+                consume(cx);
+                emit(cx, TK_DOUBLE_COLON, tk_start);
+            }
+            else
+                emit(cx, TK_COLON, tk_start);
             break;
 
         case ';': consume(cx); emit(cx, TK_SEMICOLON, tk_start); break;
@@ -138,7 +143,8 @@ void scan(ScanCtx* cx) {
             for (;;) {
                 char sc = peek(cx, 0);
                 if (!sc)
-                    err("%s:%zu: String not terminated", cx->file_path, start_line_index + 1);
+                    err("%s:%zu: String not terminated",
+                        cx->file_path, start_line_index + 1);
 
                 consume(cx);
 
@@ -156,7 +162,8 @@ void scan(ScanCtx* cx) {
             for (;;) {
                 char sc = peek(cx, 0);
                 if (!sc)
-                    err("%s:%zu: Character string not terminated", cx->file_path, start_line_index + 1);
+                    err("%s:%zu: Character string not terminated",
+                        cx->file_path, start_line_index + 1);
 
                 consume(cx);
 
@@ -187,7 +194,8 @@ void scan(ScanCtx* cx) {
                 break;
             }
 
-            err("%s:%zu: Unexpected characted '%c'", cx->file_path, cx->line_index + 1, c);
+            err("%s:%zu: Unexpected characted '%c'",
+                cx->file_path, cx->line_index + 1, c);
             break;
         }
     }

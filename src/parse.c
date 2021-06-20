@@ -64,8 +64,10 @@ void parse_var_def(ParseCtx* cx, TypeHandle type_hnd) {
     if (!type_handle_valid(type_hnd))
         type_hnd = expr.datatype;
 
+    LenStr name = LSTR(&cx->char_data[name_tk->start], name_tk->len);
+
     SymbolType sym_type = is_const ? SM_CONSTANT : (is_glob ? SM_GLOBAL_VAR : SM_LOCAL_VAR);
-    usz offs = add_symbol(cx->syms, sym_type, LSTR(&cx->char_data[name_tk->start], name_tk->len), type_hnd);
+    usz offs = add_symbol(cx->syms, sym_type, name, type_hnd);
     cx->syms->syms[offs].reg = reg;
 
     if (is_glob || is_const) {
@@ -86,7 +88,8 @@ void parse_stmt(ParseCtx* cx) {
     case TK_KW_RETURN: {
         consume(cx);
         if (cx->curr_func == -1)
-            err("%s:%zu: Cannot return from global scope", cx->file_path, tk.line_index + 1, tk.len);
+            err("%s:%zu: Cannot return from global scope",
+                cx->file_path, tk.line_index + 1, tk.len);
 
         if (peek(cx, 0)->type != TK_SEMICOLON) {
             Expression expr = parse_expr(cx);
@@ -135,7 +138,8 @@ b8 parse_type(ParseCtx* cx, TypeHandle* ret_hnd) {
 
     switch (tk.type) {
     case TK_IDENTIFIER: {
-        TypeHandle type_hnd = find_type(cx->syms, LSTR(&cx->char_data[tk.start], tk.len));
+        LenStr name = LSTR(&cx->char_data[tk.start], tk.len);
+        TypeHandle type_hnd = find_type(cx->syms, name);
         if (!type_handle_valid(type_hnd))
             return 0;
 
