@@ -83,14 +83,14 @@ void print_instr(Instr instr) {
         printf("A:%zu <- R:%zu", instr.lit_uint, instr.reg);
         break;
     case IN_STORE_RETVAL:
-        printf("R:%zu ->", instr.reg);
+        printf("R:%zu", instr.reg);
         break;
     case IN_LOAD_ARG:
         printf("R:%zu <- A:%zu", instr.reg, instr.lit_uint);
         break;
 
     case IN_LOAD_RETVAL:
-        printf("R:%zu <-", instr.reg);
+        printf("R:%zu", instr.reg);
         break;
 
     case IN_ADD:
