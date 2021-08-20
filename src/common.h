@@ -34,8 +34,8 @@ typedef u8 b8;
 
 typedef
 struct LenStr {
-    char* str;
-    usz len;
+	char* str;
+	usz len;
 } LenStr;
 
 #define LSTR(str, len) ((LenStr) { str, len })

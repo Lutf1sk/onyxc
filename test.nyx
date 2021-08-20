@@ -1,14 +1,14 @@
 
 let do_stuff :: () {
-    return 1 + 5;
+	return 1 + 5;
 }
 
 let main :: () {
 	let asdf = 1 + 123;
-    u32 asdf2 = 123 - 1;
+	u32 asdf2 = 123 - 1;
 
-    1();
+	1();
 
-    return 2();
+	return 2();
 }
 

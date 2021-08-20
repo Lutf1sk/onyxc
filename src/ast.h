@@ -11,42 +11,42 @@
 #include "sym.h"
 
 #define FOR_EACH_EXPR() \
-    EXPR_OP(INVALID) \
-    EXPR_OP(ADD) \
-    EXPR_OP(SUBTRACT) \
-    EXPR_OP(MULTIPLY) \
-    EXPR_OP(DIVIDE) \
-    EXPR_OP(INTEGER) \
-    EXPR_OP(FLOAT) \
-    EXPR_OP(LAMBDA) \
-    EXPR_OP(FUNC_CALL)
+	EXPR_OP(INVALID) \
+	EXPR_OP(ADD) \
+	EXPR_OP(SUBTRACT) \
+	EXPR_OP(MULTIPLY) \
+	EXPR_OP(DIVIDE) \
+	EXPR_OP(INTEGER) \
+	EXPR_OP(FLOAT) \
+	EXPR_OP(LAMBDA) \
+	EXPR_OP(FUNC_CALL)
 
 typedef
 enum ExpressionType {
 #define EXPR_OP(x) EXPR_##x,
-    FOR_EACH_EXPR()
+	FOR_EACH_EXPR()
 #undef EXPR_OP
 } ExpressionType;
 
 typedef
 struct Expression {
-    ExpressionType type;
+	ExpressionType type;
 
-    usz child_count;
-    Expression* children;
+	usz child_count;
+	Expression* children;
 
-    TypeHandle datatype;
+	TypeHandle datatype;
 
-    union {
-        long lit_sint;
-        unsigned long lit_uint;
-        double lit_float;
+	union {
+		long lit_sint;
+		unsigned long lit_uint;
+		double lit_float;
 
-        SymbolHandle sym_hnd;
-        usz func_offs;
-    };
+		SymbolHandle sym_hnd;
+		usz func_offs;
+	};
 
-    b8 is_comp_time_const;
+	b8 is_comp_time_const;
 } Expression;
 
 const char* expr_type_str(ExpressionType type);

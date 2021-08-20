@@ -8,11 +8,11 @@
 #include "err.h"
 
 void NORETURN err(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    vprintf(fmt, args);
-    putchar('\n');
-    va_end(args);
+	va_list args;
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	putchar('\n');
+	va_end(args);
 
-    exit(1);
+	exit(1);
 }
