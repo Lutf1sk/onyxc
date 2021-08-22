@@ -2,17 +2,7 @@
 OUT = onyxc
 
 OBJS = \
-	src/type.o \
-	src/parse.o \
-	src/parse_expr.o \
-	src/ast.o \
-	src/main.o \
-	src/filehl.o \
-	src/err.o \
-	src/scan.o \
-	src/tk.o \
-	src/sym.o \
-	src/intermediate.o
+	src/main.o
 
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 
