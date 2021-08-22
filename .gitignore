@@ -1,8 +1,4 @@
-/IDE/onyxc.creator.user*
-/IDE/onyxc.files
 /**/*.deps
 /**/*.o
-*.pro
-*.pro.user
 gmon.out
 onyxc
