@@ -2,22 +2,18 @@
 # Types
 | Name  | Description                    |
 | :---: | :----------------------------: |
-| int   | 64 bit integer                 |
 | i8    | 8 bit integer                  |
 | i16   | 16 bit integer                 |
 | i32   | 32 bit integer                 |
 | i64   | 64 bit integer                 |
 | isz   | Pointer sized int              |
-| uint  | 64 bit unsigned integer        |
 | u8    | 8 bit unsigned integer         |
 | u16   | 16 bit unsigned integer        |
 | u32   | 32 bit unsigned integer        |
 | u64   | 64 bit unsigned integer        |
 | usz   | Pointer sized uint             |
-| float | 64 bit float                   |
 | f32   | 32 bit float                   |
 | f64   | 64 bit float                   |
-| bool  | 8 bit unsigned integer         |
 | b8    | 8 bit unsigned integer         |
 | T*    | Pointer to T                   |
 | void* | Pointer to nothing             |
@@ -28,11 +24,11 @@
 # Type conversions
 All types must be explicitly cast unless specified otherwise.
 
-'int' types are implicitly converted to each other when necessary,
+Integers (types starting with i or u) are implicitly converted to each other when necessary,
 if a binary operator requires operands of the same size,
 the smaller type will be promoted to the larger.
 
-'float' types work in the same way,
+Floating point types work in the same way,
 implicitly converting between each other and promoting the smaller type when necessary.
 
 Pointer types can be implicitly converted to/from 'void*' types.
@@ -124,7 +120,7 @@ Or by using the 'let' keyword to automatically deduce the type from the initiali
 ```let an_integer = 123;```
 'let' cannot be used without an initializer.
 
-Multiple variables of the same type can be defined like this:
+Multiple variables can be defined at once like this:
 ```
 float a_float, another_float = 1.0, a_third_float;
 let an_int = 1, some_float = 123.0, a_bool = false;
