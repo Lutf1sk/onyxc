@@ -1,9 +1,9 @@
 
-let do_stuff :: () {
+let do_stuff :: void() {
 	return 1 + 5;
 }
 
-let main :: () {
+let main :: void() {
 	let asdf = 1 + 123;
 	u32 asdf2 = 123 - 1;
 
