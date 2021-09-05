@@ -1,14 +1,22 @@
 
-let do_stuff :: void() {
-	return 1 + 5;
-}
+def type :: struct {
 
-let main :: void() {
-	let asdf = 1 + 123;
-	u32 asdf2 = 123 - 1;
+};
 
-	1();
+let main :: void*() void() {
+	let a = 0;
+	let b = &a;
+	let c = u32* b;
+	let d = type *c;
 
-	return 2();
-}
+	type impl;
+
+	{
+		i32 e = 0;
+		i32* e_ptr = &e;
+		let i = e_ptr[0];
+	}
+
+	return d;
+};
 

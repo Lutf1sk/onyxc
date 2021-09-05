@@ -2,33 +2,55 @@
 OUT = onyxc
 
 OBJS = \
-	src/main.o
+	src/main.o \
+	src/tk.o \
+	src/lex.o \
+	src/expr_ast.o \
+	src/stmt_ast.o \
+	src/parse.o \
+	src/parse_stmt.o \
+	src/parse_expr.o \
+	src/parse_type.o \
+	src/type_convertions.o \
+	src/type.o \
+	src/symtab.o
 
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 
-CC = gcc
-CC_FLAGS += -O0 -I./src/ -fsanitize=undefined -Wno-pedantic -std=c11 -pg -rdynamic
+CC = cc
+CC_FLAGS += -Wall -Werror -I../lt/include/ -Wno-pedantic -std=c11
 
-LNK = gcc
-LNK_FLAGS += -o $(OUT) -rdynamic -pg
-LNK_LIBS += -lubsan
+LNK = cc
+LNK_FLAGS += -o $(OUT) -rdynamic -g
+LNK_LIBS += -O3 -lm -lX11 -lX11-xcb -lxcb -lxcb-randr -lxcb-ewmh -lpthread -ldl ../bin/lt.a
+
+ifdef DEBUG_SYMS
+	CC_FLAGS += -g
+endif
+
+ifdef USE_UBSAN
+	LNK_LIBS += -lubsan
+	CC_FLAGS += -fsanitize=undefined
+endif
 
 all: $(OUT)
 
 run: all
 	./$(OUT) test.nyx
 
+prof: all
+	valgrind --dump-instr=yes --tool=callgrind ./$(OUT) test.nyx
+	kcachegrind ./callgrind.out*
+	rm ./callgrind.out.*
+
 $(OUT):	$(OBJS)
 	$(LNK) $(LNK_FLAGS) $(OBJS) $(LNK_LIBS)
 
-%.o: %.c Makefile
-	$(CC) -MM -MT $@ -MF $(patsubst %.o,%.deps,$@) $< $(CC_FLAGS)
-	$(CC) -c $< -o $@ $(CC_FLAGS)
+%.o: %.c makefile
+	$(CC) $(CC_FLAGS) -MM -MT $@ -MF $(patsubst %.o,%.deps,$@) $<
+	$(CC) $(CC_FLAGS) -c $< -o $@
 
 -include $(DEPS)
-
-sync:
-	git ls-files | sed -e 's/^/..\//' > IDE/onyxc.files
 
 clean:
 	rm $(OBJS) $(DEPS)

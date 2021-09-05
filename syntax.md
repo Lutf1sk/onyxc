@@ -135,12 +135,6 @@ let another_float_constant :: 2.0;
 # Functions
 ### Example function definition
 ```
-float fadd(float x, float y) {
-	return x + y;
-}
-```
-The same function can also be defined like this:
-```
 let fadd :: float(float x, float y) {
 	return x + y
 };
