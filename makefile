@@ -22,7 +22,7 @@ CC_FLAGS += -Wall -Werror -I../lt/include/ -Wno-pedantic -std=c11
 
 LNK = cc
 LNK_FLAGS += -o $(OUT) -rdynamic -g
-LNK_LIBS += -O3 -lm -lX11 -lX11-xcb -lxcb -lxcb-randr -lxcb-ewmh -lpthread -ldl ../bin/lt.a
+LNK_LIBS += -O3 -lm -lX11 -lX11-xcb -lxcb -lxcb-randr -lxcb-ewmh -lpthread -ldl
 
 ifdef DEBUG_SYMS
 	CC_FLAGS += -g
@@ -33,7 +33,12 @@ ifdef USE_UBSAN
 	CC_FLAGS += -fsanitize=undefined
 endif
 
-all: $(OUT)
+LT_PATH = lt/bin/lt.a
+
+all: $(OUT) $(LT_PATH)
+
+$(LT_PATH):
+	make -C lt/
 
 run: all
 	./$(OUT) test.nyx
@@ -44,7 +49,7 @@ prof: all
 	rm ./callgrind.out.*
 
 $(OUT):	$(OBJS)
-	$(LNK) $(LNK_FLAGS) $(OBJS) $(LNK_LIBS)
+	$(LNK) $(LNK_FLAGS) $(OBJS) $(LT_PATH) $(LNK_LIBS)
 
 %.o: %.c makefile
 	$(CC) $(CC_FLAGS) -MM -MT $@ -MF $(patsubst %.o,%.deps,$@) $<
