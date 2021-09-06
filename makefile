@@ -18,7 +18,7 @@ OBJS = \
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 
 CC = cc
-CC_FLAGS += -Wall -Werror -I../lt/include/ -Wno-pedantic -std=c11
+CC_FLAGS += -Wall -Werror -Ilt/include/ -Wno-pedantic -std=c11
 
 LNK = cc
 LNK_FLAGS += -o $(OUT) -rdynamic -g
@@ -35,7 +35,7 @@ endif
 
 LT_PATH = lt/bin/lt.a
 
-all: $(OUT) $(LT_PATH)
+all: $(LT_PATH) $(OUT)
 
 $(LT_PATH):
 	make -C lt/
