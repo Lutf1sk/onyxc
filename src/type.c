@@ -1,5 +1,29 @@
 #include "type.h"
 
+#include <lt/mem.h>
+
+void type_add_child(type_t* type, type_t* child, lstr_t name) {
+	usz old_count = type->child_count++;
+
+	type_t** children = realloc(type->children, type->child_count * sizeof(type_t*));
+	if (!children)
+		goto alloc_failed;
+
+	lstr_t* names = realloc(type->child_names, type->child_count * sizeof(lstr_t));
+	if (!names)
+		goto alloc_failed;
+
+	children[old_count] = child;
+	names[old_count] = name;
+
+	type->children = children;
+	type->child_names = names;
+
+	return;
+alloc_failed:
+	lt_ferr(CLSTR("Memory allocation failed\n"));
+}
+
 isz type_to_str(char* out_str, type_t* type) {
 	char* it = out_str;
 
@@ -46,7 +70,22 @@ isz type_to_str(char* out_str, type_t* type) {
 
 	case TP_FUNC:
 		it += type_to_str(it, type->base);
-		str = CLSTR("()");
+		*(it++) = '(';
+
+		for (usz i = 0; i < type->child_count; ++i) {
+			if (i)
+				*(it++) = ',';
+
+			it += type_to_str(it, type->children[i]);
+
+			lstr_t name = type->child_names[i];
+			if (name.len) {
+				*(it++) = ' ';
+				memcpy(it, name.str, name.len);
+				it += name.len;
+			}
+		}
+		str = CLSTR(")");
 		goto write;
 
 	default:
@@ -61,22 +100,22 @@ lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type) {
 	return str;
 }
 
-type_t void_def = { TP_VOID, NLSTR(), NULL, NULL, NULL };
+type_t void_def = { TP_VOID, 0, NULL, NULL, NULL };
 
-type_t u8_def = { TP_U8, NLSTR(), NULL, NULL, NULL };
-type_t u16_def = { TP_U16, NLSTR(), NULL, NULL, NULL };
-type_t u32_def = { TP_U32, NLSTR(), NULL, NULL, NULL };
-type_t u64_def = { TP_U64, NLSTR(), NULL, NULL, NULL };
+type_t u8_def = { TP_U8, 0, NULL, NULL, NULL };
+type_t u16_def = { TP_U16, 0, NULL, NULL, NULL };
+type_t u32_def = { TP_U32, 0, NULL, NULL, NULL };
+type_t u64_def = { TP_U64, 0, NULL, NULL, NULL };
 
-type_t i8_def = { TP_I8, NLSTR(), NULL, NULL, NULL };
-type_t i16_def = { TP_I16, NLSTR(), NULL, NULL, NULL };
-type_t i32_def = { TP_I32, NLSTR(), NULL, NULL, NULL };
-type_t i64_def = { TP_I64, NLSTR(), NULL, NULL, NULL };
+type_t i8_def = { TP_I8, 0, NULL, NULL, NULL };
+type_t i16_def = { TP_I16, 0, NULL, NULL, NULL };
+type_t i32_def = { TP_I32, 0, NULL, NULL, NULL };
+type_t i64_def = { TP_I64, 0, NULL, NULL, NULL };
 
-type_t f32_def = { TP_F32, NLSTR(), NULL, NULL, NULL };
-type_t f64_def = { TP_F64, NLSTR(), NULL, NULL, NULL };
+type_t f32_def = { TP_F32, 0, NULL, NULL, NULL };
+type_t f64_def = { TP_F64, 0, NULL, NULL, NULL };
 
-type_t b8_def = { TP_B8, NLSTR(), NULL, NULL, NULL };
+type_t b8_def = { TP_B8, 0, NULL, NULL, NULL };
 
 b8 is_int_any_sign(type_t* type) {
 	return type->stype >= TP_U8 && type->stype <= TP_I64;

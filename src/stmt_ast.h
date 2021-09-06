@@ -34,12 +34,7 @@ typedef struct stmt {
 	lstr_t identifier;
 } stmt_t;
 
-static LT_INLINE
-stmt_t stmt_make(stmt_stype_t stype) {
-	stmt_t stmt;
-	memset(&stmt, 0, sizeof(stmt));
-	stmt.stype = stype;
-	return stmt;
-}
+#define STMT_INIT(stype) { (stype), NULL, NULL, NULL, NULL, NLSTR() }
+#define STMT(stype) ((stmt_t)STMT_INIT(stype))
 
 #endif

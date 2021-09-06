@@ -13,8 +13,8 @@ typedef struct parse_ctx {
 
 	char* path;
 
+	type_t* curr_func_type;
 	symtab_t* symtab;
-
 	lt_arena_t* arena;
 } parse_ctx_t;
 

@@ -133,6 +133,7 @@ int main(int argc, char** argv) {
 	lt_arena_t* parse_arena = lt_arena_alloc(LT_MB(128));
 
 	parse_ctx_t parse_cx;
+	memset(&parse_cx, 0, sizeof(parse_cx));
 	parse_cx.data = tk_data;
 	parse_cx.count = tk_count;
 	parse_cx.path = in_path;

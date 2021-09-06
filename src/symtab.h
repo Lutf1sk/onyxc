@@ -31,14 +31,8 @@ struct sym {
 	expr_t* expr;
 } sym_t;
 
-static LT_INLINE
-sym_t sym_make(sym_stype_t stype, lstr_t name) {
-	sym_t sym;
-	memset(&sym, 0, sizeof(sym));
-	sym.stype = stype;
-	sym.name = name;
-	return sym;
-}
+#define SYM_INIT(stype, name) { (stype), 0, (name), NULL, NULL }
+#define SYM(stype, name) ((sym_t)SYM_INIT(stype, name))
 
 typedef
 struct sympool {

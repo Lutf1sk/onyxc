@@ -32,8 +32,7 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		(is_bool(type) && is_float(old->type)))
 	{
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = expr_make(EXPR_CONVERT);
-		new->type = type;
+		*new = EXPR(EXPR_CONVERT, type);
 		new->child_1 = old;
 		*expr = new;
 		return 1;
@@ -55,8 +54,7 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		old->type->stype == TP_PTR || old->type->stype == TP_FUNC))
 	{
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = expr_make(EXPR_CONVERT);
-		new->type = type;
+		*new = EXPR(EXPR_CONVERT, type);
 		new->child_1 = old;
 		*expr = new;
 		return 1;

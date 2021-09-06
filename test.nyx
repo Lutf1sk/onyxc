@@ -1,22 +1,9 @@
 
-def type :: struct {
-
+let add :: i32(i32 n1, i32 n2) {
+	return n1 + n2;
 };
 
-let main :: void*() void() {
-	let a = 0;
-	let b = &a;
-	let c = u32* b;
-	let d = type *c;
-
-	type impl;
-
-	{
-		i32 e = 0;
-		i32* e_ptr = &e;
-		let i = e_ptr[0];
-	}
-
-	return d;
+let main :: u32() {
+	return u32: add(1, 5);
 };
 

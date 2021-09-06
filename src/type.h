@@ -6,6 +6,8 @@
 
 #include "fwd.h"
 
+#define TYPE_MAX_CHILDREN 24
+
 typedef enum type_stype {
 	TP_PTR,
 	TP_ARRAY, TP_ARRAY_VIEW,
@@ -21,19 +23,16 @@ typedef enum type_stype {
 
 typedef struct type {
 	type_stype_t stype;
-	lstr_t name;
+	usz child_count;
+	type_t** children;
+	lstr_t* child_names;
 	struct type* base;
-	struct type* child;
-	struct type* next;
 } type_t;
 
-static LT_INLINE
-type_t type_make(type_stype_t stype) {
-	type_t type;
-	memset(&type, 0, sizeof(type));
-	type.stype = stype;
-	return type;
-}
+#define TYPE_INIT(stype, base) { (stype), 0, NULL, NULL, (base) }
+#define TYPE(stype, base) ((type_t)TYPE_INIT(stype, base))
+
+void type_add_child(type_t* type, type_t* child, lstr_t name);
 
 b8 is_int_any_sign(type_t* type);
 

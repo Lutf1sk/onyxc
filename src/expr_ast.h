@@ -73,12 +73,7 @@ typedef struct expr {
 	struct expr* next;
 } expr_t;
 
-static LT_INLINE
-expr_t expr_make(expr_stype_t stype) {
-	expr_t expr;
-	memset(&expr, 0, sizeof(expr));
-	expr.stype = stype;
-	return expr;
-}
+#define EXPR_INIT(stype, type) { (stype), NULL, NULL, {}, (type), NULL }
+#define EXPR(stype, type) ((expr_t)EXPR_INIT(stype, type))
 
 #endif
