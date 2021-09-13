@@ -22,7 +22,7 @@ CC_FLAGS += -Wall -Werror -Ilt/include/ -Wno-pedantic -std=c11
 
 LNK = cc
 LNK_FLAGS += -o $(OUT) -rdynamic -g
-LNK_LIBS += -O3 -lm -lX11 -lX11-xcb -lxcb -lxcb-randr -lxcb-ewmh -lpthread -ldl
+LNK_LIBS += -O3 -lpthread -ldl
 
 ifdef DEBUG_SYMS
 	CC_FLAGS += -g
