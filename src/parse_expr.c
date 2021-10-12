@@ -52,6 +52,13 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		return new;
 	}
 
+	case TK_KW_NULL: consume(cx); {
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_LITERAL, &void_ptr_def);
+		new->uint_val = 0;
+		return new;
+	}
+
 	case TK_IDENTIFIER: {
 		sym_t* sym = symtab_find(cx->symtab, tk.str);
 		if (!sym)

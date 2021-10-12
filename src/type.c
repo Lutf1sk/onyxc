@@ -118,6 +118,7 @@ lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type) {
 }
 
 type_t void_def = { TP_VOID, 0, NULL, NULL, NULL };
+type_t void_ptr_def = { TP_PTR, 0, NULL, NULL, &void_def };
 
 type_t u8_def = { TP_U8, 0, NULL, NULL, NULL };
 type_t u16_def = { TP_U16, 0, NULL, NULL, NULL };

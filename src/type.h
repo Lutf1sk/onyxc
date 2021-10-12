@@ -52,6 +52,7 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr);
 void type_make_compatible(parse_ctx_t* cx, usz line_index, int stype, expr_t** left, expr_t** right);
 
 extern type_t void_def;
+extern type_t void_ptr_def;
 
 extern type_t u8_def;
 extern type_t u16_def;

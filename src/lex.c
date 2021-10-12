@@ -54,6 +54,10 @@ tk_stype_t identifier_type(lstr_t str) {
 		if (lt_lstr_eq(str, CLSTR("let"))) return TK_KW_LET;
 		break;
 
+	case 'n':
+		if (lt_lstr_eq(str, CLSTR("null"))) return TK_KW_NULL;
+		break;
+
 	case 'r':
 		if (lt_lstr_eq(str, CLSTR("return"))) return TK_KW_RETURN;
 		break;
