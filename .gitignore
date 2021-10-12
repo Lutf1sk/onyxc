@@ -2,3 +2,6 @@
 /**/*.o
 gmon.out
 onyxc
+
+vgcore.*
+callgrind.*
