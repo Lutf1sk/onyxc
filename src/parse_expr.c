@@ -68,10 +68,6 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			type_t* init_type = parse_type(cx);
 			tk_t tk = *peek(cx, 0);
 
-			if (type && !type_eq(type, init_type))
-				lt_ferrf("%s:%uz: Unexpected type '%S' in initializer\n", cx->path, tk.line_index + 1,
-						type_to_reserved_str(cx->arena, init_type));
-
 			if (tk.stype == TK_COLON) {
 				consume(cx);
 				expr_t* expr = parse_expr_unary(cx, init_type);
@@ -80,6 +76,10 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
 				return expr;
 			}
+
+			if (type && !type_eq(type, init_type))
+				lt_ferrf("%s:%uz: Unexpected type '%S' in initializer\n", cx->path, tk.line_index + 1,
+						type_to_reserved_str(cx->arena, init_type));
 
 			return parse_expr_unary(cx, init_type);
 		}
