@@ -30,7 +30,8 @@ stmt_t* parse_func_body(parse_ctx_t* cx) {
 		*sym = SYM(SYM_VAR, param_names[i]);
 		sym->type = param_types[i];
 
-		symtab_insert(cx->symtab, param_names[i], sym);
+		if (param_names[i].str != NULL)
+			symtab_insert(cx->symtab, param_names[i], sym);
 	}
 
 	stmt_t* root = lt_arena_reserve(cx->arena, sizeof(stmt_t));
