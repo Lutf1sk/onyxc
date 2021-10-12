@@ -2,24 +2,6 @@
 #include "expr_ast.h"
 #include "parse.h"
 
-static
-b8 type_eq(type_t* t1, type_t* t2) {
-	if (t1->stype != t2->stype)
-		return 0;
-
-	switch (t1->stype) {
-		case TP_FUNC:
-			return type_eq(t1->base, t2->base);
-
-		case TP_PTR:
-		case TP_ARRAY: case TP_ARRAY_VIEW:
-			return type_eq(t1->base, t2->base);
-
-		default:
-			return 1;
-	}
-}
-
 b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	expr_t* old = *expr;
 

@@ -37,6 +37,9 @@ void expr_print_recursive(lt_arena_t* arena, expr_t* ex, int indent) {
 		}
 		if (it->stype == EXPR_SYM)
 			lt_printf("%S ", it->sym->name);
+		if (it->stype == EXPR_LITERAL)
+			lt_printf("%iq ", it->int_val);
+
 		lt_printc('\n');
 		if (it->sym && it->stype == EXPR_LAMBDA)
 			stmt_print_recursive(arena, it->stmt, indent + 1);

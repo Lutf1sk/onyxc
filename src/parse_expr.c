@@ -34,21 +34,21 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	case TK_INT: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_LITERAL, &i64_def);
-		new->int_val = 5;
+		new->int_val = lt_lstr_int(tk.str);
 		return new;
 	}
 
 	case TK_UINT: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_LITERAL, &u64_def);
-		new->uint_val = 5;
+		new->uint_val = lt_lstr_uint(tk.str);;
 		return new;
 	}
 
 	case TK_FLOAT: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_LITERAL, &f64_def);
-		new->float_val = 5;
+		new->float_val = lt_lstr_float(tk.str);;
 		return new;
 	}
 
@@ -65,19 +65,23 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			return new;
 		}
 		if (sym->stype == SYM_TYPE) {
-			type_t* type = parse_type(cx);
+			type_t* init_type = parse_type(cx);
 			tk_t tk = *peek(cx, 0);
+
+			if (type && !type_eq(type, init_type))
+				lt_ferrf("%s:%uz: Unexpected type '%S' in initializer\n", cx->path, tk.line_index + 1,
+						type_to_reserved_str(cx->arena, init_type));
 
 			if (tk.stype == TK_COLON) {
 				consume(cx);
-				expr_t* expr = parse_expr_unary(cx, type);
-				if (!type_convert_explicit(cx, type, &expr))
+				expr_t* expr = parse_expr_unary(cx, init_type);
+				if (!type_convert_explicit(cx, init_type, &expr))
 					lt_ferrf("%s:%uz: Cannot convert %S to %S\n", cx->path, tk.line_index + 1,
-							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, type));
+							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
 				return expr;
 			}
 
-			return parse_expr_unary(cx, type);
+			return parse_expr_unary(cx, init_type);
 		}
 
 	undeclared:

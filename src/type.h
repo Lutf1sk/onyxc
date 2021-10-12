@@ -32,6 +32,8 @@ typedef struct type {
 #define TYPE_INIT(stype, base) { (stype), 0, NULL, NULL, (base) }
 #define TYPE(stype, base) ((type_t)TYPE_INIT(stype, base))
 
+b8 type_eq(type_t* t1, type_t* t2);
+
 void type_add_child(type_t* type, type_t* child, lstr_t name);
 
 b8 is_int_any_sign(type_t* type);

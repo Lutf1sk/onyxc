@@ -2,6 +2,23 @@
 
 #include <lt/mem.h>
 
+b8 type_eq(type_t* t1, type_t* t2) {
+	if (t1->stype != t2->stype)
+		return 0;
+
+	switch (t1->stype) {
+		case TP_FUNC:
+			return type_eq(t1->base, t2->base);
+
+		case TP_PTR:
+		case TP_ARRAY: case TP_ARRAY_VIEW:
+			return type_eq(t1->base, t2->base);
+
+		default:
+			return 1;
+	}
+}
+
 void type_add_child(type_t* type, type_t* child, lstr_t name) {
 	usz old_count = type->child_count++;
 

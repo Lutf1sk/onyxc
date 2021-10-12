@@ -71,7 +71,11 @@ stmt_t* parse_compound(parse_ctx_t* cx) {
 stmt_t* parse_let(parse_ctx_t* cx, type_t* type) {
 	stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 	*new = STMT(STMT_LET);
-	new->identifier = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name\n"))->str;
+	tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name\n"));
+	new->identifier = ident_tk->str;
+
+	if (symtab_find(cx->symtab, ident_tk->str))
+		lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
 
 	b8 constant = 0;
 	b8 initialized = 0;
@@ -125,7 +129,12 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 	case TK_KW_DEF: consume(cx); {
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_DEF);
-		new->identifier = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name\n"))->str;
+		tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name\n"));
+		new->identifier = ident_tk->str;
+
+
+		if (symtab_find(cx->symtab, ident_tk->str))
+			lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
 
 		consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected '::' after type name\n"));
 		type_t* type = parse_type(cx);
