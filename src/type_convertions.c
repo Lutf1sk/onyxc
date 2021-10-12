@@ -11,7 +11,7 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	if ((is_int(type) && is_int(old->type)) ||
 		(is_uint(type) && is_uint(old->type)) ||
 		(is_float(type) && is_float(old->type)) ||
-		(is_bool(type) && is_float(old->type)))
+		(is_bool(type) && is_bool(old->type)))
 	{
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_CONVERT, type);
