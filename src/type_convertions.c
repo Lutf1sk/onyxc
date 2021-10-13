@@ -53,6 +53,8 @@ void type_make_compatible(parse_ctx_t* cx, usz line_index, int stype, expr_t** l
 
 	switch (stype) {
 	case EXPR_LOGIC_AND: case EXPR_LOGIC_OR:
+		if (!is_scalar(from) || !is_scalar(to))
+			lt_ferrf("%s:%uz: Operands to logical operator must be scalar\n");
 		return;
 
 	case EXPR_BIT_SHIFT_LEFT: case EXPR_BIT_SHIFT_RIGHT:
