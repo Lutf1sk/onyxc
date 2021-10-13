@@ -10,7 +10,7 @@
 
 #define PUSH_SCOPE() { \
 	symtab_t* new_symtab = lt_arena_reserve(cx->arena, sizeof(symtab_t)); \
-	memset(new_symtab, 0, sizeof(symtab_t)); \
+	memset(new_symtab->counts, 0, sizeof(new_symtab->counts)); \
 	new_symtab->parent = cx->symtab; \
 	cx->symtab = new_symtab; \
 }
@@ -75,7 +75,7 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* type) {
 	tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name\n"));
 	new->identifier = ident_tk->str;
 
-	if (symtab_find(cx->symtab, ident_tk->str))
+	if (!symtab_definable(cx->symtab, ident_tk->str))
 		lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
 
 	b8 constant = 0;
@@ -133,8 +133,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name\n"));
 		new->identifier = ident_tk->str;
 
-
-		if (symtab_find(cx->symtab, ident_tk->str))
+		if (!symtab_definable(cx->symtab, ident_tk->str))
 			lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
 
 		consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected '::' after type name\n"));

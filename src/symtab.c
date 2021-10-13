@@ -9,31 +9,17 @@ u8 hash_lstr_start(lstr_t str) {
 	return (str.len & 3) | ((*str.str & 0x3F) << 2);
 }
 
-static
-u8 hash_lstr_end(lstr_t str) {
-	return (str.len & 3) | ((str.str[str.len] & 0x3F) << 2);
-}
-
-static
-sym_t* subtab_find(sympool_t* subtab, lstr_t name) {
-	u8 index = hash_lstr_end(name);
-	sympool_t pool = subtab[index];
-
-	for (usz i = 0; i < pool.count; ++i) {
-		if (lt_lstr_eq(pool.keys[i], name))
-			return pool.values[i];
-	}
-	return NULL;
-}
+// static
+// u8 hash_lstr_end(lstr_t str) {
+// 	return (str.len & 3) | ((str.str[str.len] & 0x3F) << 2);
+// }
 
 sym_t* symtab_find(symtab_t* tab, lstr_t name) {
 	u8 index = hash_lstr_start(name);
 	sympool_t pool = tab->pools[index];
+	usz count = tab->counts[index];
 
-	if (pool.count == SYMPOOL_SUBTAB)
-		return subtab_find(pool.subtab, name);
-
-	for (usz i = 0; i < pool.count; ++i) {
+	for (usz i = 0; i < count; ++i) {
 		if (lt_lstr_eq(pool.keys[i], name))
 			return pool.values[i];
 	}
@@ -43,13 +29,26 @@ sym_t* symtab_find(symtab_t* tab, lstr_t name) {
 	return NULL;
 }
 
+b8 symtab_definable(symtab_t* tab, lstr_t name) {
+	u8 index = hash_lstr_start(name);
+	sympool_t pool = tab->pools[index];
+	usz count = tab->counts[index];
+
+	for (usz i = 0; i < count; ++i) {
+		if (lt_lstr_eq(pool.keys[i], name))
+			return 0;
+	}
+
+	return 1;
+}
+
 #define ALLOC_COUNT 16
 
 #include <lt/io.h>
 
 static
-void pool_append(sympool_t* pool, lstr_t name, sym_t* sym) {
-	usz last_count = pool->count++;
+void pool_append(sympool_t* pool, u32* count, lstr_t name, sym_t* sym) {
+	usz last_count = (*count)++;
 
 	if (!last_count) {
 		pool->keys = malloc(ALLOC_COUNT * (sizeof(lstr_t) + sizeof(sym_t*)));
@@ -64,12 +63,12 @@ void symtab_insert(symtab_t* tab, lstr_t name, sym_t* sym) {
 	u8 index = hash_lstr_start(name);
 	sympool_t* pool = &tab->pools[index];
 
-	if (pool->count == SYMPOOL_SUBTAB) {
-		index = hash_lstr_end(name);
-		pool_append(&pool->subtab[index], name, sym);
-		return;
-	}
+// 	if (tab->counts[index] == SYMPOOL_SUBTAB) {
+// 		index = hash_lstr_end(name);
+// 		pool_append(&pool->subtab[index], &tab->counts[index], name, sym);
+// 		return;
+// 	}
 
-	pool_append(pool, name, sym);
+	pool_append(pool, &tab->counts[index], name, sym);
 }
 

@@ -9,7 +9,7 @@
 
 #include "fwd.h"
 
-#define SYMPOOL_SUBTAB SIZE_MAX
+#define SYMPOOL_SUBTAB UINT32_MAX
 
 typedef
 enum sym_stype {
@@ -36,7 +36,6 @@ struct sym {
 
 typedef
 struct sympool {
-	usz count;
 	lstr_t* keys;
 	union {
 		sym_t** values;
@@ -47,10 +46,12 @@ struct sympool {
 typedef
 struct symtab {
 	symtab_t* parent;
+	u32 counts[UINT8_MAX];
 	sympool_t pools[UINT8_MAX];
 } symtab_t;
 
 sym_t* symtab_find(symtab_t* tab, lstr_t name);
+b8 symtab_definable(symtab_t* tab, lstr_t name);
 void symtab_insert(symtab_t* tab, lstr_t name, sym_t* sym);
 
 #endif
