@@ -1,8 +1,6 @@
 // A comment
 
 let add :: u32 (i32 a, i32 b) {
-	let c = 1 >> u8:2;
-
 	return u32: (a + b);
 };
 

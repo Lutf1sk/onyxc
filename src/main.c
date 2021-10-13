@@ -9,7 +9,7 @@
 #include "parse.h"
 #include "symtab.h"
 
-#include "parse_helpers.h"
+#include "interm.h"
 
 void type_print(lt_arena_t* arena, type_t* type) {
 	char* str_data = lt_arena_reserve(arena, 0);
