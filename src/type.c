@@ -139,6 +139,10 @@ b8 is_int_any_sign(type_t* type) {
 	return type->stype >= TP_U8 && type->stype <= TP_I64;
 }
 
+b8 is_scalar(type_t* type) {
+	return is_int_any_sign(type) || is_bool(type) || type->stype == TP_PTR;
+}
+
 b8 is_int(type_t* type) {
 	return type->stype >= TP_I8 && type->stype <= TP_I64;
 }

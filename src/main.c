@@ -64,10 +64,12 @@ void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, int indent) {
 		if (it->stype == STMT_DEF || it->stype == STMT_LET)
 			lt_printf("%S ", it->identifier);
 		lt_printc('\n');
-		if (it->child)
-			stmt_print_recursive(arena, it->child, indent + 1);
 		if (it->expr)
 			expr_print_recursive(arena, it->expr, indent + 1);
+		if (it->child)
+			stmt_print_recursive(arena, it->child, indent + 1);
+		if (it->child_2)
+			stmt_print_recursive(arena, it->child_2, indent + 1);
 		it = it->next;
 	}
 }

@@ -75,8 +75,16 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* type) {
 	tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name\n"));
 	new->identifier = ident_tk->str;
 
+	sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+	*sym = SYM(SYM_VAR, new->identifier);
+
 	if (!symtab_definable(cx->symtab, ident_tk->str))
 		lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
+
+	if (type) {
+		sym->type = type;
+		symtab_insert(cx->symtab, new->identifier, sym);
+	}
 
 	b8 constant = 0;
 	b8 initialized = 0;
@@ -100,16 +108,12 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* type) {
 	else if (!type)
 		lt_ferrf("%s:%uz: 'let' with implicit type must be initialized\n", cx->path, tk->line_index + 1, tk->str);
 
-	if (type)
-		new->type = type;
-
-	sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
-	*sym = SYM(SYM_VAR, new->identifier);
 	sym->type = new->type;
 	sym->expr = new->expr;
 	if (constant)
 		sym->flags |= SYMFL_CONST;
-	symtab_insert(cx->symtab, new->identifier, sym);
+	if (!type)
+		symtab_insert(cx->symtab, new->identifier, sym);
 
 	consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after variable definition\n"));
 	return new;
@@ -168,6 +172,41 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
+	case TK_KW_IF: consume(cx); {
+		if (!cx->curr_func_type)
+			goto outside_func;
+
+		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*new = STMT(STMT_IF);
+		new->expr = parse_expr(cx, NULL);
+
+		if (!is_scalar(new->expr->type))
+			lt_ferrf("%s:%uz: Result of 'if' condition must be scalar\n");
+
+		new->child = parse_compound(cx);
+
+		if (peek(cx, 0)->stype != TK_KW_ELSE)
+			return new;
+
+		consume(cx);
+		new->child_2 = parse_compound(cx);
+		return new;
+	}
+
+	case TK_KW_WHILE: consume(cx); {
+		if (!cx->curr_func_type)
+			goto outside_func;
+
+		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*new = STMT(STMT_WHILE);
+		new->expr = parse_expr(cx, NULL);
+
+		if (!is_scalar(new->expr->type))
+			lt_ferrf("%s:%uz: Result of 'while' condition must be scalar\n");
+		new->child = parse_compound(cx);
+		return new;
+	}
+
 	default:
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 
@@ -179,6 +218,9 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 			if (sym->stype == SYM_TYPE)
 				return parse_let(cx, parse_type(cx));
 		}
+
+		if (!cx->curr_func_type)
+			goto outside_func;
 		*new = STMT(STMT_EXPR);
 		new->expr = parse_expr(cx, NULL);
 

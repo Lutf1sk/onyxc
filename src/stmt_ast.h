@@ -28,13 +28,13 @@ lstr_t stmt_type_str(stmt_stype_t stype);
 
 typedef struct stmt {
 	stmt_stype_t stype;
-	stmt_t* child, *next;
+	stmt_t* child, *next, *child_2;
 	expr_t* expr;
 	type_t* type;
 	lstr_t identifier;
 } stmt_t;
 
-#define STMT_INIT(stype) { (stype), NULL, NULL, NULL, NULL, NLSTR() }
+#define STMT_INIT(stype) { (stype), NULL, NULL, NULL, NULL, NULL, NLSTR() }
 #define STMT(stype) ((stmt_t)STMT_INIT(stype))
 
 #endif
