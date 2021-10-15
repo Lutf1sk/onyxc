@@ -10,6 +10,8 @@
 #include "symtab.h"
 
 #include "interm.h"
+#include "gen.h"
+#include "segment.h"
 
 void type_print(lt_arena_t* arena, type_t* type) {
 	char* str_data = lt_arena_reserve(arena, 0);
@@ -37,7 +39,7 @@ void expr_print_recursive(lt_arena_t* arena, expr_t* ex, int indent) {
 		}
 		if (it->stype == EXPR_SYM)
 			lt_printf("%S ", it->sym->name);
-		if (it->stype == EXPR_LITERAL)
+		if (it->stype == EXPR_INTEGER)
 			lt_printf("%iq ", it->int_val);
 
 		lt_printc('\n');
@@ -62,7 +64,7 @@ void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, int indent) {
 			lt_printc(' ');
 		}
 		if (it->stype == STMT_DEF || it->stype == STMT_LET)
-			lt_printf("%S ", it->identifier);
+			lt_printf("%S ", it->sym->name);
 		lt_printc('\n');
 		if (it->expr)
 			expr_print_recursive(arena, it->expr, indent + 1);
@@ -79,6 +81,22 @@ void stmt_print(lt_arena_t* arena, stmt_t* st) {
 }
 
 #define PRIMITIVE_INITIALIZER(T) CLSTR(#T), { SYM_TYPE, 0, CLSTR(#T), &T##_def, NULL }
+
+void print_ival(ival_t ival) {
+	switch (ival.stype) {
+	case IVAL_REG: lt_printf("r%iq ", ival.reg); break;
+	case IVAL_IMM: lt_printf("%iq ", ival.uint_val); break;
+	case IVAL_DSO: lt_printf("ds'%iq ", ival.dso); break;
+	case IVAL_CSO: lt_printf("[cs'%id+%id] ", ival.cso, ival.instr); break;
+	case IVAL_SFO: lt_printf("sf'%iq ", ival.sfo); break;
+
+	case IVAL_REG | IVAL_REF: lt_printf("[r%iq] ", ival.reg); break;
+	case IVAL_IMM | IVAL_REF: lt_printf("[%iq] ", ival.uint_val); break;
+	case IVAL_DSO | IVAL_REF: lt_printf("[ds'%iq] ", ival.dso); break;
+	case IVAL_CSO | IVAL_REF: lt_printf("[cs'%id+%id] ", ival.cso, ival.instr); break;
+	case IVAL_SFO | IVAL_REF: lt_printf("[sf'%iq] ", ival.sfo); break;
+	}
+}
 
 int main(int argc, char** argv) {
 	char* in_path = argv[1];
@@ -147,6 +165,46 @@ int main(int argc, char** argv) {
 	stmt_t* root = parse(&parse_cx);
 
  	stmt_print(lex_arena, root);
+
+	// Generate intermediate code
+	gen_ctx_t gen_cx;
+	gen_cx.curr_func = -1;
+	gen_cx.code_seg = NULL;
+	gen_cx.code_seg_count = 0;
+	gen_cx.data_seg = NULL;
+	gen_cx.data_seg_count = 0;
+	gen_cx.arena = parse_arena;
+
+	icode_gen(&gen_cx, root);
+
+	for (usz i = 0; i < gen_cx.code_seg_count; ++i) {
+		icode_t* icode = gen_cx.code_seg[i].data;
+		usz icode_count = gen_cx.code_seg[i].size;
+
+		lt_printf("CS %uq:\n", i);
+		for (usz i = 0; i < icode_count; ++i) {
+			icode_t ic = icode[i];
+
+			lt_printc('\t');
+			if (ic.arg1.stype != IVAL_INVAL)
+				lt_printf("%S", icode_size_str(ic.arg1.size));
+			if (ic.arg2.stype != IVAL_INVAL)
+				lt_printf("%S", icode_size_str(ic.arg2.size));
+			if (ic.arg3.stype != IVAL_INVAL)
+				lt_printf("%S", icode_size_str(ic.arg3.size));
+
+			lt_printf("\t%S\t", icode_type_str(ic.op));
+			print_ival(ic.arg1);
+			print_ival(ic.arg2);
+			print_ival(ic.arg3);
+			lt_printc('\n');
+		}
+	}
+
+	for (usz i = 0; i < gen_cx.data_seg_count; ++i) {
+		seg_ent_t* seg = &gen_cx.data_seg[i];
+		lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
+	}
 
 	lt_arena_free(parse_arena);
 	lt_arena_free(lex_arena);

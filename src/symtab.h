@@ -9,6 +9,8 @@
 
 #include "fwd.h"
 
+#include "interm.h"
+
 #define SYMPOOL_SUBTAB UINT32_MAX
 
 typedef
@@ -20,6 +22,10 @@ enum sym_stype {
 typedef
 enum sym_flags {
 	SYMFL_CONST = 1,
+	SYMFL_GLOBAL = 2,
+	SYMFL_ACCESSED = 4,
+	SYMFL_REFERENCED = 8,
+	SYMFL_ARG = 16,
 } sym_flags_t;
 
 typedef
@@ -29,9 +35,10 @@ struct sym {
 	lstr_t name;
 	type_t* type;
 	expr_t* expr;
+	ival_t ival;
 } sym_t;
 
-#define SYM_INIT(stype, name) { (stype), 0, (name), NULL, NULL }
+#define SYM_INIT(stype, name) { (stype), 0, (name), NULL, NULL, IVAL(0, 0) }
 #define SYM(stype, name) ((sym_t)SYM_INIT(stype, name))
 
 typedef

@@ -26,15 +26,16 @@ typedef struct type {
 	usz child_count;
 	type_t** children;
 	lstr_t* child_names;
+	sym_t** child_syms;
 	struct type* base;
 } type_t;
 
-#define TYPE_INIT(stype, base) { (stype), 0, NULL, NULL, (base) }
+#define TYPE_INIT(stype, base) { (stype), 0, NULL, NULL, NULL, (base) }
 #define TYPE(stype, base) ((type_t)TYPE_INIT(stype, base))
 
 b8 type_eq(type_t* t1, type_t* t2);
 
-void type_add_child(type_t* type, type_t* child, lstr_t name);
+void type_add_child(type_t* type, type_t* child, lstr_t name, sym_t* sym);
 
 b8 is_int_any_sign(type_t* type);
 
@@ -43,6 +44,8 @@ b8 is_int(type_t* type);
 b8 is_uint(type_t* type);
 b8 is_float(type_t* type);
 b8 is_bool(type_t* type);
+
+usz type_bytes(type_t* type);
 
 isz type_to_str(char* out_str, type_t* type);
 lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type);
@@ -56,6 +59,7 @@ extern type_t void_def;
 extern type_t void_ptr_def;
 
 extern type_t u8_def;
+extern type_t u8_ptr_def;
 extern type_t u16_def;
 extern type_t u32_def;
 extern type_t u64_def;

@@ -13,4 +13,9 @@ typedef struct sympool sympool_t;
 typedef struct symtab symtab_t;
 typedef struct sym sym_t;
 
+typedef struct icode icode_t;
+typedef struct gen_ctx gen_ctx_t;
+
+typedef struct seg_ent seg_ent_t;
+
 #endif

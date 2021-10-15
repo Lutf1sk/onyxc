@@ -33,28 +33,42 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 	case TK_INT: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_LITERAL, &i64_def);
+		*new = EXPR(EXPR_INTEGER, &i64_def);
 		new->int_val = lt_lstr_int(tk.str);
 		return new;
 	}
 
 	case TK_UINT: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_LITERAL, &u64_def);
+		*new = EXPR(EXPR_INTEGER, &u64_def);
 		new->uint_val = lt_lstr_uint(tk.str);;
 		return new;
 	}
 
 	case TK_FLOAT: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_LITERAL, &f64_def);
+		*new = EXPR(EXPR_FLOAT, &f64_def);
 		new->float_val = lt_lstr_float(tk.str);;
+		return new;
+	}
+
+	case TK_CHAR: consume(cx); {
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_INTEGER, &u8_def);
+		new->int_val = tk.str.str[1];
+		return new;
+	}
+
+	case TK_STRING: consume(cx); {
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_STRING, &u8_ptr_def);
+		new->str_val = tk.str;
 		return new;
 	}
 
 	case TK_KW_NULL: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_LITERAL, &void_ptr_def);
+		*new = EXPR(EXPR_INTEGER, &void_ptr_def);
 		new->uint_val = 0;
 		return new;
 	}
@@ -68,6 +82,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			consume(cx);
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 			*new = EXPR(EXPR_SYM, sym->type);
+			sym->flags |= SYMFL_ACCESSED;
 			new->sym = sym;
 			return new;
 		}
@@ -77,7 +92,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 			if (tk.stype == TK_COLON) {
 				consume(cx);
-				expr_t* expr = parse_expr_unary(cx, init_type);
+				expr_t* expr = parse_expr_unary(cx, NULL);
 				if (!type_convert_explicit(cx, init_type, &expr))
 					lt_ferrf("%s:%uz: Cannot convert %S to %S\n", cx->path, tk.line_index + 1,
 							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
@@ -240,6 +255,8 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type) {
 		case EXPR_REFERENCE: {
 			type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
 			*type = TYPE(TP_PTR, child->type);
+			if (child->stype == EXPR_SYM)
+				child->sym->flags |= SYMFL_REFERENCED;
 			new->type = type;
 		}	break;
 

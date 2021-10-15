@@ -1,10 +1,12 @@
 // A comment
 
-let add :: u32 (i32 a, i32 b) {
-	return u32: (a + b);
+let g = 1;
+
+let add :: i32(i32 a, i32 b) {
+	return a + b;
 };
 
-let main :: u32 () {
-	return add(1, 5);
+let main :: i32() {
+	return add(1, 2);
 };
 

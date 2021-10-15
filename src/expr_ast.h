@@ -7,7 +7,9 @@
 #include "fwd.h"
 
 #define FOR_EACH_EXPR() \
-	EXPR_OP(LITERAL) \
+	EXPR_OP(INTEGER) \
+	EXPR_OP(FLOAT) \
+	EXPR_OP(STRING) \
 	EXPR_OP(SYM) \
 	EXPR_OP(LAMBDA) \
 	\
@@ -68,6 +70,7 @@ typedef struct expr {
 		usz member_index;
 		sym_t* sym;
 		stmt_t* stmt;
+		lstr_t str_val;
 	};
 	type_t* type;
 	struct expr* next;

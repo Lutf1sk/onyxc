@@ -33,7 +33,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 			lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name\n"))->str;
 			consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after member name\n"));
 
-			type_add_child(struc, new, name);
+			type_add_child(struc, new, name, NULL);
 		}
 
 		consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected '}' after struct members\n"));
@@ -60,7 +60,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 				if (peek(cx, 0)->stype == TK_IDENTIFIER)
 					 name = consume(cx)->str;
 
-				type_add_child(func, new, name);
+				type_add_child(func, new, name, NULL);
 			}
 
 			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected ')'\n"));

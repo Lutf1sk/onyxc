@@ -31,10 +31,10 @@ typedef struct stmt {
 	stmt_t* child, *next, *child_2;
 	expr_t* expr;
 	type_t* type;
-	lstr_t identifier;
+	sym_t* sym;
 } stmt_t;
 
-#define STMT_INIT(stype) { (stype), NULL, NULL, NULL, NULL, NULL, NLSTR() }
+#define STMT_INIT(stype) { (stype), NULL, NULL, NULL, NULL, NULL, NULL }
 #define STMT(stype) ((stmt_t)STMT_INIT(stype))
 
 #endif

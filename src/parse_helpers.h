@@ -2,6 +2,7 @@
 #define PARSE_HELPERS_H 1
 
 #include "tk.h"
+#include "interm.h"
 
 static inline
 tk_t* consume(parse_ctx_t* cx) {

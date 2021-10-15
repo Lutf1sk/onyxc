@@ -6,6 +6,25 @@
 
 #include <ctype.h>
 
+static
+lstr_t escaped_char(char c) {
+	static char buf[128]; // This will cause issues if the result of escaped_char() is not discarded between calls
+
+	switch (c) {
+	case '\t': return CLSTR("\\t");
+	case '\r': return CLSTR("\\r");
+	case '\n': return CLSTR("\\n");
+	case '\b': return CLSTR("\\b");
+	default:
+		if (c < 32) {
+			usz len = lt_str_printf(buf, "\\x%p", (usz)c);
+			return LSTR(buf, len);
+		}
+		buf[0] = c;
+		return LSTR(buf, 1);
+	}
+}
+
 static LT_INLINE
 b8 is_identifier_head(int c) {
 	return isalpha(c) || c == '_';
@@ -186,6 +205,23 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			emit(TK_INT);
 		}	break;
 
+		case TK_CHAR: {
+			c = data[it++];
+			if (c < 32 || c == '\t')
+				lt_ferrf("%s:%uz: Expected valid character literal\n", cx->path, line_index + 1, c);
+			emit(TK_CHAR);
+		}	break;
+
+		case TK_STRING: c = data[it]; {
+			while (c && c != '"') {
+				c = data[++it];
+				if (c < 32 && c != '\t')
+					lt_ferrf("%s:%uz: Invalid character '%S' in string literal\n", cx->path, line_index + 1, escaped_char(c));
+			}
+			++it; // consume '"'
+			emit(TK_STRING);
+		}	break;
+
 		case TK_IDENTIFIER: {
 			while(is_identifier_body(data[it]))
 				++it;
@@ -228,6 +264,9 @@ usz lex_initial(lex_ctx_t* cx, tk_t* out_tk) {
 	// Fill digits
 	for (usz i = '0'; i <= '9'; ++i)
 		chars[i] = TK_INT;
+
+	chars['\''] = TK_CHAR;
+	chars['"'] = TK_STRING;
 
 	// Fill whitespace
 	chars[' '] = TK_WHITESPACE;

@@ -19,7 +19,7 @@ b8 type_eq(type_t* t1, type_t* t2) {
 	}
 }
 
-void type_add_child(type_t* type, type_t* child, lstr_t name) {
+void type_add_child(type_t* type, type_t* child, lstr_t name, sym_t* sym) {
 	usz old_count = type->child_count++;
 
 	type_t** children = realloc(type->children, type->child_count * sizeof(type_t*));
@@ -30,11 +30,17 @@ void type_add_child(type_t* type, type_t* child, lstr_t name) {
 	if (!names)
 		goto alloc_failed;
 
+	sym_t** syms = realloc(type->child_syms, type->child_count * sizeof(sym_t*));
+	if (!syms)
+		goto alloc_failed;
+
 	children[old_count] = child;
 	names[old_count] = name;
+	syms[old_count] = sym;
 
 	type->children = children;
 	type->child_names = names;
+	type->child_syms = syms;
 
 	return;
 alloc_failed:
@@ -117,23 +123,24 @@ lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type) {
 	return str;
 }
 
-type_t void_def = { TP_VOID, 0, NULL, NULL, NULL };
-type_t void_ptr_def = { TP_PTR, 0, NULL, NULL, &void_def };
+type_t void_def = TYPE_INIT(TP_VOID, NULL);
+type_t void_ptr_def = TYPE_INIT(TP_PTR, &void_def);
 
-type_t u8_def = { TP_U8, 0, NULL, NULL, NULL };
-type_t u16_def = { TP_U16, 0, NULL, NULL, NULL };
-type_t u32_def = { TP_U32, 0, NULL, NULL, NULL };
-type_t u64_def = { TP_U64, 0, NULL, NULL, NULL };
+type_t u8_def = TYPE_INIT(TP_U8, NULL);
+type_t u8_ptr_def = TYPE_INIT(TP_PTR, &u8_def);
+type_t u16_def = TYPE_INIT(TP_U16, NULL);
+type_t u32_def = TYPE_INIT(TP_U32, NULL);
+type_t u64_def = TYPE_INIT(TP_U64, NULL);
 
-type_t i8_def = { TP_I8, 0, NULL, NULL, NULL };
-type_t i16_def = { TP_I16, 0, NULL, NULL, NULL };
-type_t i32_def = { TP_I32, 0, NULL, NULL, NULL };
-type_t i64_def = { TP_I64, 0, NULL, NULL, NULL };
+type_t i8_def = TYPE_INIT(TP_I8, NULL);
+type_t i16_def = TYPE_INIT(TP_I16, NULL);
+type_t i32_def = TYPE_INIT(TP_I32, NULL);
+type_t i64_def = TYPE_INIT(TP_I64, NULL);
 
-type_t f32_def = { TP_F32, 0, NULL, NULL, NULL };
-type_t f64_def = { TP_F64, 0, NULL, NULL, NULL };
+type_t f32_def = TYPE_INIT(TP_F32, NULL);
+type_t f64_def = TYPE_INIT(TP_F64, NULL);
 
-type_t b8_def = { TP_B8, 0, NULL, NULL, NULL };
+type_t b8_def = TYPE_INIT(TP_B8, NULL);
 
 b8 is_int_any_sign(type_t* type) {
 	return type->stype >= TP_U8 && type->stype <= TP_I64;
@@ -157,5 +164,38 @@ b8 is_float(type_t* type) {
 
 b8 is_bool(type_t* type) {
 	return type->stype == TP_B8;
+}
+
+usz type_bytes(type_t* type) {
+	LT_ASSERT(type);
+
+	switch (type->stype) {
+	case TP_VOID:
+		break;
+
+	case TP_U8: case TP_I8: case TP_B8:
+		return 1;
+	case TP_U16: case TP_I16:
+		return 2;
+	case TP_F32: case TP_U32: case TP_I32:
+		return 4;
+	case TP_F64: case TP_U64: case TP_I64: case TP_PTR: case TP_FUNC:
+		return 8;
+
+	case TP_ARRAY_VIEW:
+		return 16;
+	case TP_ARRAY:
+		break;
+
+	case TP_STRUCT: {
+		usz size = 0;
+		for (usz i = 0; i < type->child_count; ++i)
+			size += type_bytes(type->children[i]);
+		return size;
+	}
+	}
+
+	LT_ASSERT_NOT_REACHED();
+	return 0;
 }
 
