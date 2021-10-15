@@ -458,6 +458,9 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	return IVAL(0, 0);
 }
 
+#define FUNC_INSTR(x) (((icode_t*)cx->code_seg[cx->curr_func].data)[(x)])
+#define CURR_INSTR() (cx->code_seg[cx->curr_func].size)
+
 void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	switch (stmt->stype) {
 	case STMT_LET:
@@ -471,11 +474,33 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	case STMT_DEF:
 		break;
 
-	case STMT_IF:
-		break;
+	case STMT_IF: {
+		ival_t cond = icode_gen_expr(cx, stmt->expr);
+		usz jmp1 = emit(cx, ICODE(IR_CJMPZ, cond, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = 0), IVAL(0, 0)));
+		icode_gen_stmt(cx, stmt->child);
 
-	case STMT_WHILE:
-		break;
+		usz jmp2;
+		if (stmt->child_2)
+			jmp2 = emit(cx, ICODE(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = 0), IVAL(0, 0), IVAL(0, 0)));
+
+		FUNC_INSTR(jmp1).arg2.instr = CURR_INSTR();
+
+		if (stmt->child_2) {
+			icode_gen_stmt(cx, stmt->child_2);
+			FUNC_INSTR(jmp2).arg1.instr = CURR_INSTR();
+		}
+	}	break;
+
+	case STMT_WHILE: {
+		usz eval = CURR_INSTR();
+		ival_t cond = icode_gen_expr(cx, stmt->expr);
+		usz jmp1 = emit(cx, ICODE(IR_CJMPZ, cond, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = 0), IVAL(0, 0)));
+
+		icode_gen_stmt(cx, stmt->child);
+
+		emit(cx, ICODE(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = eval), IVAL(0, 0), IVAL(0, 0)));
+		FUNC_INSTR(jmp1).arg2.instr = CURR_INSTR();
+	}	break;
 
 	case STMT_COMPOUND:
 		stmt_t* it = stmt->child;

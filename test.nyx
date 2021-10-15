@@ -1,12 +1,12 @@
 // A comment
 
-let g = 1;
-
-let add :: i32(i32 a, i32 b) {
-	return a + b;
+let add :: i32() {
+	
 };
 
 let main :: i32() {
-	return add(1, 2);
+	while 1 {
+		add();
+	}
 };
 
