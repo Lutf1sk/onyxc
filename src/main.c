@@ -13,6 +13,8 @@
 #include "gen.h"
 #include "segment.h"
 
+#include "exec.h"
+
 void type_print(lt_arena_t* arena, type_t* type) {
 	char* str_data = lt_arena_reserve(arena, 0);
 	lstr_t str = LSTR(str_data, type_to_str(str_data, type));
@@ -87,7 +89,7 @@ void print_ival(ival_t ival) {
 	case IVAL_REG: lt_printf("r%iq ", ival.reg); break;
 	case IVAL_IMM: lt_printf("%iq ", ival.uint_val); break;
 	case IVAL_DSO: lt_printf("ds'%iq ", ival.dso); break;
-	case IVAL_CSO: lt_printf("[cs'%id+%id] ", ival.cso, ival.instr); break;
+	case IVAL_CSO: lt_printf("cs'%id+%id ", ival.cso, ival.instr); break;
 	case IVAL_SFO: lt_printf("sf'%iq ", ival.sfo); break;
 
 	case IVAL_REG | IVAL_REF: lt_printf("[r%iq] ", ival.reg); break;
@@ -205,6 +207,23 @@ int main(int argc, char** argv) {
 		seg_ent_t* seg = &gen_cx.data_seg[i];
 		lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
 	}
+
+	// Execute intermediate code
+	icode_t exit_wrapper[2] = {
+		ICODE(IR_RETVAL, IVAL(ISZ_64, IVAL_REG, .reg = 0), IVAL(0, 0), IVAL(0, 0)),
+		ICODE(IR_EXIT, IVAL(ISZ_64, IVAL_REG, .reg = 0), IVAL(0, 0), IVAL(0, 0)),
+	};
+	u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
+	*(stack++) = (u64)&exit_wrapper;
+
+	exec_ctx_t exec_cx;
+	exec_cx.sp = (u8*)stack;
+	exec_cx.ip = gen_cx.code_seg[1].data;
+	exec_cx.cs = gen_cx.code_seg;
+	exec_cx.ds = gen_cx.data_seg;
+
+	u64 code = icode_exec(&exec_cx);
+	lt_printf("Program exited with code %uq\n", code);
 
 	lt_arena_free(parse_arena);
 	lt_arena_free(lex_arena);

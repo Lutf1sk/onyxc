@@ -1,12 +1,24 @@
 // A comment
 
-let add :: i32() {
-	
+let add :: i64(i64 a, i64 b) {
+	return a + b;
+};
+
+def test :: struct {
+	i64 a;
+	i64 b;
 };
 
 let main :: i32() {
-	while 1 {
-		add();
-	}
+	test t;
+	t.a = 1;
+	t.b = 2;
+
+	i32 v = add(t.a, t.b);
+	i32* vp = &v;
+	*vp = -v;
+
+	v = *vp + 6;
+	return v;
 };
 

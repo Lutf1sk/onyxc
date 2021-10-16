@@ -38,14 +38,14 @@
 	ICODE_OP(RETVAL) \
 	ICODE_OP(COPY) \
 	\
-	ICODE_OP(CMOVE) \
-	ICODE_OP(CMOVG) \
-	ICODE_OP(CMOVGE) \
-	ICODE_OP(CMOVL) \
-	ICODE_OP(CMOVLE) \
-	ICODE_OP(CMOVNE) \
-	ICODE_OP(CMOVZ) \
-	ICODE_OP(CMOVNZ) \
+	ICODE_OP(CSETE) \
+	ICODE_OP(CSETG) \
+	ICODE_OP(CSETGE) \
+	ICODE_OP(CSETL) \
+	ICODE_OP(CSETLE) \
+	ICODE_OP(CSETNE) \
+	ICODE_OP(CSETZ) \
+	ICODE_OP(CSETNZ) \
 	\
 	ICODE_OP(CJMPE) \
 	ICODE_OP(CJMPG) \
@@ -58,7 +58,10 @@
 	\
 	ICODE_OP(SRESV) \
 	ICODE_OP(PUSH) \
-	ICODE_OP(POP)
+	ICODE_OP(POP) \
+	\
+	ICODE_OP(ENTER) \
+	ICODE_OP(EXIT)
 
 typedef
 enum icode_type {
@@ -113,6 +116,11 @@ lstr_t icode_size_str(icode_size_t size);
 
 #define ICODE_INIT(op, v1, v2, v3) { (op), (v1), (v2), (v3) }
 #define ICODE(op, v1, v2, v3) ((icode_t)ICODE_INIT(op, v1, v2, v3))
+
+#define ICODE0(op) ICODE(op, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0))
+#define ICODE1(op, v1) ICODE(op, v1, IVAL(0, 0), IVAL(0, 0))
+#define ICODE2(op, v1, v2) ICODE(op, v1, v2, IVAL(0, 0))
+#define ICODE3(op, v1, v2, v3) ICODE(op, v1, v2, v3)
 
 #define IVAL_INIT(size, flags, ...) {(size), (flags), __VA_ARGS__}
 #define IVAL(size, flags, ...) ((ival_t)IVAL_INIT(size, flags, __VA_ARGS__))

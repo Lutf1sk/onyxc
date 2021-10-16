@@ -204,11 +204,23 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_NEGATE:
 		GENERIC_EXPR_UNARY(IR_NEG, -);
 
-	case EXPR_PFX_INCREMENT:
-		GENERIC_EXPR_UNARY(IR_INC, ++);
+	case EXPR_PFX_INCREMENT: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1);
+		if (a1.stype == IVAL_IMM)
+			return IVAL(a1.size, IVAL_IMM, .uint_val = a1.int_val + 1);
 
-	case EXPR_PFX_DECREMENT:
-		GENERIC_EXPR_UNARY(IR_DEC, --);
+		emit(cx, ICODE1(IR_INC, a1));
+		return a1;
+	}
+
+	case EXPR_PFX_DECREMENT: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1);
+		if (a1.stype == IVAL_IMM)
+			return IVAL(a1.size, IVAL_IMM, .uint_val = a1.int_val - 1);
+
+		emit(cx, ICODE1(IR_DEC, a1));
+		return a1;
+	}
 
 	case EXPR_SFX_INCREMENT:
 		GENERIC_EXPR_UNARY(IR_INCSFX, );
@@ -261,7 +273,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			gen_sym_def(cx, sym, NULL);
 			emit(cx, ICODE(IR_GETARG, sym->ival, IVAL(ISZ_64, IVAL_IMM, .uint_val = i), IVAL(0, 0)));
 		}
-
+		emit(cx, ICODE(IR_ENTER, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
 		icode_gen_stmt(cx, expr->stmt);
 		emit(cx, ICODE(IR_RET, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
 
@@ -305,6 +317,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			a1 = dst;
 		}
 		a1.stype |= IVAL_REF;
+		a1.size = type_bytes(expr->type);
 		return a1;
 	}
 
@@ -339,26 +352,26 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz arg_i = 0;
 		expr_t* it = expr->child_2;
 		while (it) {
-			emit(cx, ICODE(IR_SETARG, icode_gen_expr(cx, it), IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i++), IVAL(0, 0)));
+			emit(cx, ICODE2(IR_SETARG, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i++), icode_gen_expr(cx, it)));
 			it = it->next;
 		}
-		emit(cx, ICODE(IR_CALL, icode_gen_expr(cx, expr->child_1), IVAL(0, 0), IVAL(0, 0)));
+		emit(cx, ICODE1(IR_CALL, icode_gen_expr(cx, expr->child_1)));
 
 		if (expr->type->stype == TP_VOID)
 			return IVAL(0, 0);
 
 		ival_t dst = IVAL(type_bytes(expr->type), IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_RETVAL, dst, IVAL(0, 0), IVAL(0, 0)));
+		emit(cx, ICODE1(IR_RETVAL, dst));
 		return dst;
 	}
 
 	case EXPR_LOGIC_AND: {
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), IVAL(0, 0)));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
 
-		usz jmp1 = emit(cx, ICODE(IR_CJMPZ, a1, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = 0), IVAL(0, 0)));
+		usz jmp1 = emit(cx, ICODE2(IR_CJMPZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), a1));
 		ival_t a2 = icode_gen_expr(cx, expr->child_2);
-		emit(cx, ICODE(IR_CMOVNZ, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), a2));
+		emit(cx, ICODE2(IR_CSETNZ, dst, a2));
 
 		seg_ent_t* cs = &cx->code_seg[cx->curr_func];
 		icode_t* ic = cs->data;
@@ -367,11 +380,11 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 	case EXPR_LOGIC_OR: {
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), IVAL(0, 0)));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1)));
 
-		usz jmp1 = emit(cx, ICODE(IR_CJMPNZ, a1, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = 0), IVAL(0, 0)));
+		usz jmp1 = emit(cx, ICODE2(IR_CJMPNZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), a1));
 		ival_t a2 = icode_gen_expr(cx, expr->child_2);
-		emit(cx, ICODE(IR_CMOVZ, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), a2));
+		emit(cx, ICODE2(IR_CSETZ, dst, a2)); // FIXME
 
 		seg_ent_t* cs = &cx->code_seg[cx->curr_func];
 		icode_t* ic = cs->data;
@@ -385,8 +398,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			return IVAL(ISZ_8, IVAL_IMM, .uint_val = !a1.uint_val);
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), IVAL(0, 0)));
-		emit(cx, ICODE(IR_CMOVZ, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), a1));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
+		emit(cx, ICODE2(IR_CSETZ, dst, a1));
 		return dst;
 	}
 	case EXPR_LESSER: {
@@ -395,8 +408,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val < a2.uint_val);
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), IVAL(0, 0)));
-		emit(cx, ICODE(IR_CMOVL, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), a1));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
+		emit(cx, ICODE3(IR_CSETL, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_GREATER: {
@@ -405,8 +418,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val > a2.uint_val);
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), IVAL(0, 0)));
-		emit(cx, ICODE(IR_CMOVG, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), a1));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
+		emit(cx, ICODE3(IR_CSETG, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_LESSER_OR_EQUAL: {
@@ -415,8 +428,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val <= a2.uint_val);
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), IVAL(0, 0)));
-		emit(cx, ICODE(IR_CMOVLE, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), a1));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
+		emit(cx, ICODE3(IR_CSETLE, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_GREATER_OR_EQUAL: {
@@ -425,8 +438,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val >= a2.uint_val);
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), IVAL(0, 0)));
-		emit(cx, ICODE(IR_CMOVGE, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), a1));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
+		emit(cx, ICODE3(IR_CSETGE, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_EQUAL: {
@@ -435,8 +448,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val == a2.uint_val);
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), IVAL(0, 0)));
-		emit(cx, ICODE(IR_CMOVE, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), a1));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
+		emit(cx, ICODE3(IR_CSETE, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_NOT_EQUAL: {
@@ -445,8 +458,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val != a2.uint_val);
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0), IVAL(0, 0)));
-		emit(cx, ICODE(IR_CMOVNE, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1), a1));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
+		emit(cx, ICODE3(IR_CSETNE, dst, a1, a2));
 		return dst;
 	}
 
@@ -476,14 +489,14 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 
 	case STMT_IF: {
 		ival_t cond = icode_gen_expr(cx, stmt->expr);
-		usz jmp1 = emit(cx, ICODE(IR_CJMPZ, cond, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = 0), IVAL(0, 0)));
+		usz jmp1 = emit(cx, ICODE2(IR_CJMPZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), cond));
 		icode_gen_stmt(cx, stmt->child);
 
 		usz jmp2;
 		if (stmt->child_2)
-			jmp2 = emit(cx, ICODE(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = 0), IVAL(0, 0), IVAL(0, 0)));
+			jmp2 = emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func)));
 
-		FUNC_INSTR(jmp1).arg2.instr = CURR_INSTR();
+		FUNC_INSTR(jmp1).arg1.instr = CURR_INSTR();
 
 		if (stmt->child_2) {
 			icode_gen_stmt(cx, stmt->child_2);
@@ -494,12 +507,12 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	case STMT_WHILE: {
 		usz eval = CURR_INSTR();
 		ival_t cond = icode_gen_expr(cx, stmt->expr);
-		usz jmp1 = emit(cx, ICODE(IR_CJMPZ, cond, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = 0), IVAL(0, 0)));
+		usz jmp1 = emit(cx, ICODE2(IR_CJMPZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), cond));
 
 		icode_gen_stmt(cx, stmt->child);
 
-		emit(cx, ICODE(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = eval), IVAL(0, 0), IVAL(0, 0)));
-		FUNC_INSTR(jmp1).arg2.instr = CURR_INSTR();
+		emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = eval)));
+		FUNC_INSTR(jmp1).arg1.instr = CURR_INSTR();
 	}	break;
 
 	case STMT_COMPOUND:

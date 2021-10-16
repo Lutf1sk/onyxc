@@ -18,4 +18,6 @@ typedef struct gen_ctx gen_ctx_t;
 
 typedef struct seg_ent seg_ent_t;
 
+typedef struct exec_ctx exec_ctx_t;
+
 #endif
