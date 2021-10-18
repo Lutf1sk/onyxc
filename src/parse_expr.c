@@ -27,7 +27,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	switch (tk.stype) {
 	case TK_LEFT_PARENTH: consume(cx); {
 		expr_t* new = parse_expr(cx, type);
-		consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected ')'\n"));
+		consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET));
 		return new;
 	}
 
@@ -60,9 +60,9 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		usz len = unescape_str(str, LSTR(tk.str.str + 1, tk.str.len - 2));
 
 		if (len > 1)
-			lt_ferrf("%s:%uz: Multi-character literals are not supported (yet)\n", cx->path, tk.line_index + 1);
+			ferr("character literal exceeds max length", cx->lex, tk);
 		else if (!len)
-			lt_ferrf("%s:%uz: Character literal cannot have a length of zero\n", cx->path, tk.line_index + 1);
+			ferr("empty character literal", cx->lex, tk);
 
 		new->int_val = str[0];
 		return new;
@@ -97,30 +97,30 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		}
 		if (sym->stype == SYM_TYPE) {
 			type_t* init_type = parse_type(cx);
-			tk_t tk = *peek(cx, 0);
 
-			if (tk.stype == TK_COLON) {
+			if (type && !type_eq(type, init_type))
+				ferr("unexpected type "A_BOLD"'%S'"A_RESET" in initializer of "A_BOLD"'%S'"A_RESET, cx->lex, tk,
+						type_to_reserved_str(cx->arena, init_type), type_to_reserved_str(cx->arena, type));
+
+			tk_t* tk = peek(cx, 0);
+			if (tk->stype == TK_COLON) {
 				consume(cx);
 				expr_t* expr = parse_expr_unary(cx, NULL);
 				if (!type_convert_explicit(cx, init_type, &expr))
-					lt_ferrf("%s:%uz: Cannot convert %S to %S\n", cx->path, tk.line_index + 1,
+					ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
 							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
 				return expr;
 			}
-
-			if (type && !type_eq(type, init_type))
-				lt_ferrf("%s:%uz: Unexpected type '%S' in initializer\n", cx->path, tk.line_index + 1,
-						type_to_reserved_str(cx->arena, init_type));
 
 			return parse_expr_unary(cx, init_type);
 		}
 
 	undeclared:
-		lt_ferrf("%s:%uz: Use of undeclared identifier '%S'\n", cx->path, tk.line_index + 1, tk.str);
+		ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, cx->lex, tk, tk.str);
 	}
 
 	default:
-		lt_ferrf("%s:%uz: Unexpected token '%S' in expression\n", cx->path, tk.line_index + 1, tk.str);
+		ferr("unexpected token "A_BOLD"'%S'"A_RESET" in expression", cx->lex, tk, tk.str);
 	}
 }
 
@@ -144,20 +144,10 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 
 	operator_t* op;
 	while ((op = find_sfx_operator(peek(cx, 0)->stype))) {
-		usz line_index = consume(cx)->line_index;
+		tk_t* tk = consume(cx);
 
-		if (op->expr == EXPR_CONVERT) {
-			consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected '(' before type in arrow-cast\n"));
-			type_t* new_type = parse_type(cx);
-			if (!new_type)
-				lt_ferrf("%s:%uz: Arrow-cast needs a valid type\n", cx->path, line_index);
-			if (!type_convert_explicit(cx, new_type, &current))
-				lt_ferrf("%s:%uz: Cannot convert types\n", cx->path, line_index);
-			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected ')' after type in arrow-cast\n"));
-			continue;
-		}
 		if (op->expr == EXPR_MEMBER) {
-			tk_t* member_name_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name\n"));
+			tk_t* member_name_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"));
 			type_t* it = current->type;
 			while (it->stype == TP_PTR) {
 				expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
@@ -169,8 +159,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 			}
 
 			if (it->stype != TP_STRUCT)
-				lt_ferrf("%s:%uz: Cannot use '.' operator on a non-structure type\n",
-						cx->path, line_index + 1);
+				ferr("cannot use "A_BOLD"'.'"A_RESET" operator on a non-structure type", cx->lex, *tk);
 
 			lstr_t member_name = member_name_tk->str;
 			usz member_count = it->child_count;
@@ -182,8 +171,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 				}
 			}
 
-			lt_ferrf("%s:%uz: Structure has no member named '%S'\n",
-						cx->path, member_name_tk->line_index + 1, member_name_tk->str);
+			ferr("structure has no member named "A_BOLD"'%S'"A_RESET, cx->lex, *member_name_tk, member_name_tk->str);
 
 		member_found:
 
@@ -203,22 +191,19 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 		if (op->expr == EXPR_SUBSCRIPT) {
 			type_t* new_type = new->type;
 			if (new_type->stype != TP_PTR && new_type->stype != TP_ARRAY && new_type->stype != TP_ARRAY_VIEW)
-				lt_ferrf("%s:%uz: Subscripted type %S is neither an array nor a pointer\n",
-						cx->path, line_index + 1,
-						type_to_reserved_str(cx->arena, new->type));
+				ferr("subscripted type "A_BOLD"'%S'"A_RESET" is neither an array nor a pointer",
+						cx->lex, *tk, type_to_reserved_str(cx->arena, new->type));
 
 			new->child_2 = parse_expr(cx, NULL);
 			if (!is_int_any_sign(new->child_2->type))
-				lt_ferrf("%s:%uz: Array index must be an integer type, got %S\n",
-						cx->path, line_index + 1,
-						type_to_reserved_str(cx->arena, new->child_2->type));
-			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected ']' after array subscript\n"));
+				ferr("array index must be an integer", cx->lex, *tk);
+			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected "A_BOLD"']'"A_RESET" after array subscript"));
 
 			new->type = new_type->base;
 		}
 		else if (op->expr == EXPR_CALL) {
 			if (new->type->stype != TP_FUNC)
-				lt_ferrf("%s:%uz: Called type %S is not a function\n", cx->path, line_index + 1,
+				ferr("called type "A_BOLD"'%S'"A_RESET" is not a function", cx->lex, *tk,
 						type_to_reserved_str(cx->arena, new->type));
 
 			expr_t** current_arg = &new->child_2;
@@ -232,13 +217,13 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 
 			while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
 				if (current_arg != &new->child_2)
-					consume_type(cx, TK_COMMA, CLSTR(", expected ',' or ')'\n"));
+					consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
 
 				expr_t* arg = parse_expr(cx, NULL);
 				if (arg_i == arg_count)
-					lt_ferrf("%s:%uz: Too many arguments to '%S', expected %uq\n", cx->path, line_index + 1, func_name, arg_count);
+					ferr("too many arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
 				if (!type_convert_implicit(cx, arg_types[arg_i], &arg))
-					lt_ferrf("%s:%uz: Cannot implicitly convert %S to %S\n", cx->path, line_index + 1,
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
 							type_to_reserved_str(cx->arena, arg->type),
 							type_to_reserved_str(cx->arena, arg_types[arg_i]));
 				*current_arg = arg;
@@ -246,8 +231,8 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 				++arg_i;
 			}
 			if (arg_i != arg_count)
-				lt_ferrf("%s:%uz: Too few arguments to '%S', expected %uq\n", cx->path, line_index + 1, func_name, arg_count);
-			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected ')' after function call\n"));
+				lt_ferrf("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
+			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET" after function call"));
 
 			new->type = new->type->base;
 		}
@@ -261,8 +246,6 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type) {
 
 	operator_t* op = find_pfx_operator(tk.stype);
 	if (op) {
-		usz line_index = tk.line_index;
-
 		consume(cx);
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(op->expr, NULL);
@@ -273,7 +256,7 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type) {
 		switch (op->expr) {
 		case EXPR_DEREFERENCE:
 			if (child->type->stype != TP_PTR)
-				lt_ferrf("%s:%uz: Dereferenced type %S is not a pointer\n", cx->path, line_index + 1,
+				ferr("dereferenced type "A_BOLD"'%S'"A_RESET" is not a pointer", cx->lex, tk,
 						type_to_reserved_str(cx->arena, child->type));
 			new->type = child->type->base;
 			break;

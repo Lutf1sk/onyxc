@@ -3,11 +3,12 @@
 
 #include "tk.h"
 #include "interm.h"
+#include "err.h"
+#include "textattrib.h"
 
 static inline
 tk_t* consume(parse_ctx_t* cx) {
-	if (cx->it >= cx->count)
-		lt_ferrb(CLSTR("Attempted to read more data than available\n"));
+	LT_ASSERT(cx->it < cx->count);
 	return &cx->data[cx->it++];
 }
 
@@ -23,9 +24,9 @@ tk_t* consume_type(parse_ctx_t* cx, tk_stype_t stype, lstr_t err) {
 	tk_t* tk = &cx->data[cx->it];
 
 	if (cx->it >= cx->count)
-		lt_ferrf("%s:%uz: Unexpected end of file%S", cx->path, line_count(cx) + 1, err);
+		ferr("unexpected end of file%S", cx->lex, cx->data[cx->it - 1], err);
 	if (tk->stype != stype)
-		lt_ferrf("%s:%uz: Unexpected '%S'%S", cx->path, tk->line_index + 1, tk->str, err);
+		ferr("unexpected token "A_BOLD"'%S'"A_RESET"%S", cx->lex, *tk, tk->str, err);
 
 	++cx->it;
 	return tk;

@@ -4,6 +4,7 @@ OUT = onyxc
 OBJS = \
 	src/main.o \
 	src/tk.o \
+	src/err.o \
 	src/interm.o \
 	src/gen.o \
 	src/exec.o \

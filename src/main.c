@@ -100,6 +100,10 @@ void print_ival(ival_t ival) {
 	}
 }
 
+#include "err.h"
+
+#include <lt/str.h>
+
 int main(int argc, char** argv) {
 	char* in_path = argv[1];
 
@@ -164,6 +168,7 @@ int main(int argc, char** argv) {
 	parse_cx.path = in_path;
 	parse_cx.arena = parse_arena;
 	parse_cx.symtab = &symtab;
+	parse_cx.lex = &lex_cx;
 	stmt_t* root = parse(&parse_cx);
 
  	stmt_print(lex_arena, root);

@@ -16,6 +16,8 @@ typedef struct parse_ctx {
 	type_t* curr_func_type;
 	symtab_t* symtab;
 	lt_arena_t* arena;
+
+	lex_ctx_t* lex;
 } parse_ctx_t;
 
 typedef

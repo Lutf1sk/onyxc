@@ -18,7 +18,7 @@
 #define POP_SCOPE() (cx->symtab = cx->symtab->parent)
 
 stmt_t* parse_func_body(parse_ctx_t* cx) {
-	consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected compound statement ('{')\n"));
+	consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET));
 
 	PUSH_SCOPE();
 
@@ -50,12 +50,12 @@ stmt_t* parse_func_body(parse_ctx_t* cx) {
 	}
 
 	POP_SCOPE();
-	consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected closing brace\n"));
+	consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
 	return root;
 }
 
 stmt_t* parse_compound(parse_ctx_t* cx) {
-	consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected compound statement ('{')\n"));
+	consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET));
 
 	PUSH_SCOPE();
 
@@ -70,7 +70,7 @@ stmt_t* parse_compound(parse_ctx_t* cx) {
 	}
 
 	POP_SCOPE();
-	consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected closing brace\n"));
+	consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
 	return root;
 }
 
@@ -81,7 +81,7 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 	for (;;) {
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_LET);
-		tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name\n"));
+		tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name"));
 
 		sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
 		*sym = SYM(SYM_VAR, ident_tk->str);
@@ -93,7 +93,7 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 			flags |= SYMFL_GLOBAL;
 
 		if (!symtab_definable(cx->symtab, ident_tk->str))
-			lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
+			ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET"", cx->lex, *ident_tk, ident_tk->str);
 
 		type_t* type = init_type;
 		tk_t* tk = peek(cx, 0);
@@ -105,14 +105,14 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 			new->expr = parse_expr(cx, init_type);
 			if (init_type) {
 				if (!type_convert_implicit(cx, init_type, &new->expr))
-					lt_ferrf("%s:%uz: Cannot implicitly convert %S to %S\n", cx->path, tk->line_index + 1,
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *ident_tk,
 							type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, init_type));
 			}
 			else
 				type = new->expr->type;
 		}
 		else if (!type)
-			lt_ferrf("%s:%uz: 'let' with implicit type must be initialized\n", cx->path, tk->line_index + 1, tk->str);
+			ferr("variable with implicit type must be initialized", cx->lex, *ident_tk);
 
 		sym->expr = new->expr;
 		sym->type = type;
@@ -123,7 +123,7 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 		*it = new;
 		if (peek(cx, 0)->stype != TK_COMMA) {
 			if (type->stype != TP_FUNC)
-				consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after variable definition\n"));
+				consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after variable definition"));
 			return stmt;
 		}
 		consume(cx);
@@ -149,18 +149,16 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		for (;;) {
 			stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 			*new = STMT(STMT_DEF);
-			tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name\n"));
+			tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name"));
 
 			if (!symtab_definable(cx->symtab, ident_tk->str))
-				lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
+				ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET, cx->lex, *ident_tk, ident_tk->str);
 
-			consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected '::' after type name\n"));
+			consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected "A_BOLD"'::'"A_RESET" after type name"));
 
 			type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
 
 			type_t* copied_type = parse_type(cx);
-			if (!copied_type)
-				lt_ferrf("%s:%uz: Expected a type\n", cx->path, peek(cx, 0)->line_index);
 			*type = *copied_type;
 
 			sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
@@ -175,7 +173,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 			*it = new;
 			if (peek(cx, 0)->stype != TK_COMMA) {
 				if (type->stype != TP_STRUCT)
-					consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after type definition\n"));
+					consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after type definition"));
 				return stmt;
 			}
 			consume(cx);
@@ -193,10 +191,10 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		*new = STMT(STMT_RETURN);
 		new->expr = parse_expr(cx, NULL);
 		if (!type_convert_implicit(cx, ret_type, &new->expr))
-			lt_ferrf("%s:%uz: Cannot implicitly convert %S to %S\n", cx->path, tk.line_index + 1,
+			ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, tk,
 					type_to_reserved_str(cx->arena, new->expr->type),
 					type_to_reserved_str(cx->arena, ret_type));
-		consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after 'return'\n"));
+		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after "A_BOLD"'return'"A_RESET));
 		return new;
 	}
 
@@ -209,7 +207,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		new->expr = parse_expr(cx, NULL);
 
 		if (!is_scalar(new->expr->type))
-			lt_ferrf("%s:%uz: Result of 'if' condition must be scalar\n");
+			ferr("result of "A_BOLD"'if'"A_RESET" condition must be scalar", cx->lex, tk);
 
 		new->child = parse_compound(cx);
 
@@ -230,7 +228,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		new->expr = parse_expr(cx, NULL);
 
 		if (!is_scalar(new->expr->type))
-			lt_ferrf("%s:%uz: Result of 'while' condition must be scalar\n");
+			ferr("result of "A_BOLD"'while'"A_RESET" condition must be scalar", cx->lex, tk);
 		new->child = parse_compound(cx);
 		return new;
 	}
@@ -245,22 +243,26 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		expr_t** eit = &new->expr;
 		while (peek(cx, 0)->stype != TK_SEMICOLON) {
 			if (eit != &new->expr)
-				consume_type(cx, TK_COMMA, CLSTR(", expected ',' or ')'\n"));
+				consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"';'"A_RESET", "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
 
 			*eit = parse_expr(cx, NULL);
 			eit = &(*eit)->next;
 		}
-		consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after syscall\n"));
+		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after syscall"));
 		return new;
 	}
+
+	case TK_KW_STRUCT: {
+		return parse_let(cx, parse_type(cx));
+	}	break;
 
 	default:
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 
-		if (tk.stype == TK_IDENTIFIER) {
+		if (tk.stype == TK_IDENTIFIER) { // TODO: This approach does not allow a line to start with a cast
 			sym_t* sym = symtab_find(cx->symtab, tk.str);
 			if (!sym)
-				lt_ferrf("%s:%uz: Use of undeclared identifier '%S'\n", cx->path, tk.line_index + 1, tk.str);
+				ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, cx->lex, tk, tk.str);
 
 			if (sym->stype == SYM_TYPE)
 				return parse_let(cx, parse_type(cx));
@@ -271,11 +273,11 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		*new = STMT(STMT_EXPR);
 		new->expr = parse_expr(cx, NULL);
 
-		consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after expression statement\n"));
+		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after expression"));
 		return new;
 	}
 
 outside_func:
-	lt_ferrf("%s:%uz: '%S' must be inside a function body\n", cx->path, tk.line_index + 1, tk.str);
+	ferr(A_BOLD"'%S'"A_RESET" must be inside a function body", cx->lex, tk, tk.str);
 }
 

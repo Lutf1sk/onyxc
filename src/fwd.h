@@ -1,6 +1,8 @@
 #ifndef FWD_H
 #define FWD_H 1
 
+typedef struct lex_ctx lex_ctx_t;
+
 typedef struct expr expr_t;
 typedef struct stmt stmt_t;
 typedef struct type type_t;

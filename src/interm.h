@@ -110,14 +110,14 @@ struct ival {
 
 typedef
 struct icode {
-	u8 op;
 	ival_t arg1, arg2, arg3;
+	u8 op;
 } icode_t;
 
 lstr_t icode_type_str(icode_type_t type);
 lstr_t icode_size_str(icode_size_t size);
 
-#define ICODE_INIT(op, v1, v2, v3) { (op), (v1), (v2), (v3) }
+#define ICODE_INIT(op, v1, v2, v3) { (v1), (v2), (v3), (op) }
 #define ICODE(op, v1, v2, v3) ((icode_t)ICODE_INIT(op, v1, v2, v3))
 
 #define ICODE0(op) ICODE(op, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0))

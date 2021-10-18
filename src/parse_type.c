@@ -23,25 +23,22 @@ type_t* parse_type(parse_ctx_t* cx) {
 		type_t* struc = lt_arena_reserve(cx->arena, sizeof(type_t));
 		*struc = TYPE(TP_STRUCT, NULL);
 
-		consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected '{' after 'struct' keyword\n"));
+		consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET" after "A_BOLD"'struct'"A_RESET));
 
 		while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
-			tk_t* tk = peek(cx, 0);
 			type_t* new = parse_type(cx);
-			if (!new)
-				lt_ferrf("%s:%uz: Unexpected token '%S', expected member type\n", cx->path, tk->line_index + 1, tk->str);
-			lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name\n"))->str;
-			consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after member name\n"));
+			lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"))->str;
+			consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after member name"));
 
 			type_add_child(struc, new, name, NULL);
 		}
 
-		consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected '}' after struct members\n"));
+		consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET" after struct members"));
 		base = struc;
 	}	break;
 
 	default: unexpected_tk:
-		lt_ferrf("%s:%uz: Unexpected token '%S', expected a valid type\n", cx->path, tk.line_index + 1, tk.str);
+		ferr("unexpected token "A_BOLD"'%S'"A_RESET", expected a valid type", cx->lex, tk, tk.str);
 	}
 
 	for (;;) {
@@ -53,7 +50,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 
 			while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
 				if (func->child_count)
-					consume_type(cx, TK_COMMA, CLSTR(", expected ',' or ')'\n"));
+					consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
 				type_t* new = parse_type(cx);
 
 				lstr_t name = NLSTR();
@@ -63,7 +60,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 				type_add_child(func, new, name, NULL);
 			}
 
-			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected ')'\n"));
+			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET));
 			base = func;
 		}	break;
 
@@ -80,14 +77,14 @@ type_t* parse_type(parse_ctx_t* cx) {
 			if (peek(cx, 0)->stype == TK_RIGHT_BRACKET)
 				*new = TYPE(TP_ARRAY_VIEW, base);
 			else {
-				usz line_index = peek(cx, 0)->line_index;
+				tk_t* tk = peek(cx, 0);
 				expr_t* expr = parse_expr(cx, NULL);
 				if (!is_int_any_sign(expr->type))
-					lt_ferrf("%s:%uz: Array index must be an integer type\n", cx->path, line_index);
+					ferr("array size must be an integer", cx->lex, *tk);
 				*new = TYPE(TP_ARRAY, base);
 			}
 
-			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected ']' after array type\n"));
+			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected "A_BOLD"']'"A_RESET" after array size"));
 			base = new;
 			break;
 		}

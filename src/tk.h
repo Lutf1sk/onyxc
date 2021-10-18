@@ -4,6 +4,7 @@
 #include <lt/lt.h>
 
 #define FOR_EACH_TK() \
+	TK_OP(INVALID) \
 	TK_OP(EOF) \
 	TK_OP(IDENTIFIER) \
 	TK_OP(INT) \

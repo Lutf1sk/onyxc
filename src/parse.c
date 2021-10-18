@@ -62,7 +62,6 @@ stmt_t* parse_initial(parse_ctx_t* cx) {
 	sfx_operators[TK_LEFT_PARENTH]	= (operator_t){ TK_LEFT_PARENTH,	1, EXPR_CALL,			OP_ASSOC_LEFT };
 	sfx_operators[TK_LEFT_BRACKET]	= (operator_t){ TK_LEFT_BRACKET,	1, EXPR_SUBSCRIPT,		OP_ASSOC_LEFT };
 	sfx_operators[TK_DOT]			= (operator_t){ TK_DOT,				1, EXPR_MEMBER,			OP_ASSOC_LEFT };
-	sfx_operators[TK_MINUS_GREATER]	= (operator_t){ TK_MINUS_GREATER,	1, EXPR_CONVERT,		OP_ASSOC_LEFT };
 
 	parse = parse_cached;
 	return parse_cached(cx);
