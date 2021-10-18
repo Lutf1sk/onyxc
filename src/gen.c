@@ -7,6 +7,7 @@
 #include "type.h"
 #include "symtab.h"
 #include "segment.h"
+#include "tk.h"
 
 #include <lt/io.h>
 
@@ -290,7 +291,11 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return expr->sym->ival;
 
 	case EXPR_STRING: {
-		usz offs = new_data_seg(cx, SEG_ENT(expr->str_val, expr->str_val.len, expr->str_val.str));
+		char* data = lt_arena_reserve(cx->arena, 0);
+		usz len = unescape_str(data, LSTR(expr->str_val.str + 1, expr->str_val.len - 2));
+		lt_arena_reserve(cx->arena, len);
+
+		usz offs = new_data_seg(cx, SEG_ENT(expr->str_val, len, data));
 		return IVAL(type_bytes(expr->type), IVAL_DSO, .uint_val = offs);
 	}
 

@@ -55,7 +55,16 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	case TK_CHAR: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &u8_def);
-		new->int_val = tk.str.str[1];
+
+		char* str = lt_arena_reserve(cx->arena, 0);
+		usz len = unescape_str(str, LSTR(tk.str.str + 1, tk.str.len - 2));
+
+		if (len > 1)
+			lt_ferrf("%s:%uz: Multi-character literals are not supported (yet)\n", cx->path, tk.line_index + 1);
+		else if (!len)
+			lt_ferrf("%s:%uz: Character literal cannot have a length of zero\n", cx->path, tk.line_index + 1);
+
+		new->int_val = str[0];
 		return new;
 	}
 

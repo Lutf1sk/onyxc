@@ -218,7 +218,7 @@ int main(int argc, char** argv) {
 
 	exec_ctx_t exec_cx;
 	exec_cx.sp = (u8*)stack;
-	exec_cx.ip = gen_cx.code_seg[1].data;
+	exec_cx.ip = gen_cx.code_seg[2].data;
 	exec_cx.cs = gen_cx.code_seg;
 	exec_cx.ds = gen_cx.data_seg;
 

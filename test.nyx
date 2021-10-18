@@ -1,20 +1,24 @@
 // A comment
 
+let write :: void(u8* str, u64 len) {
+	syscall 1, 1, str, len;
+}
+
 let add :: i64(i64 a, i64 b) {
 	return a + b;
-};
+}
 
 def test :: struct {
 	i64 a;
 	i64 b;
-};
+}
 
 let main :: i32() {
 	test t;
 	t.a = 1;
 	t.b = 2;
 
-	syscall 1, 1, "123", 5;
+	write("asdf\n", 5);
 
 	i32 v = add(t.a, t.b);
 	i32* vp = &v;
@@ -22,5 +26,5 @@ let main :: i32() {
 
 	v = *vp + 6;
 	return v;
-};
+}
 

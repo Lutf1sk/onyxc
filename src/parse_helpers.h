@@ -33,9 +33,11 @@ tk_t* consume_type(parse_ctx_t* cx, tk_stype_t stype, lstr_t err) {
 
 static LT_INLINE
 tk_t* peek(parse_ctx_t* cx, usz offs) {
+	static tk_t eof = TK_INIT(TK_EOF, CLSTR("EOF"), 0);
+
 	offs += cx->it;
 	if (offs >= cx->count)
-		lt_ferrf("%s:%uz: Unexpected end of file\n", cx->path, line_count(cx) + 1);
+		return &eof;
 	return &cx->data[offs];
 }
 

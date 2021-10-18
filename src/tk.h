@@ -4,7 +4,7 @@
 #include <lt/lt.h>
 
 #define FOR_EACH_TK() \
-	TK_OP(TK_MIN) \
+	TK_OP(EOF) \
 	TK_OP(IDENTIFIER) \
 	TK_OP(INT) \
 	TK_OP(UINT) \
@@ -95,5 +95,10 @@ typedef struct tk {
 } tk_t;
 
 lstr_t tk_type_str(tk_stype_t stype);
+
+usz unescape_str(char* out, lstr_t str);
+
+#define TK_INIT(stype, str, line) { (stype), (str), (line) }
+#define TK(stype, str, line) ((tk_t)TK_INIT(stype, str, line))
 
 #endif

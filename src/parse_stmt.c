@@ -115,7 +115,8 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* type) {
 	sym->flags = flags;
 	symtab_insert(cx->symtab, ident_tk->str, sym);
 
-	consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after variable definition\n"));
+	if (type->stype != TP_FUNC)
+		consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after variable definition\n"));
 	return new;
 }
 
@@ -150,8 +151,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		symtab_insert(cx->symtab, ident_tk->str, sym);
 
 		new->sym = sym;
-
-		consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after type definition\n"));
 		new->type = type;
 		return new;
 	}
