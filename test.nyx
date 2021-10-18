@@ -14,6 +14,8 @@ let main :: i32() {
 	t.a = 1;
 	t.b = 2;
 
+	syscall 1, 1, "123", 5;
+
 	i32 v = add(t.a, t.b);
 	i32* vp = &v;
 	*vp = -v;

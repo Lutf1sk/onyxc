@@ -61,7 +61,8 @@
 	ICODE_OP(POP) \
 	\
 	ICODE_OP(ENTER) \
-	ICODE_OP(EXIT)
+	ICODE_OP(EXIT) \
+	ICODE_OP(SYSCALL)
 
 typedef
 enum icode_type {

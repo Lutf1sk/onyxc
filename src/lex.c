@@ -84,6 +84,7 @@ tk_stype_t identifier_type(lstr_t str) {
 	case 's':
 		if (lt_lstr_eq(str, CLSTR("switch"))) return TK_KW_SWITCH;
 		if (lt_lstr_eq(str, CLSTR("struct"))) return TK_KW_STRUCT;
+		if (lt_lstr_eq(str, CLSTR("syscall"))) return TK_KW_SYSCALL;
 		break;
 
 	case 'w':

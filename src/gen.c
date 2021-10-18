@@ -515,13 +515,23 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		FUNC_INSTR(jmp1).arg1.instr = CURR_INSTR();
 	}	break;
 
-	case STMT_COMPOUND:
+	case STMT_COMPOUND: {
 		stmt_t* it = stmt->child;
 		while (it) {
 			icode_gen_stmt(cx, it);
 			it = it->next;
 		}
-		break;
+	}	break;
+
+	case STMT_SYSCALL: {
+		expr_t* it = stmt->expr;
+		usz arg_i = 0;
+		while (it) {
+			emit(cx, ICODE2(IR_SETARG, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i++), icode_gen_expr(cx, it)));
+			it = it->next;
+		}
+		emit(cx, ICODE2(IR_SYSCALL, IVAL(ISZ_64, IVAL_REG, .reg = reg__++), IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i)));
+	}	break;
 
 	case STMT_RETURN: {
 		ival_t val = IVAL(0, 0);

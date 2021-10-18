@@ -3,6 +3,8 @@
 #include "segment.h"
 #include "interm.h"
 
+u64 syscall(u64, ...);
+
 static
 i64 sign_extend(usz to, u64 v) {
 	switch (to) {
@@ -211,6 +213,17 @@ u64 icode_exec(exec_ctx_t* cx) {
 		case IR_CSETGE:	if (val(cx, ip->arg2) >= val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
 		case IR_CSETE:	if (val(cx, ip->arg2) == val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
 		case IR_CSETNE:	if (val(cx, ip->arg2) != val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+
+		case IR_SYSCALL: {
+			usz count = val(cx, ip->arg2), code = -1;
+			switch (count) {
+			case 1: code = syscall(cx->args[0]); break;
+			case 2: code = syscall(cx->args[0], cx->args[1]); break;
+			case 3: code = syscall(cx->args[0], cx->args[1], cx->args[2]); break;
+			case 4: code = syscall(cx->args[0], cx->args[1], cx->args[2], cx->args[3]); break;
+			}
+			mov(cx, ip->arg1, code);
+		}	break;
 
 		case IR_CALL:
 			push64(cx, (u64)(ip + 1));
