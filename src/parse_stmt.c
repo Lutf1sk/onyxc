@@ -74,50 +74,61 @@ stmt_t* parse_compound(parse_ctx_t* cx) {
 	return root;
 }
 
-stmt_t* parse_let(parse_ctx_t* cx, type_t* type) {
-	stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
-	*new = STMT(STMT_LET);
-	tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name\n"));
+stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
+	stmt_t* stmt = NULL;
+	stmt_t** it = &stmt;
 
-	sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
-	*sym = SYM(SYM_VAR, ident_tk->str);
+	for (;;) {
+		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*new = STMT(STMT_LET);
+		tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name\n"));
 
-	new->sym = sym;
+		sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+		*sym = SYM(SYM_VAR, ident_tk->str);
 
-	u8 flags = 0;
-	if (!cx->curr_func_type)
-		flags |= SYMFL_GLOBAL;
+		new->sym = sym;
 
-	if (!symtab_definable(cx->symtab, ident_tk->str))
-		lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
+		u8 flags = 0;
+		if (!cx->curr_func_type)
+			flags |= SYMFL_GLOBAL;
 
-	tk_t* tk = peek(cx, 0);
-	if (tk->stype == TK_DOUBLE_COLON || tk->stype == TK_EQUAL) {
-		consume(cx);
-		if (tk->stype == TK_DOUBLE_COLON)
-			flags |= SYMFL_CONST;
+		if (!symtab_definable(cx->symtab, ident_tk->str))
+			lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
 
-		new->expr = parse_expr(cx, type);
-		if (type) {
-			if (!type_convert_implicit(cx, type, &new->expr))
-				lt_ferrf("%s:%uz: Cannot implicitly convert %S to %S\n", cx->path, tk->line_index + 1,
-						type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, type));
+		type_t* type = init_type;
+		tk_t* tk = peek(cx, 0);
+		if (tk->stype == TK_DOUBLE_COLON || tk->stype == TK_EQUAL) {
+			consume(cx);
+			if (tk->stype == TK_DOUBLE_COLON)
+				flags |= SYMFL_CONST;
+
+			new->expr = parse_expr(cx, init_type);
+			if (init_type) {
+				if (!type_convert_implicit(cx, init_type, &new->expr))
+					lt_ferrf("%s:%uz: Cannot implicitly convert %S to %S\n", cx->path, tk->line_index + 1,
+							type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, init_type));
+			}
+			else
+				type = new->expr->type;
 		}
-		else
-			type = new->expr->type;
+		else if (!type)
+			lt_ferrf("%s:%uz: 'let' with implicit type must be initialized\n", cx->path, tk->line_index + 1, tk->str);
+
+		sym->expr = new->expr;
+		sym->type = type;
+		new->type = type;
+		sym->flags = flags;
+		symtab_insert(cx->symtab, ident_tk->str, sym);
+
+		*it = new;
+		if (peek(cx, 0)->stype != TK_COMMA) {
+			if (type->stype != TP_FUNC)
+				consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after variable definition\n"));
+			return stmt;
+		}
+		consume(cx);
+		it = &new->child;
 	}
-	else if (!type)
-		lt_ferrf("%s:%uz: 'let' with implicit type must be initialized\n", cx->path, tk->line_index + 1, tk->str);
-
-	sym->expr = new->expr;
-	sym->type = type;
-	new->type = type;
-	sym->flags = flags;
-	symtab_insert(cx->symtab, ident_tk->str, sym);
-
-	if (type->stype != TP_FUNC)
-		consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after variable definition\n"));
-	return new;
 }
 
 stmt_t* parse_stmt(parse_ctx_t* cx) {
@@ -133,26 +144,38 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return parse_let(cx, NULL);
 
 	case TK_KW_DEF: consume(cx); {
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
-		*new = STMT(STMT_DEF);
-		tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name\n"));
+		stmt_t* stmt = NULL;
+		stmt_t** it = &stmt;
+		for (;;) {
+			stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+			*new = STMT(STMT_DEF);
+			tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name\n"));
 
-		if (!symtab_definable(cx->symtab, ident_tk->str))
-			lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
+			if (!symtab_definable(cx->symtab, ident_tk->str))
+				lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
 
-		consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected '::' after type name\n"));
-		type_t* type = parse_type(cx);
-		if (!type)
-			lt_ferrf("%s:%uz: Expected a type\n", cx->path, peek(cx, 0)->line_index);
+			consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected '::' after type name\n"));
+			type_t* type = parse_type(cx);
+			if (!type)
+				lt_ferrf("%s:%uz: Expected a type\n", cx->path, peek(cx, 0)->line_index);
 
-		sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
-		*sym = SYM(SYM_TYPE, ident_tk->str);
-		sym->type = type;
-		symtab_insert(cx->symtab, ident_tk->str, sym);
+			sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+			*sym = SYM(SYM_TYPE, ident_tk->str);
+			sym->type = type;
+			symtab_insert(cx->symtab, ident_tk->str, sym);
 
-		new->sym = sym;
-		new->type = type;
-		return new;
+			new->sym = sym;
+			new->type = type;
+
+			*it = new;
+			if (peek(cx, 0)->stype != TK_COMMA) {
+				if (type->stype != TP_STRUCT)
+					consume_type(cx, TK_SEMICOLON, CLSTR(", expected ';' after type definition\n"));
+				return stmt;
+			}
+			consume(cx);
+			it = &new->child;
+		}
 	}
 
 	case TK_KW_RETURN: consume(cx); {

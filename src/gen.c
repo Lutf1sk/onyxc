@@ -131,8 +131,6 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 				return;
 
 			usz sf_offs = cx->code_seg[cx->curr_func].top;
-			cx->code_seg[cx->curr_func].top += size;
-
 			if (!scalar) {
 				emit(cx, ICODE(IR_SRESV, IVAL(ISZ_64, IVAL_IMM, .uint_val = size), IVAL(0, 0), IVAL(0, 0)));
 				val = IVAL(size, IVAL_SFO | IVAL_REF, .uint_val = sf_offs);
@@ -140,10 +138,12 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 					ival_t init = icode_gen_expr(cx, expr);
 					emit(cx, ICODE(IR_COPY, val, init, IVAL(0, 0)));
 				}
+				cx->code_seg[cx->curr_func].top += size;
 			}
 			else if (flags & SYMFL_REFERENCED) {
 				emit(cx, ICODE(stack_op, val, IVAL(0, 0), IVAL(0, 0)));
 				val = IVAL(size, IVAL_SFO | IVAL_REF, .uint_val = sf_offs);
+				cx->code_seg[cx->curr_func].top += size;
 			}
 			else {
 				ival_t dst = IVAL(size, IVAL_REG, .reg = reg__++);
@@ -481,9 +481,13 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	switch (stmt->stype) {
-	case STMT_LET:
-		gen_sym_def(cx, stmt->sym, stmt->expr);
-		break;
+	case STMT_LET: {
+		stmt_t* it = stmt;
+		while (it) {
+			gen_sym_def(cx, it->sym, it->expr);
+			it = it->child;
+		}
+	}	break;
 
 	case STMT_EXPR:
 		icode_gen_expr(cx, stmt->expr);
