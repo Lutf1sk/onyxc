@@ -95,11 +95,13 @@ typedef
 struct ival {
 	u8 size;
 	u8 stype;
+	u8 scale;
+	u32 index;
 	union {
 		usz reg;
-		struct { u32 cso, instr; };
-		u32 dso;
-		u32 sfo;
+		usz cso;
+		usz dso;
+		usz sfo;
 		u64 uint_val;
 		i64 int_val;
 		f64 float_val;
@@ -123,7 +125,7 @@ lstr_t icode_size_str(icode_size_t size);
 #define ICODE2(op, v1, v2) ICODE(op, v1, v2, IVAL(0, 0))
 #define ICODE3(op, v1, v2, v3) ICODE(op, v1, v2, v3)
 
-#define IVAL_INIT(size, flags, ...) {(size), (flags), __VA_ARGS__}
+#define IVAL_INIT(size, flags, ...) {(size), (flags), 0, 0, __VA_ARGS__}
 #define IVAL(size, flags, ...) ((ival_t)IVAL_INIT(size, flags, __VA_ARGS__))
 
 #endif

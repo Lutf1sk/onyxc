@@ -380,7 +380,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		seg_ent_t* cs = &cx->code_seg[cx->curr_func];
 		icode_t* ic = cs->data;
-		ic[jmp1].arg2.instr = cs->size;
+		ic[jmp1].arg2.index = cs->size;
+		ic[jmp1].arg2.scale = sizeof(icode_t);
 		return dst;
 	}
 	case EXPR_LOGIC_OR: {
@@ -393,7 +394,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		seg_ent_t* cs = &cx->code_seg[cx->curr_func];
 		icode_t* ic = cs->data;
-		ic[jmp1].arg2.instr = cs->size;
+		ic[jmp1].arg2.index = cs->size;
+		ic[jmp1].arg2.scale = sizeof(icode_t);
 		return dst;
 	}
 
@@ -468,6 +470,16 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return dst;
 	}
 
+	case EXPR_SUBSCRIPT: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		ival_t dst = IVAL(ISZ_64, IVAL_REG, .reg = reg__++);
+		emit(cx, ICODE2(IR_MOV, dst, a2));
+		emit(cx, ICODE3(IR_IMUL, dst, dst, IVAL(ISZ_64, IVAL_IMM, .uint_val = type_bytes(expr->type))));
+		emit(cx, ICODE3(IR_ADD, dst, dst, a1));
+		dst.stype |= IVAL_REF;
+		return dst;
+	}
+
 	default:
 		break;
 	}
@@ -505,11 +517,13 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		if (stmt->child_2)
 			jmp2 = emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func)));
 
-		FUNC_INSTR(jmp1).arg1.instr = CURR_INSTR();
+		FUNC_INSTR(jmp1).arg1.index = CURR_INSTR();
+		FUNC_INSTR(jmp1).arg1.scale = sizeof(icode_t);
 
 		if (stmt->child_2) {
 			icode_gen_stmt(cx, stmt->child_2);
-			FUNC_INSTR(jmp2).arg1.instr = CURR_INSTR();
+			FUNC_INSTR(jmp2).arg1.index = CURR_INSTR();
+			FUNC_INSTR(jmp2).arg1.scale = sizeof(icode_t);
 		}
 	}	break;
 
@@ -520,8 +534,9 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 
 		icode_gen_stmt(cx, stmt->child);
 
-		emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .instr = eval)));
-		FUNC_INSTR(jmp1).arg1.instr = CURR_INSTR();
+		emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .index = eval, .scale = sizeof(icode_t))));
+		FUNC_INSTR(jmp1).arg1.index = CURR_INSTR();
+		FUNC_INSTR(jmp1).arg1.scale = sizeof(icode_t);
 	}	break;
 
 	case STMT_COMPOUND: {

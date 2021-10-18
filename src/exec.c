@@ -20,27 +20,27 @@ i64 sign_extend(usz to, u64 v) {
 
 static LT_INLINE
 u64 val(exec_ctx_t* cx, ival_t v) {
-	void* ptr;
+	u8* ptr;
 
 	switch (v.stype) {
 	case IVAL_REG: return cx->regs[v.reg];
 	case IVAL_IMM: return v.uint_val;
-	case IVAL_DSO: return (usz)cx->ds[v.dso].data;
-	case IVAL_CSO: return (usz)cx->cs[v.cso].data + v.instr * sizeof(icode_t);
-	case IVAL_SFO: return (usz)cx->bp + v.sfo;
+	case IVAL_DSO: return (usz)cx->ds[v.dso].data + v.index * v.scale;
+	case IVAL_CSO: return (usz)cx->cs[v.cso].data + v.index * v.scale;
+	case IVAL_SFO: return (usz)cx->bp + v.sfo + v.index * v.scale;
 
-	case IVAL_REG | IVAL_REF: ptr = (void*)cx->regs[v.reg]; break;
-	case IVAL_IMM | IVAL_REF: ptr = (void*)v.uint_val; break;
-	case IVAL_DSO | IVAL_REF: ptr = (void*)cx->ds[v.dso].data; break;
-	case IVAL_CSO | IVAL_REF: ptr = (void*)((usz)cx->cs[v.cso].data + v.instr * sizeof(icode_t)); break;
-	case IVAL_SFO | IVAL_REF: ptr = (void*)((usz)cx->bp + v.sfo); break;
+	case IVAL_REG | IVAL_REF: ptr = (u8*)cx->regs[v.reg]; break;
+	case IVAL_IMM | IVAL_REF: ptr = (u8*)v.uint_val; break;
+	case IVAL_DSO | IVAL_REF: ptr = (u8*)cx->ds[v.dso].data; break;
+	case IVAL_CSO | IVAL_REF: ptr = (u8*)((usz)cx->cs[v.cso].data); break;
+	case IVAL_SFO | IVAL_REF: ptr = (u8*)((usz)cx->bp + v.sfo); break;
 	}
 
 	switch (v.size) {
-	case 1: return *(u8*)ptr;
-	case 2: return *(u16*)ptr;
-	case 4: return *(u32*)ptr;
-	case 8: return *(u64*)ptr;
+	case 1: return *(u8*)(ptr + v.index * v.scale);
+	case 2: return *(u16*)(ptr + v.index * v.scale);
+	case 4: return *(u32*)(ptr + v.index * v.scale);
+	case 8: return *(u64*)(ptr + v.index * v.scale);
 	}
 
 	LT_ASSERT_NOT_REACHED();

@@ -88,15 +88,15 @@ void print_ival(ival_t ival) {
 	switch (ival.stype) {
 	case IVAL_REG: lt_printf("r%iq ", ival.reg); break;
 	case IVAL_IMM: lt_printf("%iq ", ival.uint_val); break;
-	case IVAL_DSO: lt_printf("ds'%iq ", ival.dso); break;
-	case IVAL_CSO: lt_printf("cs'%id+%id ", ival.cso, ival.instr); break;
-	case IVAL_SFO: lt_printf("sf'%iq ", ival.sfo); break;
+	case IVAL_DSO: lt_printf("ds'%iq+%id*%ib ", ival.dso, ival.index, ival.scale); break;
+	case IVAL_CSO: lt_printf("cs'%iq+%id*%ib ", ival.cso, ival.index, ival.scale); break;
+	case IVAL_SFO: lt_printf("sf'%iq+%id*%ib ", ival.sfo, ival.index, ival.scale); break;
 
-	case IVAL_REG | IVAL_REF: lt_printf("[r%iq] ", ival.reg); break;
-	case IVAL_IMM | IVAL_REF: lt_printf("[%iq] ", ival.uint_val); break;
-	case IVAL_DSO | IVAL_REF: lt_printf("[ds'%iq] ", ival.dso); break;
-	case IVAL_CSO | IVAL_REF: lt_printf("[cs'%id+%id] ", ival.cso, ival.instr); break;
-	case IVAL_SFO | IVAL_REF: lt_printf("[sf'%iq] ", ival.sfo); break;
+	case IVAL_REG | IVAL_REF: lt_printf("[r%iq+%id*%ib] ", ival.reg, ival.index, ival.scale); break;
+	case IVAL_IMM | IVAL_REF: lt_printf("[%iq+%id*%ib] ", ival.uint_val, ival.index, ival.scale); break;
+	case IVAL_DSO | IVAL_REF: lt_printf("[ds'%iq+%id*%ib] ", ival.dso, ival.index, ival.scale); break;
+	case IVAL_CSO | IVAL_REF: lt_printf("[cs'%iq+%id*%ib] ", ival.cso, ival.index, ival.scale); break;
+	case IVAL_SFO | IVAL_REF: lt_printf("[sf'%iq+%id*%ib] ", ival.sfo, ival.index, ival.scale); break;
 	}
 }
 
@@ -218,7 +218,7 @@ int main(int argc, char** argv) {
 
 	exec_ctx_t exec_cx;
 	exec_cx.sp = (u8*)stack;
-	exec_cx.ip = gen_cx.code_seg[2].data;
+	exec_cx.ip = gen_cx.code_seg[1].data;
 	exec_cx.cs = gen_cx.code_seg;
 	exec_cx.ds = gen_cx.data_seg;
 

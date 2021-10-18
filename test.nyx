@@ -1,29 +1,17 @@
-// A comment
 
 def usz :: u64,
 	isz :: i64;
 
 let print :: void(u8* str, usz len) {
+	struct { u32 i; i64 j; } var;
+
+	var.j = 1;
 	syscall 1, 1, str, len;
 }
 
-let add :: i64(i64 a, i64 b) {
-	return a + b;
-}
-
-def struc :: struct {
-	usz i;
-	isz j;
-}
-
-let nl = '\n';
-
 let main :: i32() {
-	usz a = u32: 1, b = u32: 2;
+	print("Test\n", usz: 5);
 
-	print("Test\n", usz: 5, 1);
-	print(&nl, usz: 1);
-
-	return a + b;
+	return 0;
 }
 
