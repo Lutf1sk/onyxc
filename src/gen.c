@@ -265,6 +265,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		isz old_func = cx->curr_func, new_func = new_code_seg(cx);
 		cx->curr_func = new_func;
 
+		emit(cx, ICODE(IR_ENTER, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
 		sym_t** args = expr->type->child_syms;
 		usz arg_count = expr->type->child_count;
 		for (usz i = 0; i < arg_count; ++i) {
@@ -274,7 +275,6 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			gen_sym_def(cx, sym, NULL);
 			emit(cx, ICODE(IR_GETARG, sym->ival, IVAL(ISZ_64, IVAL_IMM, .uint_val = i), IVAL(0, 0)));
 		}
-		emit(cx, ICODE(IR_ENTER, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
 		icode_gen_stmt(cx, expr->stmt);
 		emit(cx, ICODE(IR_RET, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
 

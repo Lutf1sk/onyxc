@@ -1,6 +1,9 @@
 // A comment
 
-let write :: void(u8* str, u64 len) {
+def usz :: u64
+def isz :: i64
+
+let print :: void(u8* str, usz len) {
 	syscall 1, 1, str, len;
 }
 
@@ -8,23 +11,10 @@ let add :: i64(i64 a, i64 b) {
 	return a + b;
 }
 
-def test :: struct {
-	i64 a;
-	i64 b;
-}
+def struc :: struct {usz i; usz j;}
 
 let main :: i32() {
-	test t;
-	t.a = 1;
-	t.b = 2;
-
-	write("asdf\n", 5);
-
-	i32 v = add(t.a, t.b);
-	i32* vp = &v;
-	*vp = -v;
-
-	v = *vp + 6;
-	return v;
+	print("asdf\n", 5);
+	return 0;
 }
 
