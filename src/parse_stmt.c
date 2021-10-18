@@ -155,15 +155,20 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 				lt_ferrf("%s:%uz: Invalid redefinition of '%S'\n", cx->path, ident_tk->line_index + 1, ident_tk->str);
 
 			consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected '::' after type name\n"));
-			type_t* type = parse_type(cx);
-			if (!type)
+
+			type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
+
+			type_t* copied_type = parse_type(cx);
+			if (!copied_type)
 				lt_ferrf("%s:%uz: Expected a type\n", cx->path, peek(cx, 0)->line_index);
+			*type = *copied_type;
 
 			sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
 			*sym = SYM(SYM_TYPE, ident_tk->str);
 			sym->type = type;
 			symtab_insert(cx->symtab, ident_tk->str, sym);
 
+			type->sym = sym;
 			new->sym = sym;
 			new->type = type;
 

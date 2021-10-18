@@ -226,13 +226,17 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 			type_t** arg_types = new->child_1->type->children;
 			usz arg_i = 0, arg_count = new->child_1->type->child_count;
 
+			lstr_t func_name = CLSTR("function");
+			if (new->child_1->stype == EXPR_SYM)
+				func_name = new->child_1->sym->name;
+
 			while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
 				if (current_arg != &new->child_2)
 					consume_type(cx, TK_COMMA, CLSTR(", expected ',' or ')'\n"));
 
 				expr_t* arg = parse_expr(cx, NULL);
 				if (arg_i == arg_count)
-					lt_ferrf("%s:%uz: Too many arguments to function, expected %uq\n", cx->path, line_index + 1, arg_count);
+					lt_ferrf("%s:%uz: Too many arguments to '%S', expected %uq\n", cx->path, line_index + 1, func_name, arg_count);
 				if (!type_convert_implicit(cx, arg_types[arg_i], &arg))
 					lt_ferrf("%s:%uz: Cannot implicitly convert %S to %S\n", cx->path, line_index + 1,
 							type_to_reserved_str(cx->arena, arg->type),
@@ -242,7 +246,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 				++arg_i;
 			}
 			if (arg_i != arg_count)
-				lt_ferrf("%s:%uz: Too few arguments to function, expected %uq\n", cx->path, line_index + 1, arg_count);
+				lt_ferrf("%s:%uz: Too few arguments to '%S', expected %uq\n", cx->path, line_index + 1, func_name, arg_count);
 			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected ')' after function call\n"));
 
 			new->type = new->type->base;

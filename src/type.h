@@ -27,10 +27,11 @@ typedef struct type {
 	type_t** children;
 	lstr_t* child_names;
 	sym_t** child_syms;
+	sym_t* sym;
 	struct type* base;
 } type_t;
 
-#define TYPE_INIT(stype, base) { (stype), 0, NULL, NULL, NULL, (base) }
+#define TYPE_INIT(stype, base) { (stype), 0, NULL, NULL, NULL, NULL, (base) }
 #define TYPE(stype, base) ((type_t)TYPE_INIT(stype, base))
 
 b8 type_eq(type_t* t1, type_t* t2);

@@ -19,9 +19,10 @@ def struc :: struct {
 let nl = '\n';
 
 let main :: i32() {
-	let a = 1, b = 2;
+	usz a = u32: 1, b = u32: 2;
 
-	print("Test\n", usz: 5);
+	print("Test\n", usz: 5, 1);
+	print(&nl, usz: 1);
 
 	return a + b;
 }

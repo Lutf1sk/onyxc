@@ -1,4 +1,5 @@
 #include "type.h"
+#include "symtab.h"
 
 #include <lt/mem.h>
 
@@ -51,6 +52,11 @@ isz type_to_str(char* out_str, type_t* type) {
 	char* it = out_str;
 
 	lstr_t str = NLSTR();
+
+	if (type->sym) {
+		str = type->sym->name;
+		goto write;
+	}
 
 	switch (type->stype) {
 	case TP_VOID: str = CLSTR("void"); goto write;
