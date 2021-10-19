@@ -31,10 +31,11 @@ usz emit(gen_ctx_t* cx, icode_t instr) {
 }
 
 static
-usz new_code_seg(gen_ctx_t* cx) {
+usz new_code_seg(gen_ctx_t* cx, type_t* type) {
 	if (!(cx->code_seg_count & SEGMENT_BLOCK_MASK))
 		cx->code_seg = realloc(cx->code_seg, (cx->code_seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
 	memset(&cx->code_seg[cx->code_seg_count], 0, sizeof(seg_ent_t));
+	cx->code_seg[cx->code_seg_count].type = type;
 	return cx->code_seg_count++;
 }
 
@@ -262,18 +263,19 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_LAMBDA:
-		isz old_func = cx->curr_func, new_func = new_code_seg(cx);
+		isz old_func = cx->curr_func, new_func = new_code_seg(cx, expr->type);
 		cx->curr_func = new_func;
 
 		emit(cx, ICODE(IR_ENTER, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
 		sym_t** args = expr->type->child_syms;
-		usz arg_count = expr->type->child_count;
-		for (usz i = 0; i < arg_count; ++i) {
+		isz arg_count = expr->type->child_count;
+		usz stack_size = 0;
+		for (isz i = arg_count - 1; i >= 0; stack_size += type_bytes(expr->type->children[i--])) {
 			sym_t* sym = args[i];
 			if (!sym || !(sym->flags & SYMFL_ACCESSED))
 				continue;
 			gen_sym_def(cx, sym, NULL);
-			emit(cx, ICODE(IR_GETARG, sym->ival, IVAL(ISZ_64, IVAL_IMM, .uint_val = i), IVAL(0, 0)));
+			emit(cx, ICODE2(IR_GETARG, sym->ival, IVAL(ISZ_64, IVAL_IMM, .uint_val = stack_size)));
 		}
 		icode_gen_stmt(cx, expr->stmt);
 		emit(cx, ICODE(IR_RET, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
@@ -356,11 +358,13 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_CALL: {
 		usz arg_i = 0;
 		expr_t* it = expr->child_2;
+		usz stack_size = 0;
 		while (it) {
 			emit(cx, ICODE2(IR_SETARG, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i++), icode_gen_expr(cx, it)));
+			stack_size += type_bytes(it->type);
 			it = it->next;
 		}
-		emit(cx, ICODE1(IR_CALL, icode_gen_expr(cx, expr->child_1)));
+		emit(cx, ICODE2(IR_CALL, icode_gen_expr(cx, expr->child_1), IVAL(ISZ_64, IVAL_IMM, .uint_val = stack_size)));
 
 		if (expr->type->stype == TP_VOID)
 			return IVAL(0, 0);

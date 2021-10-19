@@ -2,17 +2,35 @@
 def usz :: u64,
 	isz :: i64;
 
-def astruct :: struct {
-	i32 a;
+def mprint :: struct {
+	u8* str1;
+	u8* str2;
+	u8* str3;
+	u8* str4;
+	usz len1;
+	usz len2;
+	usz len3;
+	usz len4;
 }
 
-let print :: void(u8* str, usz len) {
-	syscall 1, 1, str, len;
+let print4 :: i32(mprint* mp) {
+	syscall 1, 1, mp.str1, mp.len1;
+	syscall 1, 1, mp.str2, mp.len2;
+	syscall 1, 1, mp.str3, mp.len3;
+	syscall 1, 1, mp.str4, mp.len4;
 }
 
 let main :: i32() {
-	astruct t;
-	print("Test\n", usz: 5);
+	mprint mp;
+	mp.str1 = "1\n";
+	mp.str2 = "22\n";
+	mp.str3 = "333\n";
+	mp.str4 = "4444\n";
+	mp.len1 = usz: 2;
+	mp.len2 = usz: 3;
+	mp.len3 = usz: 4;
+	mp.len4 = usz: 5;
+	print4(&mp);
 	return 0;
 }
 

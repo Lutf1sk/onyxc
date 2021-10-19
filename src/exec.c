@@ -3,6 +3,9 @@
 #include "segment.h"
 #include "interm.h"
 
+#include <lt/mem.h>
+#include <lt/io.h>
+
 u64 syscall(u64, ...);
 
 static
@@ -18,7 +21,7 @@ i64 sign_extend(usz to, u64 v) {
 	return 0;
 }
 
-static LT_INLINE
+static
 u64 val(exec_ctx_t* cx, ival_t v) {
 	u8* ptr;
 
@@ -43,24 +46,37 @@ u64 val(exec_ctx_t* cx, ival_t v) {
 	case 8: return *(u64*)(ptr + v.index * v.scale);
 	}
 
+	*(u8*)0 = 'f';
 	LT_ASSERT_NOT_REACHED();
 	return 0;
 }
 
+static
+void* ref(exec_ctx_t* cx, ival_t v) {
+	switch (v.stype) {
+	case IVAL_REG: return &cx->regs[v.reg];
+	case IVAL_REG | IVAL_REF: return (u8*)cx->regs[v.reg] + v.index * v.scale; break;
+	case IVAL_IMM | IVAL_REF: return (u8*)v.uint_val + v.index * v.scale; break;
+	case IVAL_DSO | IVAL_REF: return (u8*)cx->ds[v.dso].data + v.index * v.scale; break;
+	case IVAL_CSO | IVAL_REF: return (u8*)cx->cs[v.cso].data + v.index * v.scale; break;
+	case IVAL_SFO | IVAL_REF: return (u8*)cx->bp + v.sfo + v.index * v.scale; break;
+	default:
+		LT_ASSERT_NOT_REACHED();
+		return NULL;
+	}
+}
+
 static LT_INLINE
 void mov(exec_ctx_t* cx, ival_t dst, u64 v) {
-	if (dst.stype & IVAL_REF) {
-		dst.stype &= ~IVAL_REF;
-		dst.size = 8;
-		switch (dst.size) {
-		case 1: *(u8*)val(cx, dst) = v; break;
-		case 2: *(u16*)val(cx, dst) = v; break;
-		case 4: *(u32*)val(cx, dst) = v; break;
-		case 8: *(u64*)val(cx, dst) = v; break;
-		}
-		return;
+	void* dst_ptr = ref(cx, dst);
+
+	switch (dst.size) {
+	case 1: *(u8*)dst_ptr = v; break;
+	case 2: *(u16*)dst_ptr = v; break;
+	case 4: *(u32*)dst_ptr = v; break;
+	case 8: *(u64*)dst_ptr = v; break;
 	}
-	cx->regs[dst.reg] = v;
+	return;
 }
 
 static LT_INLINE
@@ -68,22 +84,10 @@ u64 pop64(exec_ctx_t* cx) {
 	return *(u64*)(cx->sp -= 8);
 }
 
-static LT_INLINE
-void push8(exec_ctx_t* cx, u8 val) {
-	*(u8*)cx->sp = val;
-	cx->sp += 1;
-}
-
-static LT_INLINE
-void push16(exec_ctx_t* cx, u16 val) {
-	*(u16*)cx->sp = val;
-	cx->sp += 2;
-}
-
-static LT_INLINE
-void push32(exec_ctx_t* cx, u32 val) {
-	*(u32*)cx->sp = val;
-	cx->sp += 4;
+static
+void pop(exec_ctx_t* cx, ival_t dst) {
+	void* dst_ptr = ref(cx, dst);
+	memcpy(dst_ptr, cx->sp -= dst.size, dst.size);
 }
 
 static LT_INLINE
@@ -94,12 +98,14 @@ void push64(exec_ctx_t* cx, u64 val) {
 
 static
 void push(exec_ctx_t* cx, ival_t ival) {
-	switch (ival.size) {
-	case 1: push8(cx, val(cx, ival)); break;
-	case 2: push16(cx, val(cx, ival)); break;
-	case 4: push32(cx, val(cx, ival)); break;
-	case 8: push64(cx, val(cx, ival)); break;
-	}
+	u64 v = 0;
+	void* ptr = &v;
+	if (ival.stype & IVAL_REF || ival.stype == IVAL_REG)
+		ptr = ref(cx, ival);
+	else
+		v = val(cx, ival);
+	memcpy(cx->sp, ptr, ival.size);
+	cx->sp += ival.size;
 }
 
 u64 icode_exec(exec_ctx_t* cx) {
@@ -171,24 +177,26 @@ u64 icode_exec(exec_ctx_t* cx) {
 			cx->bp = cx->sp;
 			break;
 
-		case IR_GETARG:
-			mov(cx, ip->arg1, cx->args[ip->arg2.uint_val]);
-			break;
+		case IR_GETARG: {
+			void* dst = ref(cx, ip->arg1);
+			void* src = cx->bp - (val(cx, ip->arg2) + 16 + ip->arg1.size);
+			memcpy(dst, src, ip->arg1.size);
+		}	break;
 
 		case IR_SETARG:
-			cx->args[ip->arg1.uint_val] = val(cx, ip->arg2);
+			push(cx, ip->arg2);
 			break;
 
 		case IR_RET:
 			if (ip->arg1.stype != IVAL_INVAL)
-				cx->retval = val(cx, ip->arg1);
+				val(cx, ip->arg1); // !!
 			cx->sp = cx->bp;
 			cx->bp = (u8*)pop64(cx);
-			ip = (icode_t*)pop64(cx);
-			continue;
+			cx->ip = (icode_t*)pop64(cx);
+			return 0;
 
 		case IR_RETVAL:
-			mov(cx, ip->arg1, cx->retval);
+			mov(cx, ip->arg1, 1); // !!
 			break;
 
 		case IR_CJMPZ:
@@ -216,17 +224,37 @@ u64 icode_exec(exec_ctx_t* cx) {
 
 		case IR_SYSCALL: {
 			usz count = val(cx, ip->arg2), code = -1;
+			u64 a1, a2, a3, a4;
 			switch (count) {
-			case 1: code = syscall(cx->args[0]); break;
-			case 2: code = syscall(cx->args[0], cx->args[1]); break;
-			case 3: code = syscall(cx->args[0], cx->args[1], cx->args[2]); break;
-			case 4: code = syscall(cx->args[0], cx->args[1], cx->args[2], cx->args[3]); break;
+			case 1:
+				a1 = pop64(cx);
+				code = syscall(a1);
+				break;
+			case 2:
+				a2 = pop64(cx), a1 = pop64(cx);
+				code = syscall(a1, a2);
+				break;
+			case 3:
+				a3 = pop64(cx), a2 = pop64(cx), a1 = pop64(cx);
+				code = syscall(a1, a2, a3);
+				break;
+			case 4:
+				a4 = pop64(cx), a3 = pop64(cx), a2 = pop64(cx), a1 = pop64(cx);
+				code = syscall(a1, a2, a3, a4);
+				break;
 			}
 			mov(cx, ip->arg1, code);
 		}	break;
 
-		case IR_CALL:
-			push64(cx, (u64)(ip + 1));
+		case IR_CALL: {
+			push64(cx, (u64)ip);
+			cx->ip = (icode_t*)val(cx, ip->arg1);
+			usz stack_pop = val(cx, ip->arg2);
+			icode_exec(cx);
+			ip = cx->ip;
+			cx->sp -= stack_pop;
+		}	break;
+
 		case IR_JMP:
 			ip = (icode_t*)val(cx, ip->arg1);
 			continue;

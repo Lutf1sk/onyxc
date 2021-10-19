@@ -100,10 +100,6 @@ void print_ival(ival_t ival) {
 	}
 }
 
-#include "err.h"
-
-#include <lt/str.h>
-
 int main(int argc, char** argv) {
 	char* in_path = argv[1];
 
@@ -171,6 +167,7 @@ int main(int argc, char** argv) {
 	parse_cx.lex = &lex_cx;
 	stmt_t* root = parse(&parse_cx);
 
+	// Print AST
  	stmt_print(lex_arena, root);
 
 	// Generate intermediate code
@@ -184,6 +181,7 @@ int main(int argc, char** argv) {
 
 	icode_gen(&gen_cx, root);
 
+	// Print intermediate code
 	for (usz i = 0; i < gen_cx.code_seg_count; ++i) {
 		icode_t* icode = gen_cx.code_seg[i].data;
 		usz icode_count = gen_cx.code_seg[i].size;
@@ -208,6 +206,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
+	// Print data segments
 	for (usz i = 0; i < gen_cx.data_seg_count; ++i) {
 		seg_ent_t* seg = &gen_cx.data_seg[i];
 		lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
@@ -215,8 +214,8 @@ int main(int argc, char** argv) {
 
 	// Execute intermediate code
 	icode_t exit_wrapper[2] = {
-		ICODE(IR_RETVAL, IVAL(ISZ_64, IVAL_REG, .reg = 0), IVAL(0, 0), IVAL(0, 0)),
-		ICODE(IR_EXIT, IVAL(ISZ_64, IVAL_REG, .reg = 0), IVAL(0, 0), IVAL(0, 0)),
+		ICODE1(IR_RETVAL, IVAL(ISZ_64, IVAL_REG, .reg = 0)),
+		ICODE1(IR_EXIT, IVAL(ISZ_64, IVAL_REG, .reg = 0)),
 	};
 	u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
 	*(stack++) = (u64)&exit_wrapper;

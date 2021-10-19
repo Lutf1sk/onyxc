@@ -231,7 +231,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 				++arg_i;
 			}
 			if (arg_i != arg_count)
-				lt_ferrf("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
+				ferr("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
 			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET" after function call"));
 
 			new->type = new->type->base;
