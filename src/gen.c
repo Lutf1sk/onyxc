@@ -117,23 +117,16 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 			sym->ival = IVAL(size, IVAL_DSO | IVAL_REF, .uint_val = offs);
 		}
 		else {
-			usz size = type_bytes(sym->type);
-			ival_t val = IVAL(ISZ_64, IVAL_IMM, .uint_val = size);
-			u8 stack_op = IR_SRESV;
 			u8 flags = sym->flags;
-			b8 scalar = is_scalar(sym->type);
-
-			if (expr && scalar) {
-				val = icode_gen_expr(cx, expr);
-				stack_op = IR_PUSH;
-			}
-
 			if (!(flags & SYMFL_ACCESSED))
 				return;
 
+			usz size = type_bytes(sym->type);
+			ival_t val;
+			b8 scalar = is_scalar(sym->type);
+
 			usz sf_offs = cx->code_seg[cx->curr_func].top;
 			if (!scalar) {
-				emit(cx, ICODE(IR_SRESV, IVAL(ISZ_64, IVAL_IMM, .uint_val = size), IVAL(0, 0), IVAL(0, 0)));
 				val = IVAL(size, IVAL_SFO | IVAL_REF, .uint_val = sf_offs);
 				if (expr) {
 					ival_t init = icode_gen_expr(cx, expr);
@@ -142,14 +135,14 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 				cx->code_seg[cx->curr_func].top += size;
 			}
 			else if (flags & SYMFL_REFERENCED) {
-				emit(cx, ICODE(stack_op, val, IVAL(0, 0), IVAL(0, 0)));
 				val = IVAL(size, IVAL_SFO | IVAL_REF, .uint_val = sf_offs);
+				emit(cx, ICODE2(IR_MOV, val, icode_gen_expr(cx, expr)));
 				cx->code_seg[cx->curr_func].top += size;
 			}
 			else {
 				ival_t dst = IVAL(size, IVAL_REG, .reg = reg__++);
 				if (expr)
-					emit(cx, ICODE(IR_MOV, dst, val, IVAL(0, 0)));
+					emit(cx, ICODE(IR_MOV, dst, icode_gen_expr(cx, expr), IVAL(0, 0)));
 				val = dst;
 			}
 
@@ -176,6 +169,9 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 	emit(cx, ICODE((icode), dst, a1, IVAL(0, 0))); \
 	return dst; \
 }
+
+#define FUNC_INSTR(x) (((icode_t*)cx->code_seg[cx->curr_func].data)[(x)])
+#define CURR_INSTR() (cx->code_seg[cx->curr_func].size)
 
 ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	switch (expr->stype) {
@@ -266,7 +262,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		isz old_func = cx->curr_func, new_func = new_code_seg(cx, expr->type);
 		cx->curr_func = new_func;
 
-		emit(cx, ICODE(IR_ENTER, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
+		usz enter = emit(cx, ICODE1(IR_ENTER, IVAL(ISZ_64, IVAL_IMM, .uint_val = 0)));
 		sym_t** args = expr->type->child_syms;
 		isz arg_count = expr->type->child_count;
 		usz stack_size = 0;
@@ -278,7 +274,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			emit(cx, ICODE2(IR_GETARG, sym->ival, IVAL(ISZ_64, IVAL_IMM, .uint_val = stack_size)));
 		}
 		icode_gen_stmt(cx, expr->stmt);
-		emit(cx, ICODE(IR_RET, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0)));
+		emit(cx, ICODE0(IR_RET));
+		FUNC_INSTR(enter).arg1.uint_val = cx->code_seg[new_func].top;
 
 		cx->curr_func = old_func;
 		return IVAL(type_bytes(expr->type), IVAL_CSO, .uint_val = new_func);
@@ -491,9 +488,6 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	LT_ASSERT_NOT_REACHED();
 	return IVAL(0, 0);
 }
-
-#define FUNC_INSTR(x) (((icode_t*)cx->code_seg[cx->curr_func].data)[(x)])
-#define CURR_INSTR() (cx->code_seg[cx->curr_func].size)
 
 void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	switch (stmt->stype) {

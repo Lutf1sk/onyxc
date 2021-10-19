@@ -190,6 +190,7 @@ usz type_bytes(type_t* type) {
 
 	case TP_ARRAY_VIEW:
 		return 16;
+
 	case TP_ARRAY:
 		break;
 

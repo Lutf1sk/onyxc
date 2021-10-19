@@ -46,7 +46,6 @@ u64 val(exec_ctx_t* cx, ival_t v) {
 	case 8: return *(u64*)(ptr + v.index * v.scale);
 	}
 
-	*(u8*)0 = 'f';
 	LT_ASSERT_NOT_REACHED();
 	return 0;
 }
@@ -175,6 +174,7 @@ u64 icode_exec(exec_ctx_t* cx) {
 		case IR_ENTER:
 			push64(cx, (u64)cx->bp);
 			cx->bp = cx->sp;
+			cx->sp += val(cx, ip->arg1);
 			break;
 
 		case IR_GETARG: {
