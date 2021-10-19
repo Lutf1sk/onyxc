@@ -1,6 +1,8 @@
 #include "type.h"
 #include "expr_ast.h"
 #include "parse.h"
+#include "textattrib.h"
+#include "err.h"
 
 b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	expr_t* old = *expr;
@@ -17,6 +19,14 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	{
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_CONVERT, type);
+		new->child_1 = old;
+		*expr = new;
+		return 1;
+	}
+
+	if (type->stype == TP_ARRAY_VIEW && old->type->stype == TP_ARRAY && type_eq(type->base, old->type->base)) {
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_VIEW, type);
 		new->child_1 = old;
 		*expr = new;
 		return 1;
@@ -44,17 +54,28 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		return 1;
 	}
 
+	if (type->stype == TP_ARRAY_VIEW && old->type->stype == TP_ARRAY_VIEW)
+		return 1;
+
+	if (type->stype == TP_ARRAY_VIEW && old->type->stype == TP_ARRAY) {
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_VIEW, type);
+		new->child_1 = old;
+		*expr = new;
+		return 1;
+	}
+
 	return 0;
 }
 
-void type_make_compatible(parse_ctx_t* cx, usz line_index, int stype, expr_t** left, expr_t** right) {
+void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, expr_t** right) {
 	type_t* from = NULL;
 	type_t* to = NULL;
 
 	switch (stype) {
 	case EXPR_LOGIC_AND: case EXPR_LOGIC_OR:
 		if (!is_scalar((*left)->type) || !is_scalar((*right)->type))
-			lt_ferrf("%s:%uz: Operands to logical operator must be scalar\n");
+			ferr("operands to logical operator must be scalar", cx->lex, *tk);
 		return;
 
 	case EXPR_BIT_SHIFT_LEFT: case EXPR_BIT_SHIFT_RIGHT:
@@ -98,15 +119,17 @@ void type_make_compatible(parse_ctx_t* cx, usz line_index, int stype, expr_t** l
 	case EXPR_BIT_AND:
 	case EXPR_BIT_OR:
 	case EXPR_BIT_XOR:
+		if (!is_int_any_sign((*left)->type) || !is_int_any_sign((*right)->type))
+			ferr("bitwise operator must have integer operands", cx->lex, *tk);
 		if (!type_eq((*left)->type, (*right)->type))
-			lt_ferrf("%s:%uz: Bitwise operator must have operands of same type\n", cx->path, line_index + 1);
+			ferr("bitwise operator must have operands of same type", cx->lex, *tk);
 		return;
 	}
 
 	return;
 
 implicit_err:
-	lt_ferrf("%s:%uz: Cannot implicitly convert %S to %S\n", cx->path, line_index + 1,
+	ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
 			type_to_reserved_str(cx->arena, from), type_to_reserved_str(cx->arena, to));
 }
 

@@ -2,6 +2,7 @@
 #include "symtab.h"
 
 #include <lt/mem.h>
+#include <lt/io.h>
 
 b8 type_eq(type_t* t1, type_t* t2) {
 	if (t1->stype != t2->stype)
@@ -83,9 +84,9 @@ isz type_to_str(char* out_str, type_t* type) {
 		return (it - out_str) + str.len;
 
 	case TP_ARRAY:
-		it += type_to_str(it, type->base); 
-		str = CLSTR("[]");
-		goto write;
+		it += type_to_str(it, type->base);
+		it += lt_str_printf(it, "[%uz]", type->child_count);
+		return it - out_str;
 
 	case TP_ARRAY_VIEW:
 		it += type_to_str(it, type->base);
@@ -192,7 +193,7 @@ usz type_bytes(type_t* type) {
 		return 16;
 
 	case TP_ARRAY:
-		break;
+		return type_bytes(type->base) * type->child_count;
 
 	case TP_STRUCT: {
 		usz size = 0;

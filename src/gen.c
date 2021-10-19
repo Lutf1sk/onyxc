@@ -1,5 +1,3 @@
-#include <lt/mem.h>
-
 #include "interm.h"
 #include "gen.h"
 #include "stmt_ast.h"
@@ -10,6 +8,8 @@
 #include "tk.h"
 
 #include <lt/io.h>
+#include <lt/mem.h>
+#include <lt/align.h>
 
 #define ICODE_BLOCK_SIZE 1024
 #define ICODE_BLOCK_MASK (ICODE_BLOCK_SIZE-1)
@@ -251,10 +251,13 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		GENERIC_EXPR_UNARY(IR_NOT, ~);
 
 	case EXPR_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		ival_t a2 = icode_gen_expr(cx, expr->child_2);
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		emit(cx, ICODE(IR_MOV, a1, a2, IVAL(0, 0)));
+
+		if (a1.size > 8 || !lt_is_pow2(a1.size))
+			emit(cx, ICODE2(IR_COPY, a1, a2));
+		else
+			emit(cx, ICODE2(IR_MOV, a1, a2));
 		return a1;
 	}
 
@@ -290,12 +293,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return expr->sym->ival;
 
 	case EXPR_STRING: {
-		char* data = lt_arena_reserve(cx->arena, 0);
-		usz len = unescape_str(data, LSTR(expr->str_val.str + 1, expr->str_val.len - 2));
-		lt_arena_reserve(cx->arena, len);
-
-		usz offs = new_data_seg(cx, SEG_ENT(expr->str_val, len, data));
-		return IVAL(type_bytes(expr->type), IVAL_DSO, .uint_val = offs);
+		usz offs = new_data_seg(cx, SEG_ENT(CLSTR("string_data"), expr->str_val.len, expr->str_val.str));
+		return IVAL(type_bytes(expr->type), IVAL_DSO | IVAL_REF, .uint_val = offs);
 	}
 
 	case EXPR_CONVERT: {
@@ -472,13 +471,58 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_SUBSCRIPT: {
+		usz base_size = type_bytes(expr->type);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		ival_t dst = IVAL(ISZ_64, IVAL_REG, .reg = reg__++);
 		emit(cx, ICODE2(IR_MOV, dst, a2));
-		emit(cx, ICODE3(IR_IMUL, dst, dst, IVAL(ISZ_64, IVAL_IMM, .uint_val = type_bytes(expr->type))));
+		emit(cx, ICODE3(IR_IMUL, dst, dst, IVAL(ISZ_64, IVAL_IMM, .uint_val = base_size)));
 		emit(cx, ICODE3(IR_ADD, dst, dst, a1));
 		dst.stype |= IVAL_REF;
+		dst.size = base_size;
 		return dst;
+	}
+
+	case EXPR_VIEW: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1);
+		LT_ASSERT(a1.stype & IVAL_REF);
+		a1.size = ISZ_64;
+		a1.stype &= ~IVAL_REF;
+		usz count = expr->child_1->type->child_count;
+
+		usz stack_offs = cx->code_seg[cx->curr_func].top;
+		cx->code_seg[cx->curr_func].top += 16;
+		ival_t dst = IVAL(16, IVAL_SFO | IVAL_REF, .sfo = stack_offs);
+
+		emit(cx, ICODE2(IR_MOV, IVAL(ISZ_64, IVAL_SFO | IVAL_REF, .sfo = stack_offs), a1));
+		emit(cx, ICODE2(IR_MOV, IVAL(ISZ_64, IVAL_SFO | IVAL_REF, .sfo = stack_offs + 8), IVAL(ISZ_64, IVAL_IMM, .uint_val = count)));
+		return dst;
+	}
+
+	case EXPR_COUNT: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1);
+		LT_ASSERT(a1.stype & IVAL_REF);
+
+		if (expr->child_1->type->stype == TP_ARRAY)
+			return IVAL(ISZ_64, IVAL_IMM, .uint_val = expr->child_1->type->child_count);
+		else if (expr->child_1->type->stype == TP_ARRAY_VIEW) {
+			a1.size = ISZ_64;
+			return gen_offset_ref(cx, a1, IVAL(ISZ_64, IVAL_IMM, .uint_val = 8));
+		}
+		LT_ASSERT_NOT_REACHED();
+	}
+
+	case EXPR_DATA: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1);
+		LT_ASSERT(a1.stype & IVAL_REF);
+
+		a1.size = ISZ_64;
+		if (expr->child_1->type->stype == TP_ARRAY) {
+			a1.stype &= ~IVAL_REF;
+			return a1;
+		}
+		else if (expr->child_1->type->stype == TP_ARRAY_VIEW)
+			return a1;
+		LT_ASSERT_NOT_REACHED();
 	}
 
 	default:

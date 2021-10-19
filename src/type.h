@@ -54,7 +54,7 @@ lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type);
 b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr);
 b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr);
 
-void type_make_compatible(parse_ctx_t* cx, usz line_index, int stype, expr_t** left, expr_t** right);
+void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, expr_t** right);
 
 extern type_t void_def;
 extern type_t void_ptr_def;

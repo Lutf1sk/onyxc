@@ -2,6 +2,7 @@
 #define GEN_H 1
 
 #include "fwd.h"
+#include <lt/fwd.h>
 
 typedef
 struct gen_ctx {

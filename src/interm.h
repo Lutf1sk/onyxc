@@ -93,7 +93,7 @@ enum ival_stype {
 
 typedef
 struct ival {
-	u8 size;
+	u16 size;
 	u8 stype;
 	u8 scale;
 	u32 index;

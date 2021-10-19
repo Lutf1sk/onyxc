@@ -5,6 +5,7 @@
 #include <lt/mem.h>
 
 #include "fwd.h"
+#include "interm.h"
 
 #define FOR_EACH_EXPR() \
 	EXPR_OP(INTEGER) \
@@ -49,7 +50,10 @@
 	EXPR_OP(MEMBER) \
 	EXPR_OP(SUBSCRIPT) \
 	EXPR_OP(CALL) \
-	EXPR_OP(CONVERT)
+	EXPR_OP(CONVERT) \
+	EXPR_OP(VIEW) \
+	EXPR_OP(DATA) \
+	EXPR_OP(COUNT)
 
 typedef enum expr_stype {
 #define EXPR_OP(x) EXPR_##x,
@@ -58,6 +62,7 @@ typedef enum expr_stype {
 } expr_stype_t;
 
 lstr_t expr_type_str(expr_stype_t stype);
+ival_t expr_eval_const(parse_ctx_t* cx, expr_t* expr, tk_t* tk);
 
 typedef struct expr {
 	expr_stype_t stype;

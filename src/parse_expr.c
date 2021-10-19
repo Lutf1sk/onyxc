@@ -69,9 +69,17 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	}
 
 	case TK_STRING: consume(cx); {
+		char* data = lt_arena_reserve(cx->arena, 0);
+		usz len = unescape_str(data, LSTR(tk.str.str + 1, tk.str.len - 2));
+		lt_arena_reserve(cx->arena, len);
+
+		type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
+		*type = TYPE(TP_ARRAY, &u8_def);
+		type->child_count = len;
+
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_STRING, &u8_ptr_def);
-		new->str_val = tk.str;
+		*new = EXPR(EXPR_STRING, type);
+		new->str_val = LSTR(data, len);
 		return new;
 	}
 
@@ -140,28 +148,50 @@ operator_t* find_pfx_operator(tk_stype_t tk_type) {
 
 static
 expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
-	expr_t* current = parse_expr_primary(cx, type);
+	expr_t* operand = parse_expr_primary(cx, type);
 
 	operator_t* op;
 	while ((op = find_sfx_operator(peek(cx, 0)->stype))) {
 		tk_t* tk = consume(cx);
 
 		if (op->expr == EXPR_MEMBER) {
+			// Dereference until the type is no longer a pointer
 			tk_t* member_name_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"));
-			type_t* it = current->type;
+			type_t* it = operand->type;
 			while (it->stype == TP_PTR) {
 				expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 				*new = EXPR(EXPR_DEREFERENCE, it->base);
-				new->child_1 = current;
-				current = new;
+				new->child_1 = operand;
+				operand = new;
 
 				it = it->base;
+			}
+
+			lstr_t member_name = member_name_tk->str;
+
+			// Find 'data' or 'count' member if the type is an array
+			if (it->stype == TP_ARRAY_VIEW || it->stype == TP_ARRAY) {
+				expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+
+				if (lt_lstr_eq(member_name, CLSTR("data"))) {
+					type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
+					*type = TYPE(TP_PTR, it->base);
+					*new = EXPR(EXPR_DATA, type);
+				}
+				else if (lt_lstr_eq(member_name, CLSTR("count")))
+					*new = EXPR(EXPR_COUNT, &u64_def);
+				else
+					ferr(A_BOLD"'%S'"A_RESET" has no member named "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+						type_to_reserved_str(cx->arena, it), member_name);
+
+				new->child_1 = operand;
+				operand = new;
+				continue;
 			}
 
 			if (it->stype != TP_STRUCT)
 				ferr("cannot use "A_BOLD"'.'"A_RESET" operator on a non-structure type", cx->lex, *tk);
 
-			lstr_t member_name = member_name_tk->str;
 			usz member_count = it->child_count;
 			usz member_index;
 			for (usz i = 0; i < member_count; ++i) {
@@ -174,49 +204,58 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 			ferr("structure has no member named "A_BOLD"'%S'"A_RESET, cx->lex, *member_name_tk, member_name_tk->str);
 
 		member_found:
-
-			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*new = EXPR(EXPR_MEMBER, it->children[member_index]);
-			new->child_1 = current;
-			new->member_index = member_index;
-			current = new;
-			continue;
+			expr_t* member = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			*member = EXPR(EXPR_MEMBER, it->children[member_index]);
+			member->child_1 = operand;
+			member->member_index = member_index;
+			operand = member;
 		}
-
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(op->expr, current->type);
-		new->child_1 = current;
-		current = new;
-
-		if (op->expr == EXPR_SUBSCRIPT) {
-			type_t* new_type = new->type;
-			if (new_type->stype != TP_PTR && new_type->stype != TP_ARRAY && new_type->stype != TP_ARRAY_VIEW)
+		else if (op->expr == EXPR_SUBSCRIPT) {
+			if (operand->type->stype != TP_PTR && operand->type->stype != TP_ARRAY && operand->type->stype != TP_ARRAY_VIEW)
 				ferr("subscripted type "A_BOLD"'%S'"A_RESET" is neither an array nor a pointer",
-						cx->lex, *tk, type_to_reserved_str(cx->arena, new->type));
+						cx->lex, *tk, type_to_reserved_str(cx->arena, operand->type));
 
-			new->child_2 = parse_expr(cx, NULL);
-			if (!is_int_any_sign(new->child_2->type))
+			expr_t* subscript = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			*subscript = EXPR(EXPR_SUBSCRIPT, operand->type->base);
+			subscript->child_1 = operand;
+
+			if (operand->type->stype == TP_ARRAY || operand->type->stype == TP_ARRAY_VIEW) {
+				type_t* ptr_type = lt_arena_reserve(cx->arena, sizeof(type_t));
+				*ptr_type = TYPE(TP_PTR, operand->type->base);
+
+				expr_t* data_ptr = lt_arena_reserve(cx->arena, sizeof(expr_t));
+				*data_ptr = EXPR(EXPR_DATA, type);
+				data_ptr->child_1 = operand;
+				subscript->child_1 = data_ptr;
+			}
+
+			subscript->child_2 = parse_expr(cx, NULL);
+			if (!is_int_any_sign(subscript->child_2->type))
 				ferr("array index must be an integer", cx->lex, *tk);
 			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected "A_BOLD"']'"A_RESET" after array subscript"));
 
-			new->type = new_type->base;
+			operand = subscript;
 		}
 		else if (op->expr == EXPR_CALL) {
-			if (new->type->stype != TP_FUNC)
+			if (operand->type->stype != TP_FUNC)
 				ferr("called type "A_BOLD"'%S'"A_RESET" is not a function", cx->lex, *tk,
-						type_to_reserved_str(cx->arena, new->type));
+						type_to_reserved_str(cx->arena, operand->type));
 
-			expr_t** current_arg = &new->child_2;
+			expr_t* call = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			*call = EXPR(EXPR_CALL, operand->type->base);
+			call->child_1 = operand;
 
-			type_t** arg_types = new->child_1->type->children;
-			usz arg_i = 0, arg_count = new->child_1->type->child_count;
+			expr_t** current_arg = &call->child_2;
+
+			type_t** arg_types = operand->type->children;
+			usz arg_i = 0, arg_count = operand->type->child_count;
 
 			lstr_t func_name = CLSTR("function");
-			if (new->child_1->stype == EXPR_SYM)
-				func_name = new->child_1->sym->name;
+			if (operand->stype == EXPR_SYM)
+				func_name = operand->sym->name;
 
 			while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
-				if (current_arg != &new->child_2)
+				if (current_arg != &call->child_2)
 					consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
 
 				expr_t* arg = parse_expr(cx, NULL);
@@ -234,11 +273,17 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 				ferr("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
 			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET" after function call"));
 
-			new->type = new->type->base;
+			operand = call;
+		}
+		else {
+			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			*new = EXPR(op->expr, operand->type);
+			new->child_1 = operand;
+			operand = new;
 		}
 	}
 
-	return current;
+	return operand;
 }
 
 expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type) {
@@ -296,7 +341,7 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 		expr_t* right = parse_expr_binary(cx, NULL, op->precedence);
 		type_t* type = left->type;
 
-		type_make_compatible(cx, tk->line_index, op->expr, &left, &right);
+		type_make_compatible(cx, tk, op->expr, &left, &right);
 
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(op->expr, type);

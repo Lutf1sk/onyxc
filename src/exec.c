@@ -115,6 +115,10 @@ u64 icode_exec(exec_ctx_t* cx) {
 			mov(cx, ip->arg1, val(cx, ip->arg2));
 			break;
 
+		case IR_COPY:
+			memcpy(ref(cx, ip->arg1), ref(cx, ip->arg2), ip->arg1.size);
+			break;
+
 		case IR_IEXT:
 			mov(cx, ip->arg1, sign_extend(ip->arg2.size, val(cx, ip->arg2)));
 			break;
@@ -187,13 +191,15 @@ u64 icode_exec(exec_ctx_t* cx) {
 			push(cx, ip->arg2);
 			break;
 
-		case IR_RET:
-			if (ip->arg1.stype != IVAL_INVAL)
-				val(cx, ip->arg1); // !!
+		case IR_RET: {
+			u64 v;
+			if (ip->arg1.stype != IVAL_INVAL || ip->arg1.size == 8)
+				v = val(cx, ip->arg1); // !!
 			cx->sp = cx->bp;
 			cx->bp = (u8*)pop64(cx);
 			cx->ip = (icode_t*)pop64(cx);
-			return 0;
+			return v;
+		}
 
 		case IR_RETVAL:
 			mov(cx, ip->arg1, 1); // !!

@@ -80,8 +80,12 @@ type_t* parse_type(parse_ctx_t* cx) {
 				tk_t* tk = peek(cx, 0);
 				expr_t* expr = parse_expr(cx, NULL);
 				if (!is_int_any_sign(expr->type))
-					ferr("array size must be an integer", cx->lex, *tk);
+					ferr("fixed array size must be an integer", cx->lex, *tk);
+
 				*new = TYPE(TP_ARRAY, base);
+				new->child_count = expr_eval_const(cx, expr, tk).uint_val;
+				if (is_int(expr->type) && (isz)new->child_count < 0)
+					ferr("fixed array size cannot be negative", cx->lex, *tk);
 			}
 
 			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected "A_BOLD"']'"A_RESET" after array size"));
