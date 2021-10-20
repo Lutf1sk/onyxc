@@ -45,6 +45,7 @@ usz unescape_str(lex_ctx_t* cx, char* out, tk_t* tk) {
 		case 'n': *it++ = '\n'; break;
 		case '"': *it++ = '"'; break;
 		case '\'': *it++ = '\''; break;
+		case '\\': *it++ = '\\'; break;
 		case 'x': {
 			if (i >= str.len - 1)
 				ferr(A_BOLD"'\\x'"A_RESET" escape sequence must be followed by two hexadecimal digits", cx, *tk);
