@@ -524,6 +524,30 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return dst;
 	}
 
+	case EXPR_STRUCT: {
+		usz size = type_bytes(expr->type);
+		usz count = expr->type->child_count;
+
+		usz stack_offs = cx->code_seg[cx->curr_func].top;
+		cx->code_seg[cx->curr_func].top += size;
+		ival_t dst = IVAL(size, IVAL_SFO | IVAL_REF, .sfo = stack_offs);
+
+		usz stack_it = 0;
+		expr_t* it = expr->child_1;
+		for (usz i = 0; i < count && it; ++i) {
+			usz elem_size = type_bytes(it->type);
+			ival_t a1 = icode_gen_expr(cx, it);
+
+			u8 move_op = IR_MOV;
+			if (elem_size > 8 || !lt_is_pow2(elem_size))
+				move_op = IR_COPY;
+			emit(cx, ICODE2(move_op, IVAL(elem_size, IVAL_SFO | IVAL_REF, .sfo = stack_offs + stack_it), a1));
+			stack_it += elem_size;
+			it = it->next;
+		}
+		return dst;
+	}
+
 	case EXPR_COUNT: {
 		ival_t a1 = icode_gen_expr(cx, expr->child_1);
 		LT_ASSERT(a1.stype & IVAL_REF);

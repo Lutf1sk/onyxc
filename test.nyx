@@ -14,8 +14,14 @@ let print_m :: void(u8[][] strs) {
  	}
 }
 
+def String :: struct {
+	u8[] str;
+}
+
 let main :: u64() {
-	print_m({ "Skjut mig\n", "Skjut mig 2\n" });
+	String s = String{ "Skjut mig\n" };
+
+	print_m({ s.str, "Skjut mig 2\n" });
 	return usz: 0;
 }
 

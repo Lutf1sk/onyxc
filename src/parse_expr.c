@@ -76,6 +76,38 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			new_type->child_count = count;
 			return new;
 		}
+		else if (type->stype == TP_STRUCT && tk.stype == TK_LEFT_BRACE) {
+			consume(cx);
+			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			*new = EXPR(EXPR_STRUCT, type);
+
+			expr_t** it = &new->child_1;
+			usz i = 0;
+			while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
+				tk_t* tk = peek(cx, 0);
+
+				if (i >= type->child_count)
+					ferr("excess elements in struct initializer", cx->lex, *tk);
+
+				expr_t* new = parse_expr(cx, type->children[i]);
+				if (!type_convert_implicit(cx, type->children[i], &new))
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+							type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type->children[i]));
+
+				*it = new;
+				it = &new->next;
+				++i;
+
+				if (peek(cx, 0)->stype != TK_COMMA)
+					break;
+				consume(cx);
+			}
+			if (i < type->child_count)
+				werr("uninitialized elements of "A_BOLD"'%S'"A_RESET, cx->lex, tk,
+						type_to_reserved_str(cx->arena, type));
+			consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
+			return new;
+		}
 	}
 
 	switch (tk.stype) {
@@ -273,6 +305,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 			*subscript = EXPR(EXPR_SUBSCRIPT, operand->type->base);
 			subscript->child_1 = operand;
 
+			// Insert EXPR_DATA node if the type is an array
 			if (operand->type->stype == TP_ARRAY || operand->type->stype == TP_ARRAY_VIEW) {
 				type_t* ptr_type = lt_arena_reserve(cx->arena, sizeof(type_t));
 				*ptr_type = TYPE(TP_PTR, operand->type->base);
