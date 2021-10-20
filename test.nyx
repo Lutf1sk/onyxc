@@ -6,22 +6,32 @@ let print :: void(u8[] str) {
 	syscall 1, 1, str.data, str.count;
 }
 
-let print_m :: void(u8[][] strs) {
- 	usz i = usz: 0;
-	while i < strs.count {
-		print(strs[i]);
- 		++i;
- 	}
+let print_uq :: void(u64 n) {
+	u8[32] arr;
+	usz i = arr.count - usz: 1;
+	while n {
+		arr[i--] = u8:(n % u64: 10) + '0';
+		n = n / u64: 10;
+	}
+	++i;
+
+	u8[] str;
+	str.data = &arr.data[i];
+	str.count = arr.count - i;
+	print(str);
 }
 
-def String :: struct {
-	u8[] str;
+let print_iq :: void(i64 n) {
+	if n < 10 {
+		print("-");
+		n = -n;
+	}
+	print_uq(u64: n);
 }
 
 let main :: u64() {
-	String s = String{ "Skjut mig\n" };
-
-	print_m({ s.str, "Skjut mig 2\n" });
+	print_iq(-123);
+	print("\n");
 	return usz: 0;
 }
 

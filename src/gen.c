@@ -225,11 +225,21 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return a1;
 	}
 
-	case EXPR_SFX_INCREMENT:
-		GENERIC_EXPR_UNARY(IR_INCSFX, );
+	case EXPR_SFX_INCREMENT: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1);
+		ival_t dst = IVAL(a1.size, IVAL_REG, .reg = reg__++);
+		emit(cx, ICODE2(IR_MOV, dst, a1));
+		emit(cx, ICODE1(IR_INC, a1));
+		return dst;
+	}
 
-	case EXPR_SFX_DECREMENT:
-		GENERIC_EXPR_UNARY(IR_DECSFX, );
+	case EXPR_SFX_DECREMENT: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1);
+		ival_t dst = IVAL(a1.size, IVAL_REG, .reg = reg__++);
+		emit(cx, ICODE2(IR_MOV, dst, a1));
+		emit(cx, ICODE1(IR_DEC, a1));
+		return dst;
+	}
 
 	case EXPR_BIT_AND:
 		GENERIC_EXPR_BINARY(IR_AND, &, u);
@@ -421,7 +431,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
 		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
-		emit(cx, ICODE3(IR_CSETL, dst, a1, a2));
+		if (is_int(expr->child_1->type))
+			emit(cx, ICODE3(IR_CSETL, dst, a1, a2));
+		else
+			emit(cx, ICODE3(IR_CSETB, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_GREATER: {
@@ -431,7 +444,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
 		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
-		emit(cx, ICODE3(IR_CSETG, dst, a1, a2));
+		if (is_int(expr->child_1->type))
+			emit(cx, ICODE3(IR_CSETG, dst, a1, a2));
+		else
+			emit(cx, ICODE3(IR_CSETA, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_LESSER_OR_EQUAL: {
@@ -441,7 +457,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
 		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
-		emit(cx, ICODE3(IR_CSETLE, dst, a1, a2));
+		if (is_int(expr->child_1->type))
+			emit(cx, ICODE3(IR_CSETLE, dst, a1, a2));
+		else
+			emit(cx, ICODE3(IR_CSETBE, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_GREATER_OR_EQUAL: {
@@ -451,7 +470,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
 		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
-		emit(cx, ICODE3(IR_CSETGE, dst, a1, a2));
+		if (is_int(expr->child_1->type))
+			emit(cx, ICODE3(IR_CSETGE, dst, a1, a2));
+		else
+			emit(cx, ICODE3(IR_CSETAE, dst, a1, a2));
 		return dst;
 	}
 	case EXPR_EQUAL: {

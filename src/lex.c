@@ -1,5 +1,6 @@
 #include "lex.h"
 #include "err.h"
+#include "textattrib.h"
 
 #include <lt/str.h>
 #include <lt/mem.h>
@@ -234,7 +235,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 		}	break;
 
 		case '\0':
-			ferr("unexpected character '%c'", cx, TK(TK_INVALID, LSTR(&data[tk_start], it - tk_start), line_index), c);
+			ferr("unexpected character "A_BOLD"'%c'"A_RESET, cx, TK(TK_INVALID, LSTR(&data[tk_start], it - tk_start), line_index), c);
 
 		default:
 			emit(tk);

@@ -131,12 +131,16 @@ u64 icode_exec(exec_ctx_t* cx) {
 			mov(cx, ip->arg1, val(cx, ip->arg1) + 1);
 			break;
 
+		case IR_DEC:
+			mov(cx, ip->arg1, val(cx, ip->arg1) - 1);
+			break;
+
 		case IR_ADD:
 			mov(cx, ip->arg1, val(cx, ip->arg2) + val(cx, ip->arg3));
 			break;
 
 		case IR_SUB:
-			mov(cx, ip->arg1, val(cx, ip->arg2) + val(cx, ip->arg3));
+			mov(cx, ip->arg1, val(cx, ip->arg2) - val(cx, ip->arg3));
 			break;
 
 		case IR_IMUL:
@@ -221,10 +225,14 @@ u64 icode_exec(exec_ctx_t* cx) {
 
 		case IR_CSETZ:	if (!val(cx, ip->arg2)) mov(cx, ip->arg1, 1); break;
 		case IR_CSETNZ:	if (val(cx, ip->arg2)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETL:	if (val(cx, ip->arg2) < val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETG:	if (val(cx, ip->arg2) > val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETLE:	if (val(cx, ip->arg2) <= val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETGE:	if (val(cx, ip->arg2) >= val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETL:	if ((i64)val(cx, ip->arg2) < (i64)val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETG:	if ((i64)val(cx, ip->arg2) > (i64)val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETLE:	if ((i64)val(cx, ip->arg2) <= (i64)val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETGE:	if ((i64)val(cx, ip->arg2) >= (i64)val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETB:	if (val(cx, ip->arg2) < val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETA:	if (val(cx, ip->arg2) > val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETBE:	if (val(cx, ip->arg2) <= val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETAE:	if (val(cx, ip->arg2) >= val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
 		case IR_CSETE:	if (val(cx, ip->arg2) == val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
 		case IR_CSETNE:	if (val(cx, ip->arg2) != val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
 
