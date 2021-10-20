@@ -192,7 +192,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			for (;;) {
 				c = data[it++];
 				if ((u8)c < 32 && c != '\t')
-					ferr("Unterminated character literal", cx, TK(TK_CHAR, LSTR(&data[tk_start], it - tk_start - 1), line_index));
+					ferr("unterminated character literal", cx, TK(TK_CHAR, LSTR(&data[tk_start], it - tk_start - 1), line_index));
 				if (c == '\'')
 					break;
 				if (c == '\\')
@@ -205,7 +205,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			for (;;) {
 				c = data[it++];
 				if ((u8)c < 32 && c != '\t')
-					ferr("Unterminated string literal", cx, TK(TK_STRING, LSTR(&data[tk_start], it - tk_start - 1), line_index));
+					ferr("unterminated string literal", cx, TK(TK_STRING, LSTR(&data[tk_start], it - tk_start - 1), line_index));
 				if (c == '"')
 					break;
 				if (c == '\\')
@@ -234,7 +234,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 		}	break;
 
 		case '\0':
-			ferr("Unexpected character '%c'", cx, TK(TK_INVALID, LSTR(&data[tk_start], it - tk_start), line_index), c);
+			ferr("unexpected character '%c'", cx, TK(TK_INVALID, LSTR(&data[tk_start], it - tk_start), line_index), c);
 
 		default:
 			emit(tk);
