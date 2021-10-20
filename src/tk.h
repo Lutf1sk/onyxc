@@ -1,6 +1,8 @@
 #ifndef TK_H
 #define TK_H 1
 
+#include "fwd.h"
+
 #include <lt/lt.h>
 
 #define FOR_EACH_TK() \
@@ -97,7 +99,7 @@ typedef struct tk {
 
 lstr_t tk_type_str(tk_stype_t stype);
 
-usz unescape_str(char* out, lstr_t str);
+usz unescape_str(lex_ctx_t* cx, char* out, tk_t* tk);
 
 #define TK_INIT(stype, str, line) { (stype), (str), (line) }
 #define TK(stype, str, line) ((tk_t)TK_INIT(stype, str, line))

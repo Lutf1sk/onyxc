@@ -57,7 +57,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		*new = EXPR(EXPR_INTEGER, &u8_def);
 
 		char* str = lt_arena_reserve(cx->arena, 0);
-		usz len = unescape_str(str, LSTR(tk.str.str + 1, tk.str.len - 2));
+		usz len = unescape_str(cx->lex, str, &tk);
 
 		if (len > 1)
 			ferr("character literal exceeds max length", cx->lex, tk);
@@ -70,7 +70,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 	case TK_STRING: consume(cx); {
 		char* data = lt_arena_reserve(cx->arena, 0);
-		usz len = unescape_str(data, LSTR(tk.str.str + 1, tk.str.len - 2));
+		usz len = unescape_str(cx->lex, data, &tk);
 		lt_arena_reserve(cx->arena, len);
 
 		type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
