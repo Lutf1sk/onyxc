@@ -20,7 +20,7 @@ u8 hex_char(u8 c) {
 		return (c - 'a' + 10);
 	if (c >= '0' && c <= '9')
 		return (c - '0');
-	return 0;
+	return 0; // TODO: Error checking
 }
 
 usz unescape_str(lex_ctx_t* cx, char* out, tk_t* tk) {

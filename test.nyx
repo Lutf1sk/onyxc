@@ -8,21 +8,15 @@ let print :: void(u8[] str) {
 
 let print_m :: void(u8[][] strs) {
  	usz i = usz: 0;
-	while (i < strs.count) {
+	while i < strs.count {
 		print(strs[i]);
  		++i;
  	}
 }
 
 let main :: u64() {
-	u8[] str = "ASDF\n";
-	u8[] str2 = "ASDF2\n";
-
-	u8[][2] arr;
-	arr[0] = str;
-	arr[1] = str2;
+	u8[][] arr = { "Skjut mig\n", "Skjut mig 2\n" };
 	print_m(arr);
-
 	return usz: 0;
 }
 

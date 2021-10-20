@@ -7,6 +7,7 @@
 #include "symtab.h"
 
 #include <lt/str.h>
+#include <lt/io.h>
 
 #define PUSH_SCOPE() { \
 	symtab_t* new_symtab = lt_arena_reserve(cx->arena, sizeof(symtab_t)); \
@@ -19,9 +20,7 @@
 
 stmt_t* parse_func_body(parse_ctx_t* cx) {
 	consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET));
-
 	PUSH_SCOPE();
-
 	type_t** param_types = cx->curr_func_type->children;
 	lstr_t* param_names = cx->curr_func_type->child_names;
 	sym_t** param_syms = cx->curr_func_type->child_syms;
@@ -45,6 +44,8 @@ stmt_t* parse_func_body(parse_ctx_t* cx) {
 	stmt_t** current = &root->child;
 	while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
 		stmt_t* new = parse_stmt(cx);
+		if (!new)
+			continue;
 		*current = new;
 		current = &new->next;
 	}
@@ -65,6 +66,8 @@ stmt_t* parse_compound(parse_ctx_t* cx) {
 	stmt_t** current = &root->child;
 	while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
 		stmt_t* new = parse_stmt(cx);
+		if (!new)
+			continue;
 		*current = new;
 		current = &new->next;
 	}

@@ -11,17 +11,71 @@
 expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	tk_t tk = *peek(cx, 0);
 
-	if (type && type->stype == TP_FUNC && tk.stype == TK_LEFT_BRACE) {
-		type_t* old_func_type = cx->curr_func_type;
-		cx->curr_func_type = type;
+	if (type) {
+		if (type->stype == TP_FUNC && tk.stype == TK_LEFT_BRACE) {
+			type_t* old_func_type = cx->curr_func_type;
+			cx->curr_func_type = type;
 
-		stmt_t* compound = parse_func_body(cx);
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_LAMBDA, type);
-		new->stmt = compound;
+			stmt_t* compound = parse_func_body(cx);
+			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			*new = EXPR(EXPR_LAMBDA, type);
+			new->stmt = compound;
 
-		cx->curr_func_type = old_func_type;
-		return new;
+			cx->curr_func_type = old_func_type;
+			return new;
+		}
+		else if (type->stype == TP_ARRAY && tk.stype == TK_LEFT_BRACE) {
+			consume(cx);
+			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			*new = EXPR(EXPR_ARRAY, type);
+
+			expr_t** it = &new->child_1;
+			usz count = 0;
+			while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
+				tk_t* tk = peek(cx, 0);
+				expr_t* new = parse_expr(cx, type->base);
+				if (!type_convert_implicit(cx, type->base, &new))
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+							type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type->base));
+				*it = new;
+				it = &new->next;
+				++count;
+
+				if (peek(cx, 0)->stype != TK_COMMA)
+					break;
+				consume(cx);
+			}
+			consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
+			return new;
+		}
+		else if (type->stype == TP_ARRAY_VIEW && tk.stype == TK_LEFT_BRACE) {
+			consume(cx);
+			type_t* new_type = lt_arena_reserve(cx->arena, sizeof(type_t));
+			*new_type = TYPE(TP_ARRAY, type->base);
+
+			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			*new = EXPR(EXPR_ARRAY, new_type);
+
+			expr_t** it = &new->child_1;
+			usz count = 0;
+			while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
+				tk_t* tk = peek(cx, 0);
+				expr_t* new = parse_expr(cx, new_type->base);
+				if (!type_convert_implicit(cx, type->base, &new))
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+							type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type->base));
+				*it = new;
+				it = &new->next;
+				++count;
+
+				if (peek(cx, 0)->stype != TK_COMMA)
+					break;
+				consume(cx);
+			}
+			consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
+			new_type->child_count = count;
+			return new;
+		}
 	}
 
 	switch (tk.stype) {
@@ -106,10 +160,6 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		if (sym->stype == SYM_TYPE) {
 			type_t* init_type = parse_type(cx);
 
-			if (type && !type_eq(type, init_type))
-				ferr("unexpected type "A_BOLD"'%S'"A_RESET" in initializer of "A_BOLD"'%S'"A_RESET, cx->lex, tk,
-						type_to_reserved_str(cx->arena, init_type), type_to_reserved_str(cx->arena, type));
-
 			tk_t* tk = peek(cx, 0);
 			if (tk->stype == TK_COLON) {
 				consume(cx);
@@ -120,7 +170,11 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 				return expr;
 			}
 
-			return parse_expr_unary(cx, init_type);
+			expr_t* new = parse_expr_primary(cx, init_type);
+			if (type && !type_convert_implicit(cx, type, &new))
+				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+						type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type));
+			return new;
 		}
 
 	undeclared:

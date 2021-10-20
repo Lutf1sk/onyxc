@@ -125,8 +125,10 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 			ival_t val;
 			b8 scalar = is_scalar(sym->type);
 
-			usz sf_offs = cx->code_seg[cx->curr_func].top;
 			if (!scalar) {
+				usz sf_offs = cx->code_seg[cx->curr_func].top;
+				cx->code_seg[cx->curr_func].top += size;
+
 				val = IVAL(size, IVAL_SFO | IVAL_REF, .uint_val = sf_offs);
 				if (expr) {
 					ival_t init = icode_gen_expr(cx, expr);
@@ -135,6 +137,9 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 				cx->code_seg[cx->curr_func].top += size;
 			}
 			else if (flags & SYMFL_REFERENCED) {
+				usz sf_offs = cx->code_seg[cx->curr_func].top;
+				cx->code_seg[cx->curr_func].top += size;
+
 				val = IVAL(size, IVAL_SFO | IVAL_REF, .uint_val = sf_offs);
 				emit(cx, ICODE2(IR_MOV, val, icode_gen_expr(cx, expr)));
 				cx->code_seg[cx->curr_func].top += size;
@@ -495,6 +500,27 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		emit(cx, ICODE2(IR_MOV, IVAL(ISZ_64, IVAL_SFO | IVAL_REF, .sfo = stack_offs), a1));
 		emit(cx, ICODE2(IR_MOV, IVAL(ISZ_64, IVAL_SFO | IVAL_REF, .sfo = stack_offs + 8), IVAL(ISZ_64, IVAL_IMM, .uint_val = count)));
+		return dst;
+	}
+
+	case EXPR_ARRAY: {
+		usz count = expr->type->child_count;
+		usz elem_size = type_bytes(expr->type->base);
+		usz size = count * elem_size;
+
+		usz stack_offs = cx->code_seg[cx->curr_func].top;
+		cx->code_seg[cx->curr_func].top += size;
+		ival_t dst = IVAL(size, IVAL_SFO | IVAL_REF, .sfo = stack_offs);
+
+		u8 move_op = IR_MOV;
+		if (elem_size > 8 || !lt_is_pow2(elem_size))
+			move_op = IR_COPY;
+		expr_t* it = expr->child_1;
+		for (usz i = 0; i < count && it; ++i) {
+			ival_t a1 = icode_gen_expr(cx, it);
+			emit(cx, ICODE2(move_op, IVAL(elem_size, IVAL_SFO | IVAL_REF, .sfo = stack_offs + i * elem_size), a1));
+			it = it->next;
+		}
 		return dst;
 	}
 
