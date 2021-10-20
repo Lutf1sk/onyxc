@@ -312,7 +312,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 				if (current_arg != &call->child_2)
 					consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
 
-				expr_t* arg = parse_expr(cx, NULL);
+				expr_t* arg = parse_expr(cx, arg_types[arg_i]);
 				if (arg_i == arg_count)
 					ferr("too many arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
 				if (!type_convert_implicit(cx, arg_types[arg_i], &arg))

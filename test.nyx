@@ -15,8 +15,7 @@ let print_m :: void(u8[][] strs) {
 }
 
 let main :: u64() {
-	u8[][] arr = { "Skjut mig\n", "Skjut mig 2\n" };
-	print_m(arr);
+	print_m({ "Skjut mig\n", "Skjut mig 2\n" });
 	return usz: 0;
 }
 
