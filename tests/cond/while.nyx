@@ -1,0 +1,9 @@
+
+let main :: i32() {
+	i32 i = 420;
+	while i > 69 {
+		--i;
+	}
+	return i;
+}
+

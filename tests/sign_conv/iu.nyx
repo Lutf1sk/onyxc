@@ -1,0 +1,7 @@
+
+let main :: i32() {
+	u8 a = 255;
+	i16 b = a;
+	return b - 186;
+}
+

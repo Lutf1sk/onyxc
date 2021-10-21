@@ -1,0 +1,6 @@
+
+let main :: i32() {
+	i32 a = 1, b = 2, c = -1;
+	return (a > b) + (b > c) + (b > a);
+}
+

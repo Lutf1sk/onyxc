@@ -1,0 +1,6 @@
+
+let main :: i32() {
+	i32 a = 255, b = 255, c = 69;
+	return (a ^ b) ^ c;
+}
+

@@ -9,12 +9,55 @@
 u64 syscall(u64, ...);
 
 static
-i64 sign_extend(usz to, u64 v) {
+i64 sign_extend(usz to, i64 v) {
 	switch (to) {
 	case 1: return (i8)v;
 	case 2: return (i16)v;
 	case 4: return (i32)v;
 	case 8: return (i64)v;
+	}
+
+	LT_ASSERT_NOT_REACHED();
+	return 0;
+}
+
+i64 sign_ext_b(usz to, usz from, i64 v) {
+	switch (from) {
+	case 1:
+		switch (to) {
+		case 1: return (i8)(i8)v;
+		case 2: return (i16)(i8)v;
+		case 4: return (i32)(i8)v;
+		case 8: return (i64)(i8)v;
+		}
+		break;
+
+	case 2:
+		switch (to) {
+		case 1: return (i8)(i16)v;
+		case 2: return (i16)(i16)v;
+		case 4: return (i32)(i16)v;
+		case 8: return (i64)(i16)v;
+		}
+		break;
+
+	case 4:
+		switch (to) {
+		case 1: return (i8)(i32)v;
+		case 2: return (i16)(i32)v;
+		case 4: return (i32)(i32)v;
+		case 8: return (i64)(i32)v;
+		}
+		break;
+
+	case 8:
+		switch (to) {
+		case 1: return (i8)(i64)v;
+		case 2: return (i16)(i64)v;
+		case 4: return (i32)(i64)v;
+		case 8: return (i64)(i64)v;
+		}
+		break;
 	}
 
 	LT_ASSERT_NOT_REACHED();
@@ -226,18 +269,72 @@ void icode_exec(exec_ctx_t* cx) {
 			}
 			break;
 
-		case IR_CSETZ:	if (!val(cx, ip->arg2)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETNZ:	if (val(cx, ip->arg2)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETL:	if ((i64)val(cx, ip->arg2) < (i64)val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETG:	if ((i64)val(cx, ip->arg2) > (i64)val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETLE:	if ((i64)val(cx, ip->arg2) <= (i64)val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETGE:	if ((i64)val(cx, ip->arg2) >= (i64)val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETB:	if (val(cx, ip->arg2) < val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETA:	if (val(cx, ip->arg2) > val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETBE:	if (val(cx, ip->arg2) <= val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETAE:	if (val(cx, ip->arg2) >= val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETE:	if (val(cx, ip->arg2) == val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
-		case IR_CSETNE:	if (val(cx, ip->arg2) != val(cx, ip->arg3)) mov(cx, ip->arg1, 1); break;
+		case IR_CSETZ:
+			if (!val(cx, ip->arg2)) mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETNZ:
+			if (val(cx, ip->arg2)) mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETL:
+			if (sign_ext_b(8, ip->arg2.size, val(cx, ip->arg2)) < sign_ext_b(8, ip->arg3.size, val(cx, ip->arg3)))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETG:
+			if (sign_ext_b(8, ip->arg2.size, val(cx, ip->arg2)) > sign_ext_b(8, ip->arg2.size, val(cx, ip->arg3)))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETLE:
+			if (sign_ext_b(8, ip->arg2.size, val(cx, ip->arg2)) <= sign_ext_b(8, ip->arg2.size, val(cx, ip->arg3)))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETGE:
+			if (sign_ext_b(8, ip->arg2.size, val(cx, ip->arg2)) >= sign_ext_b(8, ip->arg2.size, val(cx, ip->arg3)))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETB:
+			if (val(cx, ip->arg2) < val(cx, ip->arg3))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETA:
+			if (val(cx, ip->arg2) > val(cx, ip->arg3)) 
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETBE:
+			if (val(cx, ip->arg2) <= val(cx, ip->arg3))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETAE:
+			if (val(cx, ip->arg2) >= val(cx, ip->arg3))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETE:
+			if (val(cx, ip->arg2) == val(cx, ip->arg3))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_CSETNE:
+			if (val(cx, ip->arg2) != val(cx, ip->arg3))
+				mov(cx, ip->arg1, 1);
+			break;
+
+		case IR_AND: mov(cx, ip->arg1, val(cx, ip->arg2) & val(cx, ip->arg3)); break;
+		case IR_OR: mov(cx, ip->arg1, val(cx, ip->arg2) | val(cx, ip->arg3)); break;
+		case IR_XOR: mov(cx, ip->arg1, val(cx, ip->arg2) ^ val(cx, ip->arg3)); break;
+		case IR_NOT: mov(cx, ip->arg1, ~val(cx, ip->arg2)); break;
+		case IR_USHL: mov(cx, ip->arg1, val(cx, ip->arg2) << val(cx, ip->arg3)); break;
+		case IR_ISHL: mov(cx, ip->arg1, (i64)val(cx, ip->arg2) << (i64)val(cx, ip->arg3)); break;
+		case IR_USHR: mov(cx, ip->arg1, val(cx, ip->arg2) >> val(cx, ip->arg3)); break;
+		case IR_ISHR: mov(cx, ip->arg1, (i64)val(cx, ip->arg2) >> (i64)val(cx, ip->arg3)); break;
 
 		case IR_SYSCALL: {
 			usz count = val(cx, ip->arg2), code = -1;

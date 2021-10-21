@@ -142,7 +142,8 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 				cx->code_seg[cx->curr_func].top += size;
 
 				val = IVAL(size, IVAL_SFO | IVAL_REF, .uint_val = sf_offs);
-				emit(cx, ICODE2(IR_MOV, val, icode_gen_expr(cx, expr)));
+				if (expr)
+					emit(cx, ICODE2(IR_MOV, val, icode_gen_expr(cx, expr)));
 				cx->code_seg[cx->curr_func].top += size;
 			}
 			else {
@@ -253,9 +254,9 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_BIT_SHIFT_LEFT:
 		if (is_int(expr->type))
-			GENERIC_EXPR_BINARY(IR_ISHL, >>, )
+			GENERIC_EXPR_BINARY(IR_ISHL, <<, )
 		else if (is_uint(expr->type))
-			GENERIC_EXPR_BINARY(IR_USHL, >>, u)
+			GENERIC_EXPR_BINARY(IR_USHL, <<, u)
 
 	case EXPR_BIT_SHIFT_RIGHT:
 		if (is_int(expr->type))
@@ -482,8 +483,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		seg_ent_t* cs = &cx->code_seg[cx->curr_func];
 		icode_t* ic = cs->data;
-		ic[jmp1].arg2.index = cs->size;
-		ic[jmp1].arg2.scale = sizeof(icode_t);
+		ic[jmp1].arg1.index = cs->size;
+		ic[jmp1].arg1.scale = sizeof(icode_t);
 		return dst;
 	}
 	case EXPR_LOGIC_OR: {
@@ -492,12 +493,14 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		usz jmp1 = emit(cx, ICODE2(IR_CJMPNZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), a1));
 		ival_t a2 = icode_gen_expr(cx, expr->child_2);
-		emit(cx, ICODE2(IR_CSETZ, dst, a2)); // FIXME
+		usz jmp2 = emit(cx, ICODE2(IR_CJMPNZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), a2));
+		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
 
 		seg_ent_t* cs = &cx->code_seg[cx->curr_func];
-		icode_t* ic = cs->data;
-		ic[jmp1].arg2.index = cs->size;
-		ic[jmp1].arg2.scale = sizeof(icode_t);
+		FUNC_INSTR(jmp1).arg1.index = cs->size;
+		FUNC_INSTR(jmp1).arg1.scale = sizeof(icode_t);
+		FUNC_INSTR(jmp2).arg1.index = cs->size;
+		FUNC_INSTR(jmp2).arg1.scale = sizeof(icode_t);
 		return dst;
 	}
 
@@ -514,7 +517,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_LESSER: {
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
-			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val < a2.uint_val);
+			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val < a2.uint_val); // TODO: account for sign
 
 		ival_t dst = IVAL(ISZ_8, IVAL_REG, .reg = reg__++);
 		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));

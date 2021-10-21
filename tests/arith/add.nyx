@@ -1,0 +1,7 @@
+
+let main :: i32() {
+	i32 a = 1, b = -1, c = 75;
+	u32 ua = 1, ub = -1, uc = -6;
+	return a + b + c + ua + ub + uc;
+}
+

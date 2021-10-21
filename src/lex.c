@@ -288,6 +288,7 @@ usz lex_initial(lex_ctx_t* cx, tk_t* out_tk) {
 	chars['&'] = TK_AMPERSAND;
 	chars['|'] = TK_PIPE;
 	chars['^'] = TK_CARET;
+	chars['~'] = TK_TILDE;
 	chars['='] = TK_EQUAL;
 	chars['!'] = TK_EXCLAMATION;
 	chars['<'] = TK_LESSER;

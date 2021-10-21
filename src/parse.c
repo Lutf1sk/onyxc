@@ -32,7 +32,7 @@ stmt_t* parse_initial(parse_ctx_t* cx) {
 	operators[TK_PLUS]				= (operator_t){ TK_PLUS,			4,	EXPR_ADD,				OP_ASSOC_LEFT };
 	operators[TK_MINUS]				= (operator_t){ TK_MINUS,			4,	EXPR_SUBTRACT,			OP_ASSOC_LEFT };
 	operators[TK_DOUBLE_LESSER]		= (operator_t){ TK_DOUBLE_LESSER, 	5,	EXPR_BIT_SHIFT_LEFT,	OP_ASSOC_LEFT };
-	operators[TK_DOUBLE_GREATER]	= (operator_t){ TK_DOUBLE_GREATER,	5,	EXPR_BIT_SHIFT_LEFT,	OP_ASSOC_LEFT };
+	operators[TK_DOUBLE_GREATER]	= (operator_t){ TK_DOUBLE_GREATER,	5,	EXPR_BIT_SHIFT_RIGHT,	OP_ASSOC_LEFT };
 	operators[TK_LESSER]			= (operator_t){ TK_LESSER,			6,	EXPR_LESSER,			OP_ASSOC_LEFT };
 	operators[TK_GREATER]			= (operator_t){ TK_GREATER,			6,	EXPR_GREATER,			OP_ASSOC_LEFT };
 	operators[TK_LESSER_EQUAL]		= (operator_t){ TK_LESSER_EQUAL,	6,	EXPR_LESSER_OR_EQUAL,	OP_ASSOC_LEFT };

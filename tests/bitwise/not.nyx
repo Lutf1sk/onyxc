@@ -1,0 +1,6 @@
+
+let main :: i32() {
+	i32 a = 186;
+	return ~a;
+}
+

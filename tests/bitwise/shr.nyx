@@ -1,0 +1,6 @@
+
+let main :: i32() {
+	i32 a = 128, b = 1, c = 5;
+	return (a >> b) | c;
+}
+
