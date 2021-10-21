@@ -46,6 +46,16 @@ stmt_t* parse_initial(parse_ctx_t* cx) {
 	operators[TK_DOUBLE_PIPE]		= (operator_t){ TK_DOUBLE_PIPE,		12,	EXPR_LOGIC_OR,			OP_ASSOC_LEFT };
 	operators[TK_EQUAL] 			= (operator_t){ TK_EQUAL,			14,	EXPR_ASSIGN,			OP_ASSOC_RIGHT };
 
+	operators[TK_PLUS_EQUAL]			= (operator_t){ TK_PLUS_EQUAL,			14,	EXPR_ADD_ASSIGN,			OP_ASSOC_RIGHT };
+	operators[TK_MINUS_EQUAL]			= (operator_t){ TK_MINUS_EQUAL,			14,	EXPR_SUBTRACT_ASSIGN,		OP_ASSOC_RIGHT };
+	operators[TK_ASTERISK_EQUAL]		= (operator_t){ TK_ASTERISK_EQUAL,		14,	EXPR_MULTIPLY_ASSIGN,		OP_ASSOC_RIGHT };
+	operators[TK_SLASH_EQUAL]			= (operator_t){ TK_SLASH_EQUAL,			14,	EXPR_DIVIDE_ASSIGN,			OP_ASSOC_RIGHT };
+	operators[TK_PERCENT_EQUAL]			= (operator_t){ TK_PERCENT_EQUAL,		14,	EXPR_MODULO_ASSIGN,			OP_ASSOC_RIGHT };
+	operators[TK_DOUBLE_LESSER_EQUAL]	= (operator_t){ TK_DOUBLE_LESSER_EQUAL,	14,	EXPR_BIT_SHIFT_LEFT_ASSIGN,	OP_ASSOC_RIGHT };
+	operators[TK_DOUBLE_GREATER_EQUAL]	= (operator_t){ TK_DOUBLE_GREATER_EQUAL,14,	EXPR_BIT_SHIFT_RIGHT_ASSIGN,OP_ASSOC_RIGHT };
+	operators[TK_AMPERSAND_EQUAL]		= (operator_t){ TK_AMPERSAND_EQUAL,		14,	EXPR_BIT_AND_ASSIGN,		OP_ASSOC_RIGHT };
+	operators[TK_CARET_EQUAL]			= (operator_t){ TK_CARET_EQUAL,			14,	EXPR_BIT_XOR_ASSIGN,		OP_ASSOC_RIGHT };
+	operators[TK_PIPE_EQUAL]			= (operator_t){ TK_PIPE_EQUAL,			14,	EXPR_BIT_OR_ASSIGN,			OP_ASSOC_RIGHT };
 
 	memset(pfx_operators, 0xFF, TK_MAX * sizeof(operator_t));
 	pfx_operators[TK_DOUBLE_PLUS]	= (operator_t){ TK_DOUBLE_PLUS,		2, EXPR_PFX_INCREMENT,	OP_ASSOC_RIGHT };

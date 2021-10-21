@@ -47,6 +47,7 @@ usz new_data_seg(gen_ctx_t* cx, seg_ent_t new_ent) {
 	return cx->data_seg_count++;
 }
 
+//#define reg__ (cx->code_seg[cx->curr_func].regs)
 static usz reg__ = 0;
 
 static
@@ -273,6 +274,82 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			emit(cx, ICODE2(IR_COPY, a1, a2));
 		else
 			emit(cx, ICODE2(IR_MOV, a1, a2));
+		return a1;
+	}
+
+	case EXPR_ADD_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		emit(cx, ICODE3(IR_ADD, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_SUBTRACT_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		emit(cx, ICODE3(IR_SUB, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_MULTIPLY_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		if (is_int(expr->type))
+			emit(cx, ICODE3(IR_IMUL, a1, a1, a2));
+		else
+			emit(cx, ICODE3(IR_UMUL, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_DIVIDE_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		if (is_int(expr->type))
+			emit(cx, ICODE3(IR_IDIV, a1, a1, a2));
+		else
+			emit(cx, ICODE3(IR_UDIV, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_MODULO_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		if (is_int(expr->type))
+			emit(cx, ICODE3(IR_IREM, a1, a1, a2));
+		else
+			emit(cx, ICODE3(IR_UREM, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_BIT_SHIFT_LEFT_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		if (is_int(expr->type))
+			emit(cx, ICODE3(IR_ISHL, a1, a1, a2));
+		else
+			emit(cx, ICODE3(IR_USHL, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_BIT_SHIFT_RIGHT_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		if (is_int(expr->type))
+			emit(cx, ICODE3(IR_ISHR, a1, a1, a2));
+		else
+			emit(cx, ICODE3(IR_USHR, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_BIT_AND_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		emit(cx, ICODE3(IR_AND, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_BIT_XOR_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		emit(cx, ICODE3(IR_XOR, a1, a1, a2));
+		return a1;
+	}
+	case EXPR_BIT_OR_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
+		emit(cx, ICODE3(IR_OR, a1, a1, a2));
 		return a1;
 	}
 

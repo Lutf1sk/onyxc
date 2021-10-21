@@ -12,6 +12,7 @@ struct seg_ent {
 	void* data;
 	type_t* type;
 	isz top;
+	usz regs;
 } seg_ent_t;
 
 #define SEG_ENT_INIT(name, size, data) { (name), (size), (data) }

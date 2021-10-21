@@ -11,7 +11,7 @@ let print_uq :: void(u64 n) {
 	usz i = arr.count - usz: 1;
 	while n {
 		arr[i--] = u8:(n % u64: 10) + '0';
-		n = n / u64: 10;
+		n /= 10;
 	}
 	++i;
 

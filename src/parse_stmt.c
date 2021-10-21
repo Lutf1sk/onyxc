@@ -192,11 +192,13 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_RETURN);
-		new->expr = parse_expr(cx, NULL);
-		if (!type_convert_implicit(cx, ret_type, &new->expr))
-			ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, tk,
-					type_to_reserved_str(cx->arena, new->expr->type),
-					type_to_reserved_str(cx->arena, ret_type));
+		if (cx->curr_func_type->base->stype != TP_VOID) {
+			new->expr = parse_expr(cx, NULL);
+			if (!type_convert_implicit(cx, ret_type, &new->expr))
+				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, tk,
+						type_to_reserved_str(cx->arena, new->expr->type),
+						type_to_reserved_str(cx->arena, ret_type));
+		}
 		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after "A_BOLD"'return'"A_RESET));
 		return new;
 	}
