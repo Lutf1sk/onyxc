@@ -30,6 +30,8 @@ u64 O_RDONLY :: 0,
 	S_IWUSR :: 128,
 	S_IXUSR :: 64;
 
+
+
 let main :: i32() {
 	u8* path = "asdf\x00".data;
 
@@ -41,8 +43,8 @@ let main :: i32() {
 		print("File opened successfully for writing\n");
 	}
 
-	write(fd, "Fuck off");
-	close(fd);
+	fd->write("Fuck off");
+	fd->close();
 
 	fd = open(path, O_RDONLY, 0);
 	if fd < 0 {
@@ -53,7 +55,7 @@ let main :: i32() {
 	}
 
 	u8[128] buf;
-	u64 bytes_read = read(fd, buf);
+	u64 bytes_read = fd->read(buf);
 
 	u8[] str = buf;
 	str.count = bytes_read;

@@ -48,7 +48,7 @@ extern parse_pfn parse;
 
 // parse_expr.c
 expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type);
-expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type);
+expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence);
 expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence);
 expr_t* parse_expr(parse_ctx_t* cx, type_t* type);
 

@@ -192,7 +192,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_RETURN);
-		if (cx->curr_func_type->base->stype != TP_VOID) {
+		if (ret_type->stype != TP_VOID) {
 			new->expr = parse_expr(cx, NULL);
 			if (!type_convert_implicit(cx, ret_type, &new->expr))
 				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, tk,

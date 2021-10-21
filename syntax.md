@@ -49,8 +49,7 @@ Unary operators always have precedence over binary operators.
 | ()       | 1          | Function call    | Left-to-right |
 | []       | 1          | Array subscript  | Left-to-right |
 | .        | 1          | Member access    | Left-to-right |
-| ::       | 1          | UFCS operator    | Left-to-right |
-| ->(T)    | 1          | Cast             | Left-to-right |
+| T:       | 1          | Cast             | Left-to-right |
 | --       | 2          | Prefix decrement | Right-to-left |
 | ++       | 2          | Prefix increment | Right-to-left |
 | -        | 2          | Negate           | Right-to-left |
@@ -62,6 +61,7 @@ Unary operators always have precedence over binary operators.
 ### Binary operators
 | Operator | Precedence | Description          | Associativity |
 | :------: | :--------: | :------------------: | :-----------: |
+| ->       | 1          | UFCS operator        | Left-to-right |
 | *        | 3          | Multiply             | Left-to-right |
 | /        | 3          | Divide               | Left-to-right |
 | %        | 3          | Modulo               | Left-to-right |
@@ -110,7 +110,7 @@ Anonymous functions cannot capture local variables.
 Onyx uses UFCS (Unified Function Call Syntax),
 any function with one argument or more can be called by using the UFCS operator on a
 value of the same type as the first argument of the function.
-Therefore ```1.7::ceil()::fmod();``` is equal to ```fmod(ceil(1.7));```.
+Therefore ```1.7->ceil()->fmod();``` is equal to ```fmod(ceil(1.7));```.
 
 # Variables
 A variable is defined either with C syntax:

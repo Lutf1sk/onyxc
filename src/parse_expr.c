@@ -212,7 +212,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			tk_t* tk = peek(cx, 0);
 			if (tk->stype == TK_COLON) {
 				consume(cx);
-				expr_t* expr = parse_expr_unary(cx, NULL);
+				expr_t* expr = parse_expr_unary(cx, NULL, 0xFFFF);
 				if (!type_convert_explicit(cx, init_type, &expr))
 					ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
 							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
@@ -250,12 +250,14 @@ operator_t* find_pfx_operator(tk_stype_t tk_type) {
 }
 
 static
-expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
+expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 	tk_t* tk = peek(cx, 0);
 	expr_t* operand = parse_expr_primary(cx, type);
 
 	operator_t* op;
-	while ((op = find_sfx_operator(peek(cx, 0)->stype))) {
+	while ((op = find_sfx_operator(peek(cx, 0)->stype)) &&
+			(op->precedence < precedence || (op->precedence == precedence && op->associate == OP_ASSOC_RIGHT)))
+	{
 		if (operand->type->stype == TP_VOID)
 			ferr(A_BOLD"'void'"A_RESET" type in expression", cx->lex, *tk);
 
@@ -394,7 +396,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
 	return operand;
 }
 
-expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type) {
+expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 	tk_t tk = *peek(cx, 0);
 
 	operator_t* op = find_pfx_operator(tk.stype);
@@ -403,7 +405,7 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type) {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(op->expr, NULL);
 
-		expr_t* child = parse_expr_unary(cx, type);
+		expr_t* child = parse_expr_unary(cx, type, precedence);
 		new->child_1 = child;
 
 		switch (op->expr) {
@@ -428,7 +430,7 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type) {
 		}
 		return new;
 	}
-	return parse_expr_unary_sfx(cx, type);
+	return parse_expr_unary_sfx(cx, type, precedence);
 }
 
 static
@@ -439,7 +441,7 @@ operator_t* find_binary_operator(tk_stype_t tk_type) {
 }
 
 expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
-	expr_t* left = parse_expr_unary(cx, type);
+	expr_t* left = parse_expr_unary(cx, type, precedence);
 	tk_t* tk = peek(cx, 0);
 
 	operator_t* op = find_binary_operator(tk->stype);
@@ -454,6 +456,54 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 		*new = EXPR(op->expr, type);
 		new->child_1 = left;
 		new->child_2 = right;
+
+		if (op->expr == EXPR_UFCS) {
+			consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET));
+
+			expr_t* obj = new->child_1;
+			expr_t* func = new->child_2;
+
+			new->stype = EXPR_CALL;
+			new->child_1 = func;
+
+			type_t** arg_types = func->type->children;
+			usz arg_i = 1, arg_count = func->type->child_count;
+
+			lstr_t func_name = CLSTR("function");
+			if (func->stype == EXPR_SYM)
+				func_name = func->sym->name;
+
+			if (!arg_count)
+				goto too_many_args;
+
+			if (!type_convert_implicit(cx, arg_types[0], &obj))
+				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+						type_to_reserved_str(cx->arena, obj->type), type_to_reserved_str(cx->arena, arg_types[0]));
+			new->child_2 = obj;
+
+			expr_t** current_arg = &obj->next;
+
+			while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
+				if (current_arg != &obj->next)
+					consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
+
+				expr_t* arg = parse_expr(cx, arg_types[arg_i]);
+				if (arg_i == arg_count) {
+				too_many_args:
+					ferr("too many arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
+				}
+				if (!type_convert_implicit(cx, arg_types[arg_i], &arg))
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+							type_to_reserved_str(cx->arena, arg->type),
+							type_to_reserved_str(cx->arena, arg_types[arg_i]));
+				*current_arg = arg;
+				current_arg = &arg->next;
+				++arg_i;
+			}
+			if (arg_i != arg_count)
+				ferr("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
+			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET" after function call"));
+		}
 
 		left = new;
 

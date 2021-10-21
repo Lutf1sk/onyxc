@@ -355,7 +355,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_LAMBDA:
-		isz old_func = cx->curr_func, new_func = new_code_seg(cx, expr->type);
+		isz old_func = cx->curr_func;
+		usz new_func = new_code_seg(cx, expr->type);
 		cx->curr_func = new_func;
 
 		usz enter = emit(cx, ICODE1(IR_ENTER, IVAL(ISZ_64, IVAL_IMM, .uint_val = 0)));

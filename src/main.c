@@ -232,9 +232,11 @@ int main(int argc, char** argv) {
 	u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
 	u64 code;
 
+	sym_t* main = symtab_find(&symtab, CLSTR("main"));
+
 	exec_ctx_t exec_cx;
 	exec_cx.sp = (u8*)stack;
-	exec_cx.ip = gen_cx.code_seg[gen_cx.code_seg_count - 1].data;
+	exec_cx.ip = gen_cx.code_seg[main->ival.cso].data;
 	exec_cx.cs = gen_cx.code_seg;
 	exec_cx.ds = gen_cx.data_seg;
 	exec_cx.ret_ptr = (u8*)&code;
