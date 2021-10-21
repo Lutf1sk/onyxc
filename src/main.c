@@ -101,8 +101,9 @@ void print_ival(ival_t ival) {
 }
 
 int main(int argc, char** argv) {
-	lt_arena_t* lex_arena = lt_arena_alloc(LT_MB(128));
-	char** in_files = lt_arena_reserve(lex_arena, argc * sizeof(char*));
+	char** in_files = malloc(sizeof(char*));
+	if (!in_files)
+		lt_ferr(CLSTR("memory allocation failed\n"));
 	usz in_file_count = 0;
 
 	b8 run_mode = 0;
@@ -121,138 +122,143 @@ int main(int argc, char** argv) {
 	if (!in_file_count)
 		lt_ferrf("No input file provided\n");
 
-	char* in_path = in_files[0];
+	for (isz file_index = 0; file_index < in_file_count; ++file_index) {
+		char* in_path = in_files[file_index];
 
-	// Read source file
-	lt_file_t* fp = lt_file_open(lex_arena, in_path, LT_FILE_R);
-	if (!fp)
-		lt_ferrf("Failed to open '%s'\n", in_path);
+		// Read source file
+		lt_arena_t* lex_arena = lt_arena_alloc(LT_MB(128));
+		lt_file_t* fp = lt_file_open(lex_arena, in_path, LT_FILE_R);
+		if (!fp)
+			lt_ferrf("Failed to open '%s'\n", in_path);
 
-	usz size = lt_file_size(fp);
-	char* data = lt_arena_reserve(lex_arena, size + 1);
-	if (lt_file_read(fp, data, size) != size)
-		lt_ferrf("Failed to read from '%s'", argv[1]);
-	data[size] = 0;
-	lt_file_close(fp);
+		usz size = lt_file_size(fp);
+		char* data = lt_arena_reserve(lex_arena, size + 1);
+		if (lt_file_read(fp, data, size) != size)
+			lt_ferrf("Failed to read from '%s'", argv[1]);
+		data[size] = 0;
+		lt_file_close(fp);
 
-	// Lex data
-	lex_ctx_t lex_cx;
-	lex_cx.path = in_path;
-	lex_cx.data = LSTR(data, size);
+		// Lex data
+		lex_ctx_t lex_cx;
+		lex_cx.path = in_path;
+		lex_cx.data = LSTR(data, size);
 
-	usz tk_count = lex(&lex_cx, lt_arena_reserve(lex_arena, 0));
-	tk_t* tk_data = lt_arena_reserve(lex_arena, tk_count * sizeof(tk_t));
+		usz tk_count = lex(&lex_cx, lt_arena_reserve(lex_arena, 0));
+		tk_t* tk_data = lt_arena_reserve(lex_arena, tk_count * sizeof(tk_t));
 
-	// Create symtab and add primitives
-	symtab_t symtab;
-	memset(&symtab, 0, sizeof(symtab_t));
+		// Create symtab and add primitives
+		symtab_t symtab;
+		memset(&symtab, 0, sizeof(symtab_t));
 
-	struct {
-		lstr_t name;
-		sym_t sym;
-	} primitives[] = {
-		{ PRIMITIVE_INITIALIZER(void) },
+		struct {
+			lstr_t name;
+			sym_t sym;
+		} primitives[] = {
+			{ PRIMITIVE_INITIALIZER(void) },
 
-		{ PRIMITIVE_INITIALIZER(u8) },
-		{ PRIMITIVE_INITIALIZER(u16) },
-		{ PRIMITIVE_INITIALIZER(u32) },
-		{ PRIMITIVE_INITIALIZER(u64) },
+			{ PRIMITIVE_INITIALIZER(u8) },
+			{ PRIMITIVE_INITIALIZER(u16) },
+			{ PRIMITIVE_INITIALIZER(u32) },
+			{ PRIMITIVE_INITIALIZER(u64) },
 
-		{ PRIMITIVE_INITIALIZER(i8) },
-		{ PRIMITIVE_INITIALIZER(i16) },
-		{ PRIMITIVE_INITIALIZER(i32) },
-		{ PRIMITIVE_INITIALIZER(i64) },
+			{ PRIMITIVE_INITIALIZER(i8) },
+			{ PRIMITIVE_INITIALIZER(i16) },
+			{ PRIMITIVE_INITIALIZER(i32) },
+			{ PRIMITIVE_INITIALIZER(i64) },
 
-		{ PRIMITIVE_INITIALIZER(b8) },
+			{ PRIMITIVE_INITIALIZER(b8) },
 
-		{ PRIMITIVE_INITIALIZER(f32) },
-		{ PRIMITIVE_INITIALIZER(f64) },
-	};
+			{ PRIMITIVE_INITIALIZER(f32) },
+			{ PRIMITIVE_INITIALIZER(f64) },
+		};
 
-	for (usz i = 0; i < sizeof(primitives) / sizeof(*primitives); ++i)
-		symtab_insert(&symtab, primitives[i].name, &primitives[i].sym);
+		for (usz i = 0; i < sizeof(primitives) / sizeof(*primitives); ++i)
+			symtab_insert(&symtab, primitives[i].name, &primitives[i].sym);
 
-	// Parse token array
-	lt_arena_t* parse_arena = lt_arena_alloc(LT_MB(128));
+		// Parse token array
+		lt_arena_t* parse_arena = lt_arena_alloc(LT_MB(128));
 
-	parse_ctx_t parse_cx;
-	memset(&parse_cx, 0, sizeof(parse_cx));
-	parse_cx.data = tk_data;
-	parse_cx.count = tk_count;
-	parse_cx.path = in_path;
-	parse_cx.arena = parse_arena;
-	parse_cx.symtab = &symtab;
-	parse_cx.lex = &lex_cx;
-	stmt_t* root = parse(&parse_cx);
+		parse_ctx_t parse_cx;
+		memset(&parse_cx, 0, sizeof(parse_cx));
+		parse_cx.data = tk_data;
+		parse_cx.count = tk_count;
+		parse_cx.path = in_path;
+		parse_cx.arena = parse_arena;
+		parse_cx.symtab = &symtab;
+		parse_cx.lex = &lex_cx;
+		stmt_t* root = parse(&parse_cx);
 
-	// Print AST
- 	if (!run_mode)
-		stmt_print(lex_arena, root);
+		// Print AST
+	 	if (!run_mode)
+			stmt_print(lex_arena, root);
 
-	// Generate intermediate code
-	gen_ctx_t gen_cx;
-	gen_cx.curr_func = -1;
-	gen_cx.code_seg = NULL;
-	gen_cx.code_seg_count = 0;
-	gen_cx.data_seg = NULL;
-	gen_cx.data_seg_count = 0;
-	gen_cx.arena = parse_arena;
+		// Generate intermediate code
+		gen_ctx_t gen_cx;
+		gen_cx.curr_func = -1;
+		gen_cx.code_seg = NULL;
+		gen_cx.code_seg_count = 0;
+		gen_cx.data_seg = NULL;
+		gen_cx.data_seg_count = 0;
+		gen_cx.arena = parse_arena;
 
-	icode_gen(&gen_cx, root);
+		icode_gen(&gen_cx, root);
 
-	if (!run_mode) {
-		// Print intermediate code
-		for (usz i = 0; i < gen_cx.code_seg_count; ++i) {
-			icode_t* icode = gen_cx.code_seg[i].data;
-			usz icode_count = gen_cx.code_seg[i].size;
+		if (!run_mode) {
+			// Print intermediate code
+			for (usz i = 0; i < gen_cx.code_seg_count; ++i) {
+				icode_t* icode = gen_cx.code_seg[i].data;
+				usz icode_count = gen_cx.code_seg[i].size;
 
-			lt_printf("CS %uq:\n", i);
-			for (usz i = 0; i < icode_count; ++i) {
-				icode_t ic = icode[i];
+				lt_printf("CS %uq:\n", i);
+				for (usz i = 0; i < icode_count; ++i) {
+					icode_t ic = icode[i];
 
-				lt_printc('\t');
-				lt_printf("%S%S%S", icode_size_str(ic.arg1), icode_size_str(ic.arg2), icode_size_str(ic.arg3));
+					lt_printc('\t');
+					lt_printf("%S%S%S", icode_size_str(ic.arg1), icode_size_str(ic.arg2), icode_size_str(ic.arg3));
 
-				lt_printf("\t%S\t", icode_type_str(ic.op));
-				print_ival(ic.arg1);
-				print_ival(ic.arg2);
-				print_ival(ic.arg3);
-				lt_printc('\n');
+					lt_printf("\t%S\t", icode_type_str(ic.op));
+					print_ival(ic.arg1);
+					print_ival(ic.arg2);
+					print_ival(ic.arg3);
+					lt_printc('\n');
+				}
+			}
+
+			// Print data segments
+			for (usz i = 0; i < gen_cx.data_seg_count; ++i) {
+				seg_ent_t* seg = &gen_cx.data_seg[i];
+				lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
 			}
 		}
 
-		// Print data segments
-		for (usz i = 0; i < gen_cx.data_seg_count; ++i) {
-			seg_ent_t* seg = &gen_cx.data_seg[i];
-			lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
-		}
+		// Execute intermediate code
+		u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
+		u64 code;
+
+		sym_t* main = symtab_find(&symtab, CLSTR("main"));
+		if (!main)
+			lt_ferr(CLSTR("program has no entry point\n"));
+		if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->ival.stype != IVAL_CSO)
+			lt_ferr(CLSTR("'main' symbol must be a function\n"));
+
+		exec_ctx_t exec_cx;
+		exec_cx.sp = (u8*)stack;
+		exec_cx.ip = gen_cx.code_seg[main->ival.cso].data;
+		exec_cx.cs = gen_cx.code_seg;
+		exec_cx.ds = gen_cx.data_seg;
+		exec_cx.ret_ptr = (u8*)&code;
+
+		icode_exec(&exec_cx);
+		if (!run_mode)
+			lt_printf("program exited with code %uq\n", code);
+		else
+			return code;
+
+		lt_arena_free(parse_arena);
+		lt_arena_free(lex_arena);
 	}
 
-	// Execute intermediate code
-	u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
-	u64 code;
-
-	sym_t* main = symtab_find(&symtab, CLSTR("main"));
-	if (!main)
-		lt_ferr(CLSTR("program has no entry point\n"));
-	if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->ival.stype != IVAL_CSO)
-		lt_ferr(CLSTR("'main' symbol must be a function\n"));
-
-	exec_ctx_t exec_cx;
-	exec_cx.sp = (u8*)stack;
-	exec_cx.ip = gen_cx.code_seg[main->ival.cso].data;
-	exec_cx.cs = gen_cx.code_seg;
-	exec_cx.ds = gen_cx.data_seg;
-	exec_cx.ret_ptr = (u8*)&code;
-
-	icode_exec(&exec_cx);
-	if (!run_mode)
-		lt_printf("program exited with code %uq\n", code);
-	else
-		return code;
-
-	lt_arena_free(parse_arena);
-	lt_arena_free(lex_arena);
+	free(in_files);
 	return 0;
 }
 
