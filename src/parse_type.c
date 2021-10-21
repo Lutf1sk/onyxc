@@ -27,10 +27,17 @@ type_t* parse_type(parse_ctx_t* cx) {
 
 		while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
 			type_t* new = parse_type(cx);
-			lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"))->str;
-			consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after member name"));
 
-			type_add_child(struc, new, name, NULL);
+			for (;;) {
+				lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"))->str;
+
+				type_add_child(struc, new, name, NULL);
+
+				if (peek(cx, 0)->stype != TK_COMMA)
+					break;
+				consume(cx);
+			}
+			consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after member name"));
 		}
 
 		consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET" after struct members"));

@@ -30,9 +30,7 @@ let print_iq :: void(i64 n) {
 }
 
 def test :: struct {
-	i32 i;
-	i32 j;
-	i8 k;
+	i32 i, j, k;
 }
 
 let num :: test() {
