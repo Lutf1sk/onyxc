@@ -1,0 +1,9 @@
+
+let main :: i32() {
+	i32 val = 420;
+	for i32 i..351 {
+		--val;
+	}
+	return val;
+}
+

@@ -14,5 +14,12 @@ if [ "$code" != "69" ]; then
 	exit 1
 fi
 
+./onyxc -run $1/for.nyx
+code=$?
+if [ "$code" != "69" ]; then
+	printf "(for.nyx $code)"
+	exit 1
+fi
+
 exit 0
 

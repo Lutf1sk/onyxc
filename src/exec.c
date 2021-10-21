@@ -89,6 +89,7 @@ u64 val(exec_ctx_t* cx, ival_t v) {
 	case 8: return *(u64*)(ptr + v.index * v.scale);
 	}
 
+	*(u8*)0 = 0;
 	LT_ASSERT_NOT_REACHED();
 	return 0;
 }
@@ -263,6 +264,20 @@ void icode_exec(exec_ctx_t* cx) {
 
 		case IR_CJMPNZ:
 			if (val(cx, ip->arg2)) {
+				ip = (icode_t*)val(cx, ip->arg1);
+				continue;
+			}
+			break;
+
+		case IR_CJMPA:
+			if (val(cx, ip->arg2) > val(cx, ip->arg3)) {
+				ip = (icode_t*)val(cx, ip->arg1);
+				continue;
+			}
+			break;
+
+		case IR_CJMPAE:
+			if (val(cx, ip->arg2) >= val(cx, ip->arg3)) {
 				ip = (icode_t*)val(cx, ip->arg1);
 				continue;
 			}

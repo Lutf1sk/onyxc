@@ -233,6 +233,8 @@ int main(int argc, char** argv) {
 	u64 code;
 
 	sym_t* main = symtab_find(&symtab, CLSTR("main"));
+	if (!main)
+		lt_ferr(CLSTR("program has no entry point\n"));
 	if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->ival.stype != IVAL_CSO)
 		lt_ferr(CLSTR("'main' symbol must be a function\n"));
 
@@ -245,7 +247,7 @@ int main(int argc, char** argv) {
 
 	icode_exec(&exec_cx);
 	if (!run_mode)
-		lt_printf("Program exited with code %uq\n", code);
+		lt_printf("program exited with code %uq\n", code);
 	else
 		return code;
 

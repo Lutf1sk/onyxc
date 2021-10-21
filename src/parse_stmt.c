@@ -238,6 +238,45 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
+	case TK_KW_FOR: consume(cx); {
+		if (!cx->curr_func_type)
+			goto outside_func;
+
+		PUSH_SCOPE();
+
+		type_t* it_type = parse_type(cx);
+
+		tk_t* tk = peek(cx, 0);
+		if (!is_int_any_sign(it_type))
+			ferr("for loop iterator must be an integer", cx->lex, *tk);
+
+		tk_t ident_tk = *consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
+
+		expr_t* init = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*init = EXPR(EXPR_INTEGER, it_type);
+		init->uint_val = 0;
+
+		sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+		*sym = SYM(SYM_VAR, ident_tk.str);
+		sym->type = it_type;
+		sym->expr = init;
+		sym->flags = SYMFL_ACCESSED;
+
+		consume_type(cx, TK_DOUBLE_DOT, CLSTR(", expected "A_BOLD"'..'"A_RESET));
+
+		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*new = STMT(STMT_FOR);
+		new->expr = parse_expr(cx, NULL);
+		new->sym = sym;
+		new->child = parse_compound(cx);
+
+		symtab_insert(cx->symtab, ident_tk.str, sym);
+
+		POP_SCOPE();
+
+		return new;
+	}
+
 	case TK_KW_STRUCT: {
 		return parse_let(cx, parse_type(cx));
 	}	break;

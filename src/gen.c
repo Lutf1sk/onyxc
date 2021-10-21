@@ -773,6 +773,24 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		break;
 	}
 
+	case STMT_FOR: {
+		gen_sym_def(cx, stmt->sym, stmt->sym->expr);
+
+		usz eval = CURR_INSTR();
+
+		ival_t end = icode_gen_expr(cx, stmt->expr);
+		usz jmp1 = emit(cx, ICODE3(IR_CJMPAE, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), stmt->sym->ival, end));
+
+		icode_gen_stmt(cx, stmt->child);
+
+		emit(cx, ICODE1(IR_INC, stmt->sym->ival));
+
+		emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .index = eval, .scale = sizeof(icode_t))));
+		FUNC_INSTR(jmp1).arg1.index = CURR_INSTR();
+		FUNC_INSTR(jmp1).arg1.scale = sizeof(icode_t);
+		break;
+	}
+
 	default:
 		LT_ASSERT_NOT_REACHED();
 	}

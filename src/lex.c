@@ -189,6 +189,11 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			emit(TK_INT);
 		}	break;
 
+		case TK_DOT: c = data[it];
+			if (c == '.') { ++it; emit(TK_DOUBLE_DOT); }
+			else emit(TK_DOT);
+			break;
+
 		case TK_CHAR: {
 			for (;;) {
 				c = data[it++];
