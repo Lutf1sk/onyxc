@@ -234,10 +234,14 @@ operator_t* find_pfx_operator(tk_stype_t tk_type) {
 
 static
 expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type) {
+	tk_t* tk = peek(cx, 0);
 	expr_t* operand = parse_expr_primary(cx, type);
 
 	operator_t* op;
 	while ((op = find_sfx_operator(peek(cx, 0)->stype))) {
+		if (operand->type->stype == TP_VOID)
+			ferr(A_BOLD"'void'"A_RESET" type in expression", cx->lex, *tk);
+
 		tk_t* tk = consume(cx);
 
 		if (op->expr == EXPR_MEMBER) {
@@ -419,7 +423,6 @@ operator_t* find_binary_operator(tk_stype_t tk_type) {
 
 expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 	expr_t* left = parse_expr_unary(cx, type);
-
 	tk_t* tk = peek(cx, 0);
 
 	operator_t* op = find_binary_operator(tk->stype);

@@ -60,6 +60,9 @@ type_t* parse_type(parse_ctx_t* cx) {
 					consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
 				type_t* new = parse_type(cx);
 
+				if (new->stype == TP_VOID)
+					ferr("parameter cannot have type "A_BOLD"'void'"A_RESET, cx->lex, tk);
+
 				lstr_t name = NLSTR();
 				if (peek(cx, 0)->stype == TK_IDENTIFIER)
 					 name = consume(cx)->str;
