@@ -10,8 +10,7 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	if (type_eq(type, old->type))
 		return 1;
 
-	if ((is_int(type) && is_int(old->type)) ||
-		(is_uint(type) && is_uint(old->type)) ||
+	if ((is_int_any_sign(type) && is_int_any_sign(old->type)) ||
 		(is_float(type) && is_float(old->type)) ||
 		(is_bool(type) && is_bool(old->type)) ||
 		(old->type->stype == TP_PTR && old->type->base->stype == TP_VOID && type->stype == TP_PTR) ||
@@ -87,15 +86,6 @@ void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, e
 
 	case EXPR_LESSER: case EXPR_GREATER:
 	case EXPR_LESSER_OR_EQUAL: case EXPR_GREATER_OR_EQUAL:
-	case EXPR_EQUAL: case EXPR_NOT_EQUAL:
-	case EXPR_ADD:
-	case EXPR_SUBTRACT:
-	case EXPR_MULTIPLY:
-	case EXPR_DIVIDE:
-	case EXPR_MODULO:
-		if (type_eq((*left)->type, (*right)->type))
-			return;
-
 		if (is_int_any_sign((*left)->type) && is_int_any_sign((*right)->type)) {
 			b8 l_signed = is_int((*left)->type);
 			b8 r_signed = is_int((*right)->type);
@@ -107,6 +97,20 @@ void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, e
 				goto implicit_err;
 			}
 		}
+		break;
+
+	case EXPR_EQUAL: case EXPR_NOT_EQUAL:
+	case EXPR_ADD:
+	case EXPR_SUBTRACT:
+	case EXPR_MULTIPLY:
+	case EXPR_DIVIDE:
+	case EXPR_MODULO:
+		if (type_eq((*left)->type, (*right)->type))
+			return;
+		if (!type_convert_implicit(cx, (*left)->type, right))
+			goto implicit_err;
+		return;
+
 
 	case EXPR_ASSIGN:
 		from = (*right)->type = (*right)->type;

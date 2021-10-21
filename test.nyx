@@ -8,9 +8,9 @@ let print :: void(u8[] str) {
 
 let print_uq :: void(u64 n) {
 	u8[32] arr;
-	usz i = arr.count - usz: 1;
+	usz i = arr.count - 1;
 	while n {
-		arr[i--] = u8:(n % u64: 10) + '0';
+		arr[i--] = (n % 10) + '0';
 		n /= 10;
 	}
 	++i;
