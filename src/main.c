@@ -233,6 +233,8 @@ int main(int argc, char** argv) {
 	u64 code;
 
 	sym_t* main = symtab_find(&symtab, CLSTR("main"));
+	if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->ival.stype != IVAL_CSO)
+		lt_ferr(CLSTR("'main' symbol must be a function\n"));
 
 	exec_ctx_t exec_cx;
 	exec_cx.sp = (u8*)stack;
