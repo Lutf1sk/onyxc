@@ -1,5 +1,64 @@
 
+let print :: void(u8[] str) {
+	syscall(1, 1, str.data, str.count);
+}
+
+let write :: i64(i64 fd, u8[] data) {
+	return syscall(1, fd, data.data, data.count);
+}
+
+let open :: i64(u8* path, u64 flags, u64 mode) {
+	return syscall(2, path, flags, mode);
+}
+
+let read :: i64(i64 fd, u8[] data) {
+	return syscall(0, fd, data.data, data.count);
+}
+
+let close :: i64(i64 fd) {
+	syscall(3, fd);
+}
+
+u64 O_RDONLY :: 0,
+	O_WRONLY :: 1,
+	O_RDWR :: 2,
+	O_CREAT :: 64,
+	O_TRUNC :: 512,
+	O_APPEND :: 1024,
+
+	S_IRUSR :: 256,
+	S_IWUSR :: 128,
+	S_IXUSR :: 64;
+
 let main :: i32() {
-	
+	u8* path = "asdf\x00".data;
+
+	i64 fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	if fd < 0 {
+		print("Failed to open file\n");
+	}
+	else {
+		print("File opened successfully for writing\n");
+	}
+
+	write(fd, "Fuck off");
+	close(fd);
+
+	fd = open(path, O_RDONLY, 0);
+	if fd < 0 {
+		print("Failed to open file\n");
+	}
+	else {
+		print("File opened successfully for reading\n");
+	}
+
+	u8[128] buf;
+	u64 bytes_read = read(fd, buf);
+
+	u8[] str = buf;
+	str.count = bytes_read;
+	print(str);
+
+	close(fd);
 }
 

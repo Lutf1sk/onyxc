@@ -16,8 +16,7 @@
 	STMT_OP(BREAK) \
 	STMT_OP(CONTINUE) \
 	STMT_OP(COMPOUND) \
-	STMT_OP(EXPR) \
-	STMT_OP(SYSCALL)
+	STMT_OP(EXPR)
 
 typedef enum stmt_stype {
 #define STMT_OP(x) STMT_##x,

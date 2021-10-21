@@ -238,25 +238,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
-	case TK_KW_SYSCALL: consume(cx); {
-		if (!cx->curr_func_type)
-			goto outside_func;
-
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
-		*new = STMT(STMT_SYSCALL);
-
-		expr_t** eit = &new->expr;
-		while (peek(cx, 0)->stype != TK_SEMICOLON) {
-			if (eit != &new->expr)
-				consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"';'"A_RESET", "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
-
-			*eit = parse_expr(cx, NULL);
-			eit = &(*eit)->next;
-		}
-		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after syscall"));
-		return new;
-	}
-
 	case TK_KW_STRUCT: {
 		return parse_let(cx, parse_type(cx));
 	}	break;

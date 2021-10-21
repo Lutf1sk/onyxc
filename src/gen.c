@@ -687,6 +687,19 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		LT_ASSERT_NOT_REACHED();
 	}
 
+	case EXPR_SYSCALL: {
+		expr_t* it = expr->child_1;
+		usz arg_i = 0;
+		while (it) {
+			emit(cx, ICODE2(IR_SETARG, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i++), icode_gen_expr(cx, it)));
+			it = it->next;
+		}
+		ival_t dst = IVAL(ISZ_64, IVAL_REG, .reg = reg__++);
+		emit(cx, ICODE2(IR_SYSCALL, dst, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i)));
+		return dst;
+	}
+
+
 	default:
 		break;
 	}
@@ -749,16 +762,6 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 			icode_gen_stmt(cx, it);
 			it = it->next;
 		}
-	}	break;
-
-	case STMT_SYSCALL: {
-		expr_t* it = stmt->expr;
-		usz arg_i = 0;
-		while (it) {
-			emit(cx, ICODE2(IR_SETARG, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i++), icode_gen_expr(cx, it)));
-			it = it->next;
-		}
-		emit(cx, ICODE2(IR_SYSCALL, IVAL(ISZ_64, IVAL_REG, .reg = reg__++), IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i)));
 	}	break;
 
 	case STMT_RETURN: {

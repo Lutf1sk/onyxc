@@ -66,7 +66,9 @@
 	EXPR_OP(CONVERT) \
 	EXPR_OP(VIEW) \
 	EXPR_OP(DATA) \
-	EXPR_OP(COUNT)
+	EXPR_OP(COUNT) \
+	\
+	EXPR_OP(SYSCALL)
 
 typedef enum expr_stype {
 #define EXPR_OP(x) EXPR_##x,

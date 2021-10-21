@@ -355,6 +355,9 @@ void icode_exec(exec_ctx_t* cx) {
 				a4 = pop64(cx), a3 = pop64(cx), a2 = pop64(cx), a1 = pop64(cx);
 				code = syscall(a1, a2, a3, a4);
 				break;
+
+			default:
+				LT_ASSERT_NOT_REACHED();
 			}
 			mov(cx, ip->arg1, code);
 		}	break;

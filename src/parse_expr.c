@@ -176,6 +176,23 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		return new;
 	}
 
+	case TK_KW_SYSCALL: consume(cx); {
+		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET));
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_SYSCALL, &i64_def);
+
+		expr_t** eit = &new->child_1;
+		while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
+			if (eit != &new->child_1)
+				consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"';'"A_RESET", "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
+
+			*eit = parse_expr(cx, NULL);
+			eit = &(*eit)->next;
+		}
+		consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"';'"A_RESET" after syscall"));
+		return new;
+	}
+
 	case TK_IDENTIFIER: {
 		sym_t* sym = symtab_find(cx->symtab, tk.str);
 		if (!sym)
