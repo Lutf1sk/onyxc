@@ -33,7 +33,6 @@
 	ICODE_OP(GETARG) \
 	ICODE_OP(CALL) \
 	ICODE_OP(RET) \
-	ICODE_OP(RETVAL) \
 	ICODE_OP(COPY) \
 	\
 	ICODE_OP(CSETE) \
@@ -121,7 +120,7 @@ struct icode {
 } icode_t;
 
 lstr_t icode_type_str(icode_type_t type);
-lstr_t icode_size_str(icode_size_t size);
+lstr_t icode_size_str(ival_t size);
 
 #define ICODE_INIT(op, v1, v2, v3) { (v1), (v2), (v3), (op) }
 #define ICODE(op, v1, v2, v3) ((icode_t)ICODE_INIT(op, v1, v2, v3))

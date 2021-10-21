@@ -191,12 +191,7 @@ int main(int argc, char** argv) {
 			icode_t ic = icode[i];
 
 			lt_printc('\t');
-			if (ic.arg1.stype != IVAL_INVAL)
-				lt_printf("%S", icode_size_str(ic.arg1.size));
-			if (ic.arg2.stype != IVAL_INVAL)
-				lt_printf("%S", icode_size_str(ic.arg2.size));
-			if (ic.arg3.stype != IVAL_INVAL)
-				lt_printf("%S", icode_size_str(ic.arg3.size));
+			lt_printf("%S%S%S", icode_size_str(ic.arg1), icode_size_str(ic.arg2), icode_size_str(ic.arg3));
 
 			lt_printf("\t%S\t", icode_type_str(ic.op));
 			print_ival(ic.arg1);
@@ -213,20 +208,17 @@ int main(int argc, char** argv) {
 	}
 
 	// Execute intermediate code
-	icode_t exit_wrapper[2] = {
-		ICODE1(IR_RETVAL, IVAL(ISZ_64, IVAL_REG, .reg = 0)),
-		ICODE1(IR_EXIT, IVAL(ISZ_64, IVAL_REG, .reg = 0)),
-	};
 	u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
-	*(stack++) = (u64)&exit_wrapper;
+	u64 code;
 
 	exec_ctx_t exec_cx;
 	exec_cx.sp = (u8*)stack;
 	exec_cx.ip = gen_cx.code_seg[gen_cx.code_seg_count - 1].data;
 	exec_cx.cs = gen_cx.code_seg;
 	exec_cx.ds = gen_cx.data_seg;
+	exec_cx.ret_ptr = (u8*)&code;
 
-	u64 code = icode_exec(&exec_cx);
+	icode_exec(&exec_cx);
 	lt_printf("Program exited with code %uq\n", code);
 
 	lt_arena_free(parse_arena);

@@ -444,6 +444,20 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_CALL: {
+		ival_t dst = IVAL(0, 0);
+		usz ret_size = type_bytes(expr->type);
+
+		if (expr->type->stype == TP_VOID) {
+
+		}
+		else if (ret_size > 8 || lt_is_pow2(ret_size)) {
+			usz stack_offs = cx->code_seg[cx->curr_func].top;
+			cx->code_seg[cx->curr_func].top += ret_size;
+			dst = IVAL(ret_size, IVAL_SFO | IVAL_REF, .sfo = stack_offs);
+		}
+		else
+			dst = IVAL(ret_size, IVAL_REG, .reg = reg__++);
+
 		usz arg_i = 0;
 		expr_t* it = expr->child_2;
 		usz stack_size = 0;
@@ -452,13 +466,9 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			stack_size += type_bytes(it->type);
 			it = it->next;
 		}
-		emit(cx, ICODE2(IR_CALL, icode_gen_expr(cx, expr->child_1), IVAL(ISZ_64, IVAL_IMM, .uint_val = stack_size)));
 
-		if (expr->type->stype == TP_VOID)
-			return IVAL(0, 0);
+		emit(cx, ICODE3(IR_CALL, dst, icode_gen_expr(cx, expr->child_1), IVAL(ISZ_64, IVAL_IMM, .uint_val = stack_size)));
 
-		ival_t dst = IVAL(type_bytes(expr->type), IVAL_REG, .reg = reg__++);
-		emit(cx, ICODE1(IR_RETVAL, dst));
 		return dst;
 	}
 

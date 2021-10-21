@@ -22,15 +22,25 @@ let print_uq :: void(u64 n) {
 }
 
 let print_iq :: void(i64 n) {
-	if n < 10 {
+	if n < 0 {
 		print("-");
 		n = -n;
 	}
 	print_uq(u64: n);
 }
 
+def test :: struct {
+	i32 i;
+	i32 j;
+	i8 k;
+}
+
+let num :: test() {
+	return test{1, 2, 3};
+}
+
 let main :: u64() {
-	print_iq(-123);
+	print_iq(num().i + num().j + num().k);
 	print("\n");
 	return usz: 0;
 }

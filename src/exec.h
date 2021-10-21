@@ -12,11 +12,12 @@ struct exec_ctx {
 	icode_t* ip;
 
 	u64 regs[32];
+	u8* ret_ptr;
 
 	seg_ent_t* cs;
 	seg_ent_t* ds;
 } exec_ctx_t;
 
-u64 icode_exec(exec_ctx_t* cx);
+void icode_exec(exec_ctx_t* cx);
 
 #endif

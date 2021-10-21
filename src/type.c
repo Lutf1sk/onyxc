@@ -178,7 +178,7 @@ usz type_bytes(type_t* type) {
 
 	switch (type->stype) {
 	case TP_VOID:
-		break;
+		return 0;
 
 	case TP_U8: case TP_I8: case TP_B8:
 		return 1;
@@ -203,6 +203,7 @@ usz type_bytes(type_t* type) {
 	}
 	}
 
+	*(u8*)0 = 0;
 	LT_ASSERT_NOT_REACHED();
 	return 0;
 }

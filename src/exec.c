@@ -46,6 +46,7 @@ u64 val(exec_ctx_t* cx, ival_t v) {
 	case 8: return *(u64*)(ptr + v.index * v.scale);
 	}
 
+	*(u8*)0 = 0;
 	LT_ASSERT_NOT_REACHED();
 	return 0;
 }
@@ -107,7 +108,7 @@ void push(exec_ctx_t* cx, ival_t ival) {
 	cx->sp += ival.size;
 }
 
-u64 icode_exec(exec_ctx_t* cx) {
+void icode_exec(exec_ctx_t* cx) {
 	icode_t* ip = cx->ip;
 	for (;;) {
 		switch (ip->op) {
@@ -196,18 +197,20 @@ u64 icode_exec(exec_ctx_t* cx) {
 			break;
 
 		case IR_RET: {
-			u64 v;
-			if (ip->arg1.stype != IVAL_INVAL || ip->arg1.size == 8)
-				v = val(cx, ip->arg1); // !!
+			if (ip->arg1.stype != IVAL_INVAL) {
+				if (ip->arg1.stype & IVAL_REF || ip->arg1.stype == IVAL_REG)
+					memcpy(cx->ret_ptr, ref(cx, ip->arg1), ip->arg1.size);
+				else {
+					u64 v = val(cx, ip->arg1);
+					LT_ASSERT(cx->ret_ptr);
+					memcpy(cx->ret_ptr, &v, ip->arg1.size);
+				}
+			}
 			cx->sp = cx->bp;
 			cx->bp = (u8*)pop64(cx);
 			cx->ip = (icode_t*)pop64(cx);
-			return v;
+			return;
 		}
-
-		case IR_RETVAL:
-			mov(cx, ip->arg1, 1); // !!
-			break;
 
 		case IR_CJMPZ:
 			if (!val(cx, ip->arg2)) {
@@ -262,9 +265,17 @@ u64 icode_exec(exec_ctx_t* cx) {
 
 		case IR_CALL: {
 			push64(cx, (u64)ip);
-			cx->ip = (icode_t*)val(cx, ip->arg1);
-			usz stack_pop = val(cx, ip->arg2);
+			cx->ip = (icode_t*)val(cx, ip->arg2);
+			usz stack_pop = val(cx, ip->arg3);
+
+			void* old_ret_ptr = cx->ret_ptr;
+			if (ip->arg1.stype != IVAL_INVAL)
+				cx->ret_ptr = ref(cx, ip->arg1);
+
 			icode_exec(cx);
+
+			cx->ret_ptr = old_ret_ptr;
+
 			ip = cx->ip;
 			cx->sp -= stack_pop;
 		}	break;
@@ -272,9 +283,6 @@ u64 icode_exec(exec_ctx_t* cx) {
 		case IR_JMP:
 			ip = (icode_t*)val(cx, ip->arg1);
 			continue;
-
-		case IR_EXIT:
-			return val(cx, ip->arg1);
 
 		default:
 			lt_ferrf("Unhandled operation '%S'\n", icode_type_str(ip->op));

@@ -10,14 +10,17 @@ lstr_t icode_type_str(icode_type_t type) {
 	}
 }
 
-lstr_t icode_size_str(icode_size_t size) {
-	switch (size) {
+lstr_t icode_size_str(ival_t val) {
+	if (val.stype == IVAL_INVAL)
+		return CLSTR("i");
+
+	switch (val.size) {
 	case ISZ_8: return CLSTR("b");
 	case ISZ_16: return CLSTR("w");
 	case ISZ_32: return CLSTR("d");
 	case ISZ_64: return CLSTR("q");
 	default:
-		return CLSTR("i");
+		return CLSTR("v");
 	}
 }
 
