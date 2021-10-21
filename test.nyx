@@ -16,7 +16,7 @@ let read :: i64(i64 fd, u8[] data) {
 }
 
 let close :: i64(i64 fd) {
-	syscall(3, fd);
+	return syscall(3, fd);
 }
 
 u64 O_RDONLY :: 0,
