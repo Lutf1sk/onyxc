@@ -261,6 +261,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		sym->type = it_type;
 		sym->expr = init;
 		sym->flags = SYMFL_ACCESSED;
+		symtab_insert(cx->symtab, ident_tk.str, sym);
 
 		consume_type(cx, TK_DOUBLE_DOT, CLSTR(", expected "A_BOLD"'..'"A_RESET));
 
@@ -269,8 +270,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		new->expr = parse_expr(cx, NULL);
 		new->sym = sym;
 		new->child = parse_compound(cx);
-
-		symtab_insert(cx->symtab, ident_tk.str, sym);
 
 		POP_SCOPE();
 

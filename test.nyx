@@ -30,9 +30,26 @@ u64 O_RDONLY :: 0,
 	S_IWUSR :: 128,
 	S_IXUSR :: 64;
 
-
-
 let main :: i32() {
+
+	u8[][] digit_strs = {
+		"Zero",
+		"One",
+		"Two",
+		"Three",
+		"Four",
+		"Five",
+		"Six",
+		"Seven",
+		"Eight",
+		"Nine",
+	};
+
+	for i32 i..digit_strs.count {
+		print(digit_strs[i]);
+		print("\n");
+	}
+
 	return 1;
 }
 
