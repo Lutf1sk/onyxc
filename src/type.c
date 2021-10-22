@@ -50,6 +50,8 @@ alloc_failed:
 }
 
 isz type_to_str(char* out_str, type_t* type) {
+	LT_ASSERT(type);
+
 	char* it = out_str;
 
 	lstr_t str = NLSTR();

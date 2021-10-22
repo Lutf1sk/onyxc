@@ -68,6 +68,9 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 }
 
 void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, expr_t** right) {
+	LT_ASSERT(left && *left && (*left)->type);
+	LT_ASSERT(right && *right && (*right)->type);
+
 	type_t* from = NULL;
 	type_t* to = NULL;
 
@@ -105,9 +108,11 @@ void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, e
 	case EXPR_MULTIPLY:
 	case EXPR_DIVIDE:
 	case EXPR_MODULO:
-		if (type_eq((*left)->type, (*right)->type))
+		to = (*left)->type;
+		from = (*right)->type;
+		if (type_eq(to, from))
 			return;
-		if (!type_convert_implicit(cx, (*left)->type, right))
+		if (!type_convert_implicit(cx, to, right))
 			goto implicit_err;
 		return;
 

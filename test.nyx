@@ -1,6 +1,6 @@
 
-let print :: void(u8[] str) {
-	syscall(1, 1, str.data, str.count);
+let print :: i32 (u8[] str) {
+	return syscall(1, 1, str.data, str.count);
 }
 
 let write :: i64(i64 fd, u8[] data) {
@@ -30,8 +30,12 @@ u64 O_RDONLY :: 0,
 	S_IWUSR :: 128,
 	S_IXUSR :: 64;
 
-let main :: i32() {
+let print_i64 :: void(i64 n) {
+	u8[32] str;
+	u8* it = str.data + str.count - 1;
+}
 
+let main :: i32() {
 	u8[][] digit_strs = {
 		"Zero",
 		"One",
