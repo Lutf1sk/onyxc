@@ -1,22 +1,11 @@
 #include "lex.h"
 #include "err.h"
 #include "textattrib.h"
+#include "tk_ctype.h"
 
 #include <lt/str.h>
 #include <lt/mem.h>
 #include <lt/io.h>
-
-#include <ctype.h>
-
-static LT_INLINE
-b8 is_identifier_head(int c) {
-	return isalpha(c) || c == '_';
-}
-
-static LT_INLINE
-b8 is_identifier_body(int c) {
-	return isalnum(c) || c == '_';
-}
 
 static
 tk_stype_t identifier_type(lstr_t str) {
@@ -184,7 +173,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			break;
 
 		case TK_INT: {
-			while (isdigit(data[it]))
+			while (is_numeric_body(data[it]))
 				++it;
 			emit(TK_INT);
 		}	break;
@@ -221,7 +210,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 		}	break;
 
 		case TK_IDENTIFIER: {
-			while(is_identifier_body(data[it]))
+			while(is_ident_body(data[it]))
 				++it;
 
 			tk_stype_t stype = identifier_type(LSTR(&data[tk_start], it - tk_start));

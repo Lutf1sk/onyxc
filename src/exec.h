@@ -11,7 +11,7 @@ struct exec_ctx {
 	u8* bp;
 	icode_t* ip;
 
-	u64 regs[32];
+	u64 regs[0xFFF];
 	u8* ret_ptr;
 
 	seg_ent_t* cs;
