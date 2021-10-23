@@ -9,9 +9,7 @@
 	TK_OP(INVALID) \
 	TK_OP(EOF) \
 	TK_OP(IDENTIFIER) \
-	TK_OP(INT) \
-	TK_OP(UINT) \
-	TK_OP(FLOAT) \
+	TK_OP(NUMBER) \
 	TK_OP(CHAR) \
 	TK_OP(STRING) \
 	\

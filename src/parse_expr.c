@@ -4,6 +4,8 @@
 #include "stmt_ast.h"
 #include "type.h"
 
+#include "tk_ctype.h"
+
 #include "symtab.h"
 
 #include <lt/str.h>
@@ -117,24 +119,67 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		return new;
 	}
 
-	case TK_INT: consume(cx); {
+	case TK_NUMBER: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &i64_def);
-		new->int_val = lt_lstr_int(tk.str);
-		return new;
-	}
 
-	case TK_UINT: consume(cx); {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_INTEGER, &u64_def);
-		new->uint_val = lt_lstr_uint(tk.str);;
-		return new;
-	}
+		isz i = 0;
 
-	case TK_FLOAT: consume(cx); {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_FLOAT, &f64_def);
-		new->float_val = lt_lstr_float(tk.str);;
+		u64 iv = 0;
+		if (tk.str.len > 2 && tk.str.str[0] == '0') {
+			switch (tk.str.str[1]) {
+			case 'x': case 'X': // Parse hexadecimal integer
+				i += 2;
+				while (i < tk.str.len) {
+					iv <<= 4;
+					iv |= digit_uint_val(tk.str.str[i++]);
+				}
+				new->type = &u64_def;
+				break;
+
+			case 'b': case 'B': // Parse binary integer
+				i += 2;
+				while (i < tk.str.len) {
+					iv <<= 1;
+					iv |= tk.str.str[i++] - '0';
+				}
+				new->type = &u64_def;
+				break;
+
+			case '.':
+				i += 2;
+				goto parse_float;
+
+			default:
+				break;
+			}
+		}
+		else {
+			while (i < tk.str.len) { // Parse decimal integer
+				char c = tk.str.str[i++];
+
+				if (c == '.') { // Parse float
+				parse_float:
+					u64 low = 0;
+					u64 mult = 1;
+					while (i < tk.str.len) {
+						mult *= 10;
+						low *= 10;
+						low += tk.str.str[i++] - '0';
+					}
+
+					new->float_val = (f64)iv + ((f64)low / (f64)mult);
+					new->type = &f64_def;
+					new->stype = EXPR_FLOAT;
+					return new;
+				}
+
+				iv *= 10;
+				iv += c - '0';
+			}
+		}
+
+		new->uint_val = iv;
 		return new;
 	}
 

@@ -172,10 +172,10 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			else emit(TK_EQUAL);
 			break;
 
-		case TK_INT: {
+		case TK_NUMBER: {
 			while (is_numeric_body(data[it]))
 				++it;
-			emit(TK_INT);
+			emit(TK_NUMBER);
 		}	break;
 
 		case TK_DOT: c = data[it];
@@ -250,7 +250,7 @@ usz lex_initial(lex_ctx_t* cx, tk_t* out_tk) {
 
 	// Fill digits
 	for (usz i = '0'; i <= '9'; ++i)
-		chars[i] = TK_INT;
+		chars[i] = TK_NUMBER;
 
 	chars['\''] = TK_CHAR;
 	chars['"'] = TK_STRING;

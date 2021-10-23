@@ -23,7 +23,7 @@ static
 const u8 ctype_table[256] = {
 	/*00*/ 0, 0, 0, 0, /*04*/ 0, 0, 0, 0, /*08*/ 0, WHSP, WHSP, WHSP, /*0C*/ WHSP, WHSP, 0, 0,
 	/*10*/ 0, 0, 0, 0, /*14*/ 0, 0, 0, 0, /*18*/ 0, 0, 0, 0, /*1C*/ 0, 0, 0, 0,
-	/*20*/ WHSP, OPER|PUNC, 0, 0, /*24*/ 0, OPER, OPER, 0, /*28*/ PARN|PUNC, PARN|PUNC, OPER, OPER, /*2C*/ 0, OPER, PUNC, OPER,
+	/*20*/ WHSP, OPER|PUNC, 0, 0, /*24*/ 0, OPER, OPER, 0, /*28*/ PARN|PUNC, PARN|PUNC, OPER, OPER, /*2C*/ 0, OPER, PUNC|NUMB, OPER,
 	/*30*/ IBNR, IBNR, IBNR, IBNR, /*34*/ IBNR, IBNR, IBNR, IBNR, /*38*/ IBNR, IBNR, PUNC, PUNC, /*3C*/ OPER, OPER, OPER, OPER|PUNC,
 	/*40*/ 0, IDNR, IDNR, IDNR, /*44*/ IDNR, IDNR, IDNR, IDNR, /*48*/ IDNR, IDNR, IDNR, IDNR, /*4C*/ IDNR, IDNR, IDNR, IDNR,
 	/*50*/ IDNR, IDNR, IDNR, IDNR, /*54*/ IDNR, IDNR, IDNR, IDNR, /*58*/ IDNR, IDNR, IDNR, PARN|PUNC, /*5C*/ 0, PARN|PUNC, OPER, IDNR,
@@ -39,6 +39,28 @@ const u8 ctype_table[256] = {
 	/*E0*/ IDNR, IDNR, IDNR, IDNR, /*E4*/ IDNR, IDNR, IDNR, IDNR, /*E8*/ IDNR, IDNR, IDNR, IDNR, /*EC*/ IDNR, IDNR, IDNR, IDNR,
 	/*F0*/ IDNR, IDNR, IDNR, IDNR, /*F4*/ IDNR, IDNR, IDNR, IDNR, /*F8*/ IDNR, IDNR, IDNR, IDNR, /*FC*/ IDNR, IDNR, IDNR, IDNR,
 };
+
+static
+const u8 digit_val_table[256] = {
+	/*00*/ 0, 0, 0, 0, /*04*/ 0, 0, 0, 0, /*08*/ 0, 0, 0, 0, /*0C*/ 0, 0, 0, 0,
+	/*10*/ 0, 0, 0, 0, /*14*/ 0, 0, 0, 0, /*18*/ 0, 0, 0, 0, /*1C*/ 0, 0, 0, 0,
+	/*20*/ 0, 0, 0, 0, /*24*/ 0, 0, 0, 0, /*28*/ 0, 0, 0, 0, /*2C*/ 0, 0, 0, 0,
+	/*30*/ 0, 1, 2, 3, /*34*/ 4, 5, 6, 7, /*38*/ 8, 9, 0, 0, /*3C*/ 0, 0, 0, 0,
+	/*40*/ 0, 10, 11, 12, /*44*/ 13, 14, 15, 0, /*48*/ 0, 0, 0, 0, /*4C*/ 0, 0, 0, 0,
+	/*50*/ 0, 0, 0, 0, /*54*/ 0, 0, 0, 0, /*58*/ 0, 0, 0, 0, /*5C*/ 0, 0, 0, 0,
+	/*60*/ 0, 10, 11, 12, /*64*/ 13, 14, 15, 0, /*68*/ 0, 0, 0, 0, /*6C*/ 0, 0, 0, 0,
+	/*70*/ 0, 0, 0, 0, /*74*/ 0, 0, 0, 0, /*78*/ 0, 0, 0, 0, /*7C*/ 0, 0, 0, 0,
+
+	/*80*/ 0, 0, 0, 0, /*84*/ 0, 0, 0, 0, /*88*/ 0, 0, 0, 0, /*8C*/ 0, 0, 0, 0,
+	/*90*/ 0, 0, 0, 0, /*94*/ 0, 0, 0, 0, /*98*/ 0, 0, 0, 0, /*9C*/ 0, 0, 0, 0,
+	/*A0*/ 0, 0, 0, 0, /*A4*/ 0, 0, 0, 0, /*A8*/ 0, 0, 0, 0, /*AC*/ 0, 0, 0, 0,
+	/*B0*/ 0, 0, 0, 0, /*B4*/ 0, 0, 0, 0, /*B8*/ 0, 0, 0, 0, /*BC*/ 0, 0, 0, 0,
+	/*C0*/ 0, 0, 0, 0, /*C4*/ 0, 0, 0, 0, /*C8*/ 0, 0, 0, 0, /*CC*/ 0, 0, 0, 0,
+	/*D0*/ 0, 0, 0, 0, /*D4*/ 0, 0, 0, 0, /*D8*/ 0, 0, 0, 0, /*DC*/ 0, 0, 0, 0,
+	/*E0*/ 0, 0, 0, 0, /*E4*/ 0, 0, 0, 0, /*E8*/ 0, 0, 0, 0, /*EC*/ 0, 0, 0, 0,
+	/*F0*/ 0, 0, 0, 0, /*F4*/ 0, 0, 0, 0, /*F8*/ 0, 0, 0, 0, /*FC*/ 0, 0, 0, 0,
+};
+
 
 static LT_INLINE
 u8 is_ident_head(u8 c) {
@@ -83,6 +105,11 @@ u8 is_paren(u8 c) {
 static LT_INLINE
 u8 is_punc(u8 c) {
 	return ctype_table[c] & PUNC;
+}
+
+static LT_INLINE
+u8 digit_uint_val(u8 c) {
+	return digit_val_table[c];
 }
 
 #endif

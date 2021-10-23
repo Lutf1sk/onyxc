@@ -127,7 +127,7 @@ int main(int argc, char** argv) {
 
 		// Read source file
 		lt_arena_t* lex_arena = lt_arena_alloc(LT_MB(128));
-		lt_file_t* fp = lt_file_open(lex_arena, in_path, LT_FILE_R);
+		lt_file_t* fp = lt_file_open(lex_arena, in_path, LT_FILE_R, 0);
 		if (!fp)
 			lt_ferrf("Failed to open '%s'\n", in_path);
 

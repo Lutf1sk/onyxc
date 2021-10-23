@@ -31,6 +31,11 @@ u64 O_RDONLY :: 0,
 	S_IXUSR :: 64;
 
 let print_i64 :: i64(i64 n) {
+	if (n < 0) {
+		print("-");
+		n = -n;
+	}
+
 	u8[32] str;
 	u8* end = str.data + u8*:(str.count), it = end - u8*: 1;
 
@@ -38,7 +43,7 @@ let print_i64 :: i64(i64 n) {
 		*it-- = n % 10 + '0';
 		n /= 10;
 	}
-	*it-- = n + '0';
+	*it = n + '0';
 
 	u8[] num;
 	num.data = it;
@@ -47,7 +52,7 @@ let print_i64 :: i64(i64 n) {
 	return num.count;
 }
 
-let print_h64 :: i64(i64 n) {
+let print_h64 :: i64(u64 n) {
 	u8[16] hex_conv_tab = {
 		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
 	};
@@ -55,11 +60,11 @@ let print_h64 :: i64(i64 n) {
 	u8[32] str;
 	u8* end = str.data + u8*:(str.count), it = end - u8*: 1;
 
-	while n >= 16 {
-		*it-- = hex_conv_tab[n & 0xF];
+	while n > 0x0F {
+		*it-- = hex_conv_tab[n & 0x0F];
 		n >>= 4;
 	}
-	*it-- = hex_conv_tab[n];
+	*it = hex_conv_tab[n];
 
 	u8[] num;
 	num.data = it;
@@ -69,9 +74,9 @@ let print_h64 :: i64(i64 n) {
 }
 
 let main :: i32() {
-
 	for i32 i..256 {
-		print("0x");
+		print_i64(i);
+		print(" : 0x");
 		print_h64(i);
 		print("\n");
 	}
