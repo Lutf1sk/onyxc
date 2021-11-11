@@ -1,5 +1,7 @@
 
 # Types
+Unlike C, onyx attaches subtypes like *, [] and () to the type itself instead of the identifier.
+
 | Name  | Description                    |
 | :---: | :----------------------------: |
 | i8    | 8 bit integer                  |
@@ -77,9 +79,9 @@ Unary operators always have precedence over binary operators.
 | !=       | 7          | Not equal            | Left-to-right |
 | &        | 8          | Bitwise and          | Left-to-right |
 | ^        | 9          | Bitwise xor          | Left-to-right |
-| |        | 10         | Bitwise or           | Left-to-right |
+| \|       | 10         | Bitwise or           | Left-to-right |
 | &&       | 11         | Logical and          | Left-to-right |
-| ||       | 12         | Logical or           | Left-to-right |
+| \|\|     | 12         | Logical or           | Left-to-right |
 | =        | 14         | Assign               | Right-to-left |
 | +=       | 14         | Assign sum           | Right-to-left |
 | -=       | 14         | Assign difference    | Right-to-left |
@@ -90,7 +92,7 @@ Unary operators always have precedence over binary operators.
 | >>=      | 14         | Assign right shifted | Right-to-left |
 | &=       | 14         | Assign by bit and    | Right-to-left |
 | ^=       | 14         | Assign by bit xor    | Right-to-left |
-| |=       | 14         | Assign by bit or     | Right-to-left |
+| \|=      | 14         | Assign by bit or     | Right-to-left |
 
 # Literals
 An integer literal: ```123``` or ```123i```
@@ -102,6 +104,9 @@ A float literal: ```123.123``` or ```123f``` or ```123.123f```
 An array literal: ```T[]{ <INITIALIZERS> }``` or ```T[N]{ <INITIALIZERS> }```
 
 A structure literal: ```T{ <MEMBERS> }```
+
+A string literal: ```"Some UTF-8 text"```
+String literals are u8 array views (u8[]).
 
 Anonymous function literal: ```T(<ARGUMENTS>){ <STATEMENTS> }```
 Anonymous functions cannot capture local variables.
@@ -118,6 +123,7 @@ A variable is defined either with C syntax:
 
 Or by using the 'let' keyword to automatically deduce the type from the initializer:
 ```let an_integer = 123;```
+
 'let' cannot be used without an initializer.
 
 Multiple variables can be defined at once like this:
@@ -137,18 +143,11 @@ let another_float_constant :: 2.0;
 ```
 let fadd :: float(float x, float y) {
 	return x + y
-};
+}
 ```
 
 # Ifs
 ```
-if 1:
-	do_thing();
-elif 2:
-	do_thing();
-else:
-	do_thing();
-
 if 1 {
 	do_thing();
 }
@@ -163,46 +162,30 @@ else {
 # Loops
 ### While example
 ```
-while 1:
-	do_something();
-
 while 1 {
 	do_something();
 }
 ```
 ### For example
 ```
-for int i = 0; i < 100; ++i:
+for u64 i..100 {
 	do_a_thing();
-
-for int i = 0; i < 100; ++i {
-	do_a_thing();
-}
-```
-### Iteration example
-```
-int i..100:
-	do_other_thing();
-
-int i..100 {
-	do_other_thing();
 }
 ```
 
 # Switches
 Switches in onyx cannot fall through, and thus they do not affect 'break' statements.
-Unhandled cases evoke undefined behaviour if a 'default' case has not been specified.
+
+Unhandled cases evoke undefined behaviour if a 'default' case has not been specified, this allows far more aggressive optimization.
 ```
 switch 'A' {
-case 'B':
-	do_thing();
-
 case 'C' {
-	do_other_thing();
+	do_thing();
 }
 
-case 'D', 'E', 'F':
+case 'D', 'E', 'F' {
 	do_another_thing();
+}
 
 default {
 	something();
@@ -210,3 +193,37 @@ default {
 }
 ```
 
+# Arrays and array views
+### Length and data
+Both arrays and views have members called ```count``` and ```data```, where count is the number of elements and data is a pointer to the first element.
+
+In static arrays, both of these members are evaluated at compile-time.
+For views, they are mutable variables.
+
+### Array views
+An array view is any array type that does not have an explicit size (u8[] instead of u8[N]).
+Under the hood, this view is simply stored as a "count" and a pointer to the first element.
+
+### Assignment
+A major change from C is that onyx allows assignment to static arrays, doing something like:
+```
+u32[100] arr1, arr2;
+arr2 = arr1;
+```
+Is perfectly valid and copies the contents of arr1 into arr2.
+
+This also works when the source is an array view, although there is no runtime check to guarantee that the memory the view points to is the same size as the destination, so be aware that this can cause out-of-bounds reads if the viewed memory is smaller than necessary.
+
+Assignment to an array view only copies the data pointer and count, not the elements.
+
+### Examples
+```
+u8[100] arr = " ello ";
+u8[] view = arr; // A view pointing to the contents of arr
+
+// Set the first element to 'H', so that arr is now "Hello "
+view[0] = 'H';
+
+// Set the last element to '!', arr is now "Hello!"
+arr[arr.count - 1] = '!';
+```
