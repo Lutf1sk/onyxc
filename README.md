@@ -1,12 +1,18 @@
 # OnyxC
 A compiler for the Onyx language, written in C with no external dependencies.
 
-OnyxC will be able to output 16, 32 and 64 bit ELF (16 bit will be real mode only, for use in bootloaders and such).
+See [syntax.md](syntax.md) for example snippets.
 
-It will also support outputting and running its intermediate code for platform independence.
+Use ```make all``` to build and ```make test``` to run the (very hacked together and temporary) tests.
 
-Use ```make all``` to build.
-
-Use ```make sync``` to generate ```onyxc.files``` for use with QTCreator.
+## Planned features
+- [X] C-like syntax
+- [X] 'Simulation mode' that executes the intermediate code directly
+- [ ] Compilation to x86 and x64 machine code
+- [ ] Support for 16-bit x86
+- [ ] Inline assembly
+- [ ] Floating point math
+- [ ] AVX intrinsics
+- [ ] A standard library that is as independent from libc as possible
 
 GPL-2.0+ License.
