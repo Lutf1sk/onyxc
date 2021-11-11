@@ -1,6 +1,7 @@
 #include <lt/io.h>
 #include <lt/mem.h>
 #include <lt/str.h>
+#include <lt/arg.h>
 
 #include "expr_ast.h"
 #include "stmt_ast.h"
@@ -12,6 +13,7 @@
 #include "interm.h"
 #include "gen.h"
 #include "segment.h"
+#include "target.h"
 
 #include "exec.h"
 
@@ -107,17 +109,17 @@ int main(int argc, char** argv) {
 	usz in_file_count = 0;
 
 	b8 run_mode = 0;
+	lt_arg_bool(CLSTR("run"), &run_mode);
+	lt_arg_bool(CLSTR("r"), &run_mode);
+
+	lt_arg_parse(argc, argv);
 
 	for (usz i = 1; i < argc; ++i) {
-		if (argv[i][0] == '-') {
-			char* flag_start = &argv[i][1];
-			usz flag_len = strlen(flag_start);
-			if (lt_lstr_eq(LSTR(flag_start, flag_len), CLSTR("run")))
-				run_mode = 1;
-		}
-		else
+		if (argv[i][0] != '-')
 			in_files[in_file_count++] = argv[i];
 	}
+
+// 	u32 target = TRG_AMD64;
 
 	if (!in_file_count)
 		lt_ferrf("No input file provided\n");
@@ -203,56 +205,53 @@ int main(int argc, char** argv) {
 
 		icode_gen(&gen_cx, root);
 
-		if (!run_mode) {
-			// Print intermediate code
-			for (usz i = 0; i < gen_cx.code_seg_count; ++i) {
-				icode_t* icode = gen_cx.code_seg[i].data;
-				usz icode_count = gen_cx.code_seg[i].size;
+		if (run_mode) {
+			// Execute intermediate code
+			u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
+			u64 code;
 
-				lt_printf("CS %uq:\n", i);
-				for (usz i = 0; i < icode_count; ++i) {
-					icode_t ic = icode[i];
+			sym_t* main = symtab_find(&symtab, CLSTR("main"));
+			if (!main)
+				lt_ferr(CLSTR("program has no entry point\n"));
+			if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->ival.stype != IVAL_CSO)
+				lt_ferr(CLSTR("'main' symbol must be a function\n"));
 
-					lt_printc('\t');
-					lt_printf("%S%S%S", icode_size_str(ic.arg1), icode_size_str(ic.arg2), icode_size_str(ic.arg3));
+			exec_ctx_t exec_cx;
+			exec_cx.sp = (u8*)stack;
+			exec_cx.ip = gen_cx.code_seg[main->ival.cso].data;
+			exec_cx.cs = gen_cx.code_seg;
+			exec_cx.ds = gen_cx.data_seg;
+			exec_cx.ret_ptr = (u8*)&code;
 
-					lt_printf("\t%S\t", icode_type_str(ic.op));
-					print_ival(ic.arg1);
-					print_ival(ic.arg2);
-					print_ival(ic.arg3);
-					lt_printc('\n');
-				}
-			}
+			icode_exec(&exec_cx);
+			return code;
+		}
 
-			// Print data segments
-			for (usz i = 0; i < gen_cx.data_seg_count; ++i) {
-				seg_ent_t* seg = &gen_cx.data_seg[i];
-				lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
+		// Print intermediate code
+		for (usz i = 0; i < gen_cx.code_seg_count; ++i) {
+			icode_t* icode = gen_cx.code_seg[i].data;
+			usz icode_count = gen_cx.code_seg[i].size;
+
+			lt_printf("CS %uq:\n", i);
+			for (usz i = 0; i < icode_count; ++i) {
+				icode_t ic = icode[i];
+
+				lt_printc('\t');
+				lt_printf("%S%S%S", icode_size_str(ic.arg1), icode_size_str(ic.arg2), icode_size_str(ic.arg3));
+
+				lt_printf("\t%S\t", icode_type_str(ic.op));
+				print_ival(ic.arg1);
+				print_ival(ic.arg2);
+				print_ival(ic.arg3);
+				lt_printc('\n');
 			}
 		}
 
-		// Execute intermediate code
-		u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
-		u64 code;
-
-		sym_t* main = symtab_find(&symtab, CLSTR("main"));
-		if (!main)
-			lt_ferr(CLSTR("program has no entry point\n"));
-		if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->ival.stype != IVAL_CSO)
-			lt_ferr(CLSTR("'main' symbol must be a function\n"));
-
-		exec_ctx_t exec_cx;
-		exec_cx.sp = (u8*)stack;
-		exec_cx.ip = gen_cx.code_seg[main->ival.cso].data;
-		exec_cx.cs = gen_cx.code_seg;
-		exec_cx.ds = gen_cx.data_seg;
-		exec_cx.ret_ptr = (u8*)&code;
-
-		icode_exec(&exec_cx);
-		if (!run_mode)
-			lt_printf("program exited with code %uq\n", code);
-		else
-			return code;
+		// Print data segments
+		for (usz i = 0; i < gen_cx.data_seg_count; ++i) {
+			seg_ent_t* seg = &gen_cx.data_seg[i];
+			lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
+		}
 
 		lt_arena_free(parse_arena);
 		lt_arena_free(lex_arena);

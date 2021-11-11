@@ -79,35 +79,14 @@ def struc :: struct {
 struc const_glob :: { 1, 2 };
 struc mut_glob = { 1, 2 };
 
-let main :: i32() {
-	struc const_loc :: { 1, 2 };
-	struc mut_loc = { 1, 2 };
+let main :: i64() {
+	for i32 i..0xF {
+		print_i64(i);
+		print(" : 0x");
+		print_h64(i);
+		print("\n");
+	}
 
-	mut_glob.v1 = 5;
-	mut_loc.v2 = 55;
-
-	i64 glob = const_glob.v1 + const_glob.v2 + mut_glob.v1 + mut_glob.v2;
-	i64 loc = const_loc.v1 + const_loc.v2 + mut_loc.v1 + mut_loc.v2;
-
-	print("glob: ");
-	print_i64(glob);
-	print("\n");
-
-	print("loc: ");
-	print_i64(loc);
-	print("\n");
-
-	return glob + loc;
+	return 69;
 }
-
-// let main :: i64() {
-// 	for i32 i..2 {
-// 		print_i64(i);
-// 		print(" : 0x");
-// 		print_h64(i);
-// 		print("\n");
-// 	}
-// 
-// 	return 69;
-// }
 
