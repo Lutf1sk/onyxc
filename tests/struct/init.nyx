@@ -1,0 +1,20 @@
+
+def struc :: struct {
+	i64 v1, v2;
+}
+
+struc const_glob :: { 1, 2 };
+struc mut_glob = { 1, 2 };
+
+let main :: i32() {
+	struc const_loc :: { 1, 2 };
+	struc mut_loc = { 1, 2 };
+
+	mut_glob.v1 = 5;
+	mut_loc.v2 = 55;
+
+	i64 glob = const_glob.v1 + const_glob.v2 + mut_glob.v1 + mut_glob.v2;
+	i64 loc = const_loc.v1 + const_loc.v2 + mut_loc.v1 + mut_loc.v2;
+	return glob + loc;
+}
+

@@ -45,11 +45,11 @@ let print_i64 :: i64(i64 n) {
 	}
 	*it = n + '0';
 
-	u8[] num;
-	num.data = it;
-	num.count = u64:(end - it);
-	print(num);
-	return num.count;
+	u8[] view;
+	view.data = it;
+	view.count = u64:(end - it);
+	print(view);
+	return view.count;
 }
 
 let print_h64 :: i64(u64 n) {
@@ -66,21 +66,41 @@ let print_h64 :: i64(u64 n) {
 	}
 	*it = hex_conv_tab[n];
 
-	u8[] num;
-	num.data = it;
-	num.count = u64:(end - it);
-	print(num);
-	return num.count;
+	u8[] view;
+	view.data = it;
+	view.count = u64:(end - it);
+	print(view);
+	return view.count;
 }
+
+
+def struc :: struct {
+	i64 v1, v2;
+}
+
+struc const_glob :: { 1, 2 };
+struc mut_glob = { 1, 2 };
 
 let main :: i32() {
-	for i32 i..256 {
-		print_i64(i);
-		print(" : 0x");
-		print_h64(i);
-		print("\n");
-	}
+	struc const_loc :: { 1, 2 };
+	struc mut_loc = { 1, 2 };
 
-	return 1;
+	mut_glob.v1 = 5;
+	mut_loc.v2 = 55;
+
+	i64 glob = const_glob.v1 + const_glob.v2 + mut_glob.v1 + mut_glob.v2;
+	i64 loc = const_loc.v1 + const_loc.v2 + mut_loc.v1 + mut_loc.v2;
+	return glob + loc;
 }
+
+// let main :: i64() {
+// 	for i32 i..256 {
+// 		print_i64(i);
+// 		print(" : 0x");
+// 		print_h64(i);
+// 		print("\n");
+// 	}
+// 
+// 	return 69;
+// }
 
