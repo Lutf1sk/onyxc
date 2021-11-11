@@ -17,6 +17,19 @@
 #define SEGMENT_BLOCK_SIZE 1024
 #define SEGMENT_BLOCK_MASK (ICODE_BLOCK_SIZE-1)
 
+void* ival_data(gen_ctx_t* cx, ival_t* v) {
+	switch (v->stype) {
+	case IVAL_IMM:
+		if (v->size > 8 || !lt_is_pow2(v->size))
+			return cx->data_seg[v->dso].data;
+		return &v->uint_val;
+	case IVAL_DSO | IVAL_REF: return cx->data_seg[v->dso].data;
+	default:
+		LT_ASSERT_NOT_REACHED();
+		return NULL;
+	}
+}
+
 static
 usz emit(gen_ctx_t* cx, icode_t instr) {
 	LT_ASSERT(cx->curr_func != -1);
@@ -60,7 +73,6 @@ ival_t gen_offset_ref(gen_ctx_t* cx, ival_t ref, ival_t offs) {
 			ref.uint_val += offs.uint_val;
 			return ref;
 		}
-
 	case IVAL_REG: {
 		if (offs.stype == IVAL_IMM) {
 			if (offs.uint_val == 0)
@@ -111,7 +123,8 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 
 			memset(data, 0, size);
 			if (expr) {
-				icode_gen_expr(cx, expr);
+				ival_t val = icode_gen_expr(cx, expr);
+				memcpy(data, ival_data(cx, &val), type_bytes(expr->type));
 			}
 
 			usz offs = new_data_seg(cx, SEG_ENT(sym->name, size, data));
@@ -621,44 +634,88 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz elem_size = type_bytes(expr->type->base);
 		usz size = count * elem_size;
 
-		usz stack_offs = cx->code_seg[cx->curr_func].top;
-		cx->code_seg[cx->curr_func].top += size;
-		ival_t dst = IVAL(size, IVAL_SFO | IVAL_REF, .sfo = stack_offs);
+		if (cx->curr_func != -1) {
+			// Allocate stack space
+			usz stack_offs = cx->code_seg[cx->curr_func].top;
+			cx->code_seg[cx->curr_func].top += size;
+			ival_t dst = IVAL(size, IVAL_SFO | IVAL_REF, .sfo = stack_offs);
 
-		u8 move_op = IR_MOV;
-		if (elem_size > 8 || !lt_is_pow2(elem_size))
-			move_op = IR_COPY;
+			// Set initialized elements
+			u8 move_op = IR_MOV;
+			if (elem_size > 8 || !lt_is_pow2(elem_size))
+				move_op = IR_COPY;
+
+			expr_t* it = expr->child_1;
+			for (usz i = 0; i < count && it; ++i) {
+				ival_t a1 = icode_gen_expr(cx, it);
+				emit(cx, ICODE2(move_op, IVAL(elem_size, IVAL_SFO | IVAL_REF, .sfo = stack_offs + i * elem_size), a1));
+				it = it->next;
+			}
+			return dst;
+		}
+
+		// Create data segment
+		u8* data = lt_arena_reserve(cx->arena, size);
+		usz dso = new_data_seg(cx, SEG_ENT(CLSTR("@CONST"), size, data));
+
+		// Set initialized elements
 		expr_t* it = expr->child_1;
 		for (usz i = 0; i < count && it; ++i) {
 			ival_t a1 = icode_gen_expr(cx, it);
-			emit(cx, ICODE2(move_op, IVAL(elem_size, IVAL_SFO | IVAL_REF, .sfo = stack_offs + i * elem_size), a1));
+
+			memcpy(data, ival_data(cx, &a1), elem_size);
+			data += elem_size;
 			it = it->next;
 		}
-		return dst;
+
+		return IVAL(size, IVAL_DSO | IVAL_REF, .dso = dso);
 	}
 
 	case EXPR_STRUCT: {
 		usz size = type_bytes(expr->type);
 		usz count = expr->type->child_count;
 
-		usz stack_offs = cx->code_seg[cx->curr_func].top;
-		cx->code_seg[cx->curr_func].top += size;
-		ival_t dst = IVAL(size, IVAL_SFO | IVAL_REF, .sfo = stack_offs);
+		if (cx->curr_func != -1) {
+			// Allocate stack space
+			usz stack_offs = cx->code_seg[cx->curr_func].top;
+			cx->code_seg[cx->curr_func].top += size;
+			ival_t dst = IVAL(size, IVAL_SFO | IVAL_REF, .sfo = stack_offs);
 
-		usz stack_it = 0;
+			// Set initialized members
+			usz stack_it = 0;
+			expr_t* it = expr->child_1;
+			for (usz i = 0; i < count && it; ++i) {
+				usz elem_size = type_bytes(it->type);
+				ival_t a1 = icode_gen_expr(cx, it);
+
+				u8 move_op = IR_MOV;
+				if (elem_size > 8 || !lt_is_pow2(elem_size))
+					move_op = IR_COPY;
+				emit(cx, ICODE2(move_op, IVAL(elem_size, IVAL_SFO | IVAL_REF, .sfo = stack_offs + stack_it), a1));
+				stack_it += elem_size;
+				it = it->next;
+			}
+			return dst;
+		}
+
+		// If the struct literal is inside a global initializer
+
+		// Create data segment
+		u8* data = lt_arena_reserve(cx->arena, size);
+		usz dso = new_data_seg(cx, SEG_ENT(CLSTR("@CONST"), size, data));
+
+		// Set initialized members
 		expr_t* it = expr->child_1;
 		for (usz i = 0; i < count && it; ++i) {
 			usz elem_size = type_bytes(it->type);
 			ival_t a1 = icode_gen_expr(cx, it);
 
-			u8 move_op = IR_MOV;
-			if (elem_size > 8 || !lt_is_pow2(elem_size))
-				move_op = IR_COPY;
-			emit(cx, ICODE2(move_op, IVAL(elem_size, IVAL_SFO | IVAL_REF, .sfo = stack_offs + stack_it), a1));
-			stack_it += elem_size;
+			memcpy(data, ival_data(cx, &a1), elem_size);
+			data += elem_size;
 			it = it->next;
 		}
-		return dst;
+
+		return IVAL(size, IVAL_DSO | IVAL_REF, .dso = dso);
 	}
 
 	case EXPR_COUNT: {

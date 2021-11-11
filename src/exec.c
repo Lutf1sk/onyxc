@@ -215,6 +215,10 @@ void icode_exec(exec_ctx_t* cx) {
 			mov(cx, ip->arg1, val(cx, ip->arg2));
 			break;
 
+		case IR_LEA:
+			mov(cx, ip->arg1, (u64)ref(cx, ip->arg2));
+			break;
+
 		case IR_SRESV:
 			cx->sp += val(cx, ip->arg1);
 			break;

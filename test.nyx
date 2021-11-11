@@ -52,11 +52,9 @@ let print_i64 :: i64(i64 n) {
 	return view.count;
 }
 
-let print_h64 :: i64(u64 n) {
-	u8[16] hex_conv_tab = {
-		'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
-	};
+u8[16] hex_conv_tab = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 
+let print_h64 :: i64(u64 n) {
 	u8[32] str;
 	u8* end = str.data + u8*:(str.count), it = end - u8*: 1;
 
@@ -90,11 +88,20 @@ let main :: i32() {
 
 	i64 glob = const_glob.v1 + const_glob.v2 + mut_glob.v1 + mut_glob.v2;
 	i64 loc = const_loc.v1 + const_loc.v2 + mut_loc.v1 + mut_loc.v2;
+
+	print("glob: ");
+	print_i64(glob);
+	print("\n");
+
+	print("loc: ");
+	print_i64(loc);
+	print("\n");
+
 	return glob + loc;
 }
 
 // let main :: i64() {
-// 	for i32 i..256 {
+// 	for i32 i..2 {
 // 		print_i64(i);
 // 		print(" : 0x");
 // 		print_h64(i);
