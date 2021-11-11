@@ -101,7 +101,7 @@ void print_ival(ival_t ival) {
 }
 
 int main(int argc, char** argv) {
-	char** in_files = malloc(sizeof(char*));
+	char** in_files = malloc(argc * sizeof(char*));
 	if (!in_files)
 		lt_ferr(CLSTR("memory allocation failed\n"));
 	usz in_file_count = 0;
