@@ -35,7 +35,6 @@
 	ICODE_OP(RET) \
 	ICODE_OP(COPY) \
 	\
-	ICODE_OP(CSETE) \
 	ICODE_OP(CSETG) \
 	ICODE_OP(CSETGE) \
 	ICODE_OP(CSETL) \
@@ -44,11 +43,11 @@
 	ICODE_OP(CSETAE) \
 	ICODE_OP(CSETB) \
 	ICODE_OP(CSETBE) \
+	ICODE_OP(CSETE) \
 	ICODE_OP(CSETNE) \
 	ICODE_OP(CSETZ) \
 	ICODE_OP(CSETNZ) \
 	\
-	ICODE_OP(CJMPE) \
 	ICODE_OP(CJMPG) \
 	ICODE_OP(CJMPGE) \
 	ICODE_OP(CJMPL) \
@@ -57,13 +56,12 @@
 	ICODE_OP(CJMPAE) \
 	ICODE_OP(CJMPB) \
 	ICODE_OP(CJMPBE) \
+	ICODE_OP(CJMPE) \
 	ICODE_OP(CJMPNE) \
 	ICODE_OP(CJMPZ) \
 	ICODE_OP(CJMPNZ) \
 	\
 	ICODE_OP(SRESV) \
-	ICODE_OP(PUSH) \
-	ICODE_OP(POP) \
 	\
 	ICODE_OP(ENTER) \
 	ICODE_OP(EXIT) \
@@ -91,7 +89,6 @@ enum ival_stype {
 	IVAL_REG = 2,
 	IVAL_DSO = 3,
 	IVAL_CSO = 4,
-	IVAL_SFO = 5,
 
 	IVAL_REF = 8,
 } ival_stype_t;
@@ -100,13 +97,11 @@ typedef
 struct ival {
 	u16 size;
 	u8 stype;
-	u8 scale;
-	u32 index;
+	u16 disp;
 	union {
 		usz reg;
 		usz cso;
 		usz dso;
-		usz sfo;
 		u64 uint_val;
 		i64 int_val;
 		f64 float_val;
@@ -130,7 +125,10 @@ lstr_t icode_size_str(ival_t size);
 #define ICODE2(op, v1, v2) ICODE(op, v1, v2, IVAL(0, 0))
 #define ICODE3(op, v1, v2, v3) ICODE(op, v1, v2, v3)
 
-#define IVAL_INIT(size, flags, ...) {(size), (flags), 0, 0, __VA_ARGS__}
+#define IVAL_INIT(size, flags, ...) {(size), (flags), 0, __VA_ARGS__}
 #define IVAL(size, flags, ...) ((ival_t)IVAL_INIT(size, flags, __VA_ARGS__))
+
+#define IMM(size, val) IVAL(size, IVAL_IMM, .uint_val = val)
+#define REG(size, reg_) IVAL(size, IVAL_REG, .reg = reg_)
 
 #endif

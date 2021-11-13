@@ -5,59 +5,19 @@
 
 #include <lt/mem.h>
 #include <lt/io.h>
+#include <lt/align.h>
 
 u64 syscall(u64, ...);
 
+#define ivext(iv) (sign_extend((iv).size, val(cx, (iv))))
+
 static
-i64 sign_extend(usz to, i64 v) {
-	switch (to) {
+i64 sign_extend(usz from, i64 v) {
+	switch (from) {
 	case 1: return (i8)v;
 	case 2: return (i16)v;
 	case 4: return (i32)v;
 	case 8: return (i64)v;
-	}
-
-	LT_ASSERT_NOT_REACHED();
-	return 0;
-}
-
-i64 sign_ext_b(usz to, usz from, i64 v) {
-	switch (from) {
-	case 1:
-		switch (to) {
-		case 1: return (i8)(i8)v;
-		case 2: return (i16)(i8)v;
-		case 4: return (i32)(i8)v;
-		case 8: return (i64)(i8)v;
-		}
-		break;
-
-	case 2:
-		switch (to) {
-		case 1: return (i8)(i16)v;
-		case 2: return (i16)(i16)v;
-		case 4: return (i32)(i16)v;
-		case 8: return (i64)(i16)v;
-		}
-		break;
-
-	case 4:
-		switch (to) {
-		case 1: return (i8)(i32)v;
-		case 2: return (i16)(i32)v;
-		case 4: return (i32)(i32)v;
-		case 8: return (i64)(i32)v;
-		}
-		break;
-
-	case 8:
-		switch (to) {
-		case 1: return (i8)(i64)v;
-		case 2: return (i16)(i64)v;
-		case 4: return (i32)(i64)v;
-		case 8: return (i64)(i64)v;
-		}
-		break;
 	}
 
 	LT_ASSERT_NOT_REACHED();
@@ -69,40 +29,41 @@ u64 val(exec_ctx_t* cx, ival_t v) {
 	u8* ptr;
 
 	switch (v.stype) {
-	case IVAL_REG: return cx->regs[v.reg];
+	case IVAL_REG: ptr = (u8*)&cx->regs[cx->reg_offs + v.reg]; break;
 	case IVAL_IMM: return v.uint_val;
-	case IVAL_DSO: return (usz)cx->ds[v.dso].data + v.index * v.scale;
-	case IVAL_CSO: return (usz)cx->cs[v.cso].data + v.index * v.scale;
-	case IVAL_SFO: return (usz)cx->bp + v.sfo + v.index * v.scale;
+	case IVAL_DSO: return (usz)cx->ds[v.dso].data + v.disp;
+	case IVAL_CSO: return (usz)cx->cs[v.cso].data + v.disp;
 
-	case IVAL_REG | IVAL_REF: ptr = (u8*)cx->regs[v.reg]; break;
+	case IVAL_REG | IVAL_REF: ptr = (u8*)cx->regs[cx->reg_offs + v.reg]; break;
 	case IVAL_IMM | IVAL_REF: ptr = (u8*)v.uint_val; break;
 	case IVAL_DSO | IVAL_REF: ptr = (u8*)cx->ds[v.dso].data; break;
-	case IVAL_CSO | IVAL_REF: ptr = (u8*)((usz)cx->cs[v.cso].data); break;
-	case IVAL_SFO | IVAL_REF: ptr = (u8*)((usz)cx->bp + v.sfo); break;
+	case IVAL_CSO | IVAL_REF: ptr = (u8*)cx->cs[v.cso].data; break;
+
+	default:
+		LT_ASSERT_NOT_REACHED();
 	}
 
 	switch (v.size) {
-	case 1: return *(u8*)(ptr + v.index * v.scale);
-	case 2: return *(u16*)(ptr + v.index * v.scale);
-	case 4: return *(u32*)(ptr + v.index * v.scale);
-	case 8: return *(u64*)(ptr + v.index * v.scale);
+	case 1: return *(u8*)(ptr + v.disp);
+	case 2: return *(u16*)(ptr + v.disp);
+	case 4: return *(u32*)(ptr + v.disp);
+	case 8: return *(u64*)(ptr + v.disp);
+
+	default:
+		LT_ASSERT_NOT_REACHED();
 	}
 
-	*(u8*)0 = 0;
-	LT_ASSERT_NOT_REACHED();
 	return 0;
 }
 
 static
 void* ref(exec_ctx_t* cx, ival_t v) {
 	switch (v.stype) {
-	case IVAL_REG: return &cx->regs[v.reg];
-	case IVAL_REG | IVAL_REF: return (u8*)cx->regs[v.reg] + v.index * v.scale; break;
-	case IVAL_IMM | IVAL_REF: return (u8*)v.uint_val + v.index * v.scale; break;
-	case IVAL_DSO | IVAL_REF: return (u8*)cx->ds[v.dso].data + v.index * v.scale; break;
-	case IVAL_CSO | IVAL_REF: return (u8*)cx->cs[v.cso].data + v.index * v.scale; break;
-	case IVAL_SFO | IVAL_REF: return (u8*)cx->bp + v.sfo + v.index * v.scale; break;
+	case IVAL_REG: return &cx->regs[cx->reg_offs + v.reg];
+	case IVAL_REG | IVAL_REF: return (u8*)cx->regs[cx->reg_offs + v.reg] + v.disp; break;
+	case IVAL_IMM | IVAL_REF: return (u8*)v.uint_val + v.disp; break;
+	case IVAL_DSO | IVAL_REF: return (u8*)cx->ds[v.dso].data + v.disp; break;
+	case IVAL_CSO | IVAL_REF: return (u8*)cx->cs[v.cso].data + v.disp; break;
 	default:
 		LT_ASSERT_NOT_REACHED();
 		return NULL;
@@ -118,8 +79,10 @@ void mov(exec_ctx_t* cx, ival_t dst, u64 v) {
 	case 2: *(u16*)dst_ptr = v; break;
 	case 4: *(u32*)dst_ptr = v; break;
 	case 8: *(u64*)dst_ptr = v; break;
+
+	default:
+		LT_ASSERT_NOT_REACHED();
 	}
-	return;
 }
 
 static LT_INLINE
@@ -132,6 +95,7 @@ void pop(exec_ctx_t* cx, ival_t dst) {
 	void* dst_ptr = ref(cx, dst);
 	memcpy(dst_ptr, cx->sp -= dst.size, dst.size);
 }
+
 
 static LT_INLINE
 void push64(exec_ctx_t* cx, u64 val) {
@@ -155,82 +119,40 @@ void icode_exec(exec_ctx_t* cx) {
 	icode_t* ip = cx->ip;
 	for (;;) {
 		switch (ip->op) {
-		case IR_UEXT:
-			mov(cx, ip->arg1, val(cx, ip->arg2));
-			break;
+		case IR_NEG: mov(cx, ip->arg1, -val(cx, ip->arg2)); break;
 
-		case IR_COPY:
-			memcpy(ref(cx, ip->arg1), ref(cx, ip->arg2), ip->arg1.size);
-			break;
+		case IR_INC: mov(cx, ip->arg1, val(cx, ip->arg1) + 1); break;
+		case IR_DEC: mov(cx, ip->arg1, val(cx, ip->arg1) - 1); break;
 
-		case IR_IEXT:
-			mov(cx, ip->arg1, sign_extend(ip->arg2.size, val(cx, ip->arg2)));
-			break;
+		case IR_ADD: mov(cx, ip->arg1, val(cx, ip->arg2) + val(cx, ip->arg3)); break;
+		case IR_SUB: mov(cx, ip->arg1, val(cx, ip->arg2) - val(cx, ip->arg3)); break;
 
-		case IR_NEG:
-			mov(cx, ip->arg1, -val(cx, ip->arg2));
-			break;
+		case IR_IMUL: mov(cx, ip->arg1, ivext(ip->arg2) * ivext(ip->arg3)); break;
+		case IR_IDIV: mov(cx, ip->arg1, ivext(ip->arg2) / ivext(ip->arg3)); break;
+		case IR_IREM: mov(cx, ip->arg1, ivext(ip->arg2) % ivext(ip->arg3)); break;
 
-		case IR_INC:
-			mov(cx, ip->arg1, val(cx, ip->arg1) + 1);
-			break;
+		case IR_UMUL: mov(cx, ip->arg1, val(cx, ip->arg2) * val(cx, ip->arg3)); break;
+		case IR_UDIV: mov(cx, ip->arg1, val(cx, ip->arg2) / val(cx, ip->arg3)); break;
+		case IR_UREM: mov(cx, ip->arg1, val(cx, ip->arg2) % val(cx, ip->arg3)); break;
 
-		case IR_DEC:
-			mov(cx, ip->arg1, val(cx, ip->arg1) - 1);
-			break;
+		case IR_SRESV: {
+			u64 size = val(cx, ip->arg2);
+			u64 align = val(cx, ip->arg3);
+			usz padding = lt_pad((usz)cx->sp, align);
+			mov(cx, ip->arg1, (u64)cx->sp + padding);
+			cx->sp += padding + size;
+		}	break;
 
-		case IR_ADD:
-			mov(cx, ip->arg1, val(cx, ip->arg2) + val(cx, ip->arg3));
-			break;
+		case IR_MOV: mov(cx, ip->arg1, val(cx, ip->arg2)); break;
+		case IR_LEA: mov(cx, ip->arg1, (u64)ref(cx, ip->arg2)); break;
+		case IR_COPY: memcpy(ref(cx, ip->arg1), ref(cx, ip->arg2), ip->arg1.size); break;
 
-		case IR_SUB:
-			mov(cx, ip->arg1, val(cx, ip->arg2) - val(cx, ip->arg3));
-			break;
-
-		case IR_IMUL:
-			mov(cx, ip->arg1, (i64)val(cx, ip->arg2) * (i64)val(cx, ip->arg3));
-			break;
-
-		case IR_IDIV:
-			mov(cx, ip->arg1, (i64)val(cx, ip->arg2) / (i64)val(cx, ip->arg3));
-			break;
-
-		case IR_IREM:
-			mov(cx, ip->arg1, (i64)val(cx, ip->arg2) % (i64)val(cx, ip->arg3));
-			break;
-
-		case IR_UMUL:
-			mov(cx, ip->arg1, val(cx, ip->arg2) * val(cx, ip->arg3));
-			break;
-
-		case IR_UDIV:
-			mov(cx, ip->arg1, val(cx, ip->arg2) / val(cx, ip->arg3));
-			break;
-
-		case IR_UREM:
-			mov(cx, ip->arg1, val(cx, ip->arg2) % val(cx, ip->arg3));
-			break;
-
-		case IR_MOV:
-			mov(cx, ip->arg1, val(cx, ip->arg2));
-			break;
-
-		case IR_LEA:
-			mov(cx, ip->arg1, (u64)ref(cx, ip->arg2));
-			break;
-
-		case IR_SRESV:
-			cx->sp += val(cx, ip->arg1);
-			break;
-
-		case IR_PUSH:
-			push(cx, ip->arg1);
-			break;
+		case IR_IEXT: mov(cx, ip->arg1, ivext(ip->arg2)); break;
+		case IR_UEXT: mov(cx, ip->arg1, val(cx, ip->arg2)); break;
 
 		case IR_ENTER:
 			push64(cx, (u64)cx->bp);
 			cx->bp = cx->sp;
-			cx->sp += val(cx, ip->arg1);
 			break;
 
 		case IR_GETARG: {
@@ -287,63 +209,23 @@ void icode_exec(exec_ctx_t* cx) {
 			}
 			break;
 
-		case IR_CSETZ:
-			if (!val(cx, ip->arg2)) mov(cx, ip->arg1, 1);
-			break;
+		case IR_CSETZ: mov(cx, ip->arg1, !val(cx, ip->arg2)); break;
+		case IR_CSETNZ: mov(cx, ip->arg1, !!val(cx, ip->arg2)); break;
 
-		case IR_CSETNZ:
-			if (val(cx, ip->arg2)) mov(cx, ip->arg1, 1);
-			break;
+		case IR_CSETL: mov(cx, ip->arg1, ivext(ip->arg2) < ivext(ip->arg3)); break;
+		case IR_CSETG: mov(cx, ip->arg1, ivext(ip->arg2) > ivext(ip->arg3)); break;
+		case IR_CSETLE: mov(cx, ip->arg1, ivext(ip->arg2) <= ivext(ip->arg3)); break;
+		case IR_CSETGE: mov(cx, ip->arg1, ivext(ip->arg2) >= ivext(ip->arg3)); break;
 
-		case IR_CSETL:
-			if (sign_ext_b(8, ip->arg2.size, val(cx, ip->arg2)) < sign_ext_b(8, ip->arg3.size, val(cx, ip->arg3)))
-				mov(cx, ip->arg1, 1);
-			break;
+		case IR_CSETB: mov(cx, ip->arg1, val(cx, ip->arg2) < val(cx, ip->arg3)); break;
+		case IR_CSETA: //lt_printf("\nGot %uq >= %uq\n", val(cx, ip->arg2), val(cx, ip->arg3));
+			mov(cx, ip->arg1, val(cx, ip->arg2) > val(cx, ip->arg3)); break;
+		case IR_CSETBE: mov(cx, ip->arg1, val(cx, ip->arg2) <= val(cx, ip->arg3)); break;
+		case IR_CSETAE: //lt_printf("\nGot %uq >= %uq\n", val(cx, ip->arg2), val(cx, ip->arg3));
+			mov(cx, ip->arg1, val(cx, ip->arg2) >= val(cx, ip->arg3)); break;
 
-		case IR_CSETG:
-			if (sign_ext_b(8, ip->arg2.size, val(cx, ip->arg2)) > sign_ext_b(8, ip->arg2.size, val(cx, ip->arg3)))
-				mov(cx, ip->arg1, 1);
-			break;
-
-		case IR_CSETLE:
-			if (sign_ext_b(8, ip->arg2.size, val(cx, ip->arg2)) <= sign_ext_b(8, ip->arg2.size, val(cx, ip->arg3)))
-				mov(cx, ip->arg1, 1);
-			break;
-
-		case IR_CSETGE:
-			if (sign_ext_b(8, ip->arg2.size, val(cx, ip->arg2)) >= sign_ext_b(8, ip->arg2.size, val(cx, ip->arg3)))
-				mov(cx, ip->arg1, 1);
-			break;
-
-		case IR_CSETB:
-			if (val(cx, ip->arg2) < val(cx, ip->arg3))
-				mov(cx, ip->arg1, 1);
-			break;
-
-		case IR_CSETA:
-			if (val(cx, ip->arg2) > val(cx, ip->arg3)) 
-				mov(cx, ip->arg1, 1);
-			break;
-
-		case IR_CSETBE:
-			if (val(cx, ip->arg2) <= val(cx, ip->arg3))
-				mov(cx, ip->arg1, 1);
-			break;
-
-		case IR_CSETAE:
-			if (val(cx, ip->arg2) >= val(cx, ip->arg3))
-				mov(cx, ip->arg1, 1);
-			break;
-
-		case IR_CSETE:
-			if (val(cx, ip->arg2) == val(cx, ip->arg3))
-				mov(cx, ip->arg1, 1);
-			break;
-
-		case IR_CSETNE:
-			if (val(cx, ip->arg2) != val(cx, ip->arg3))
-				mov(cx, ip->arg1, 1);
-			break;
+		case IR_CSETE: mov(cx, ip->arg1, val(cx, ip->arg2) == val(cx, ip->arg3)); break;
+		case IR_CSETNE: mov(cx, ip->arg1, val(cx, ip->arg2) != val(cx, ip->arg3)); break;
 
 		case IR_AND: mov(cx, ip->arg1, val(cx, ip->arg2) & val(cx, ip->arg3)); break;
 		case IR_OR: mov(cx, ip->arg1, val(cx, ip->arg2) | val(cx, ip->arg3)); break;
@@ -390,7 +272,9 @@ void icode_exec(exec_ctx_t* cx) {
 			if (ip->arg1.stype != IVAL_INVAL)
 				cx->ret_ptr = ref(cx, ip->arg1);
 
+			cx->reg_offs += 32; // !!
 			icode_exec(cx);
+			cx->reg_offs -= 32; // !!
 
 			cx->ret_ptr = old_ret_ptr;
 

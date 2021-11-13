@@ -11,7 +11,6 @@ struct seg_ent {
 	usz size;
 	void* data;
 	type_t* type;
-	isz top;
 	usz regs;
 } seg_ent_t;
 

@@ -47,6 +47,7 @@ b8 is_float(type_t* type);
 b8 is_bool(type_t* type);
 
 usz type_bytes(type_t* type);
+usz type_align(type_t* type);
 
 isz type_to_str(char* out_str, type_t* type);
 lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type);

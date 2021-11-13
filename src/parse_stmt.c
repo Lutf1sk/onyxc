@@ -267,7 +267,13 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_FOR);
+
+		tk = peek(cx, 0);
 		new->expr = parse_expr(cx, NULL);
+		if (!type_convert_implicit(cx, it_type, &new->expr))
+			ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%s'"A_RESET, cx->lex, *tk,
+					type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, it_type));
+
 		new->sym = sym;
 		new->child = parse_compound(cx);
 

@@ -17,7 +17,8 @@ OBJS = \
 	src/parse_type.o \
 	src/type_convertions.o \
 	src/type.o \
-	src/symtab.o
+	src/symtab.o \
+	src/amd64.o
 
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 
@@ -26,13 +27,13 @@ CC_FLAGS += -Wall -Werror -Wno-unused-function -Ilt/include/ -Wno-pedantic -std=
 
 LNK = cc
 LNK_FLAGS += -o $(OUT) -rdynamic -g
-LNK_LIBS += -O3 -lpthread -ldl -lm
+LNK_LIBS += -lpthread -ldl -lm
 
-ifdef DEBUG_SYMS
-	CC_FLAGS += -g
+ifdef DEBUG
+	CC_FLAGS += -g -O0
 endif
 
-ifdef USE_UBSAN
+ifdef UBSAN
 	LNK_LIBS += -lubsan
 	CC_FLAGS += -fsanitize=undefined
 endif

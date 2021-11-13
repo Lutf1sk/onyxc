@@ -13,9 +13,11 @@
 #include "interm.h"
 #include "gen.h"
 #include "segment.h"
-#include "target.h"
 
 #include "exec.h"
+
+#include "target.h"
+#include "amd64.h"
 
 void type_print(lt_arena_t* arena, type_t* type) {
 	char* str_data = lt_arena_reserve(arena, 0);
@@ -90,15 +92,13 @@ void print_ival(ival_t ival) {
 	switch (ival.stype) {
 	case IVAL_REG: lt_printf("r%iq ", ival.reg); break;
 	case IVAL_IMM: lt_printf("%iq ", ival.uint_val); break;
-	case IVAL_DSO: lt_printf("ds'%iq+%id*%ib ", ival.dso, ival.index, ival.scale); break;
-	case IVAL_CSO: lt_printf("cs'%iq+%id*%ib ", ival.cso, ival.index, ival.scale); break;
-	case IVAL_SFO: lt_printf("sf'%iq+%id*%ib ", ival.sfo, ival.index, ival.scale); break;
+	case IVAL_DSO: lt_printf("ds'%iq+%id ", ival.dso, ival.disp); break;
+	case IVAL_CSO: lt_printf("cs'%iq+%id ", ival.cso, ival.disp); break;
 
-	case IVAL_REG | IVAL_REF: lt_printf("[r%iq+%id*%ib] ", ival.reg, ival.index, ival.scale); break;
-	case IVAL_IMM | IVAL_REF: lt_printf("[%iq+%id*%ib] ", ival.uint_val, ival.index, ival.scale); break;
-	case IVAL_DSO | IVAL_REF: lt_printf("[ds'%iq+%id*%ib] ", ival.dso, ival.index, ival.scale); break;
-	case IVAL_CSO | IVAL_REF: lt_printf("[cs'%iq+%id*%ib] ", ival.cso, ival.index, ival.scale); break;
-	case IVAL_SFO | IVAL_REF: lt_printf("[sf'%iq+%id*%ib] ", ival.sfo, ival.index, ival.scale); break;
+	case IVAL_REG | IVAL_REF: lt_printf("[r%iq+%id] ", ival.reg, ival.disp); break;
+	case IVAL_IMM | IVAL_REF: lt_printf("[%iq+%id] ", ival.uint_val, ival.disp); break;
+	case IVAL_DSO | IVAL_REF: lt_printf("[ds'%iq+%id] ", ival.dso, ival.disp); break;
+	case IVAL_CSO | IVAL_REF: lt_printf("[cs'%iq+%id] ", ival.cso, ival.disp); break;
 	}
 }
 
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
 			in_files[in_file_count++] = argv[i];
 	}
 
-// 	u32 target = TRG_AMD64;
+ 	u32 target = TRG_AMD64;
 
 	if (!in_file_count)
 		lt_ferrf("No input file provided\n");
@@ -217,11 +217,14 @@ int main(int argc, char** argv) {
 				lt_ferr(CLSTR("'main' symbol must be a function\n"));
 
 			exec_ctx_t exec_cx;
+//  			memset(&exec_cx.regs, 0, sizeof(exec_cx.regs));
 			exec_cx.sp = (u8*)stack;
+			exec_cx.bp = (u8*)stack;
 			exec_cx.ip = gen_cx.code_seg[main->ival.cso].data;
 			exec_cx.cs = gen_cx.code_seg;
 			exec_cx.ds = gen_cx.data_seg;
 			exec_cx.ret_ptr = (u8*)&code;
+			exec_cx.reg_offs = 0;
 
 			icode_exec(&exec_cx);
 			return code;
@@ -251,6 +254,25 @@ int main(int argc, char** argv) {
 		for (usz i = 0; i < gen_cx.data_seg_count; ++i) {
 			seg_ent_t* seg = &gen_cx.data_seg[i];
 			lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
+		}
+
+		switch (target) {
+		case TRG_AMD64: {
+			amd64_ctx_t x64;
+			x64.arena = parse_arena;
+			x64.ir_cs = gen_cx.code_seg;
+			x64.ir_ds = gen_cx.data_seg;
+			x64.ir_cs_count = gen_cx.code_seg_count;
+			x64.ir_ds_count = gen_cx.data_seg_count;
+			x64.cs = NULL;
+			x64.ds = NULL;
+
+			amd64_gen(&x64);
+		}	break;
+
+		case TRG_X86: {
+
+		}	break;
 		}
 
 		lt_arena_free(parse_arena);

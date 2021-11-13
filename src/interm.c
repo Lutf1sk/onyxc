@@ -12,7 +12,7 @@ lstr_t icode_type_str(icode_type_t type) {
 
 lstr_t icode_size_str(ival_t val) {
 	if (val.stype == IVAL_INVAL)
-		return CLSTR("i");
+		return CLSTR(" ");
 
 	switch (val.size) {
 	case ISZ_8: return CLSTR("b");

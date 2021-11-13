@@ -205,7 +205,32 @@ usz type_bytes(type_t* type) {
 	}
 	}
 
-	*(u8*)0 = 0;
+	LT_ASSERT_NOT_REACHED();
+	return 0;
+}
+
+usz type_align(type_t* type) {
+	LT_ASSERT(type);
+
+	switch (type->stype) {
+	case TP_VOID:
+		return 0;
+
+	case TP_U8: case TP_I8: case TP_B8:
+		return 1;
+	case TP_U16: case TP_I16:
+		return 2;
+	case TP_F32: case TP_U32: case TP_I32:
+		return 4;
+	case TP_F64: case TP_U64: case TP_I64: case TP_PTR: case TP_FUNC:
+		return 8;
+
+	case TP_ARRAY_VIEW: return 8;
+	case TP_ARRAY: return type_align(type->base);
+
+	case TP_STRUCT: return 8;
+	}
+
 	LT_ASSERT_NOT_REACHED();
 	return 0;
 }
