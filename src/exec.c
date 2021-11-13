@@ -25,49 +25,55 @@ i64 sign_extend(usz from, i64 v) {
 }
 
 static
+void* ref(exec_ctx_t* cx, ival_t v) {
+	switch (v.stype) {
+	case IVAL_REG:
+		LT_ASSERT(!v.disp);
+		return &cx->regs[cx->reg_offs + v.reg];
+
+	case IVAL_REG | IVAL_REF: return (u8*)cx->regs[cx->reg_offs + v.reg] + v.disp; break;
+	case IVAL_IMM | IVAL_REF: return (u8*)v.uint_val + v.disp; break;
+	case IVAL_DSO | IVAL_REF: return (u8*)cx->ds[v.dso].data + v.disp; break;
+	case IVAL_CSO | IVAL_REF: return (u8*)cx->cs[v.cso].data + v.disp; break;
+
+	default:
+		LT_ASSERT_NOT_REACHED();
+		return NULL;
+	}
+}
+
+static
 u64 val(exec_ctx_t* cx, ival_t v) {
 	u8* ptr;
 
 	switch (v.stype) {
-	case IVAL_REG: ptr = (u8*)&cx->regs[cx->reg_offs + v.reg]; break;
-	case IVAL_IMM: return v.uint_val;
+	case IVAL_IMM:
+		LT_ASSERT(!v.disp);
+		return v.uint_val;
+
+	case IVAL_REG: ptr = ref(cx, v); break;
 	case IVAL_DSO: return (usz)cx->ds[v.dso].data + v.disp;
 	case IVAL_CSO: return (usz)cx->cs[v.cso].data + v.disp;
 
-	case IVAL_REG | IVAL_REF: ptr = (u8*)cx->regs[cx->reg_offs + v.reg]; break;
-	case IVAL_IMM | IVAL_REF: ptr = (u8*)v.uint_val; break;
-	case IVAL_DSO | IVAL_REF: ptr = (u8*)cx->ds[v.dso].data; break;
-	case IVAL_CSO | IVAL_REF: ptr = (u8*)cx->cs[v.cso].data; break;
-
 	default:
+		if (v.stype & IVAL_REF) {
+			ptr = ref(cx, v);
+			break;
+		}
 		LT_ASSERT_NOT_REACHED();
 	}
 
 	switch (v.size) {
-	case 1: return *(u8*)(ptr + v.disp);
-	case 2: return *(u16*)(ptr + v.disp);
-	case 4: return *(u32*)(ptr + v.disp);
-	case 8: return *(u64*)(ptr + v.disp);
+	case 1: return *(u8*)ptr;
+	case 2: return *(u16*)ptr;
+	case 4: return *(u32*)ptr;
+	case 8: return *(u64*)ptr;
 
 	default:
 		LT_ASSERT_NOT_REACHED();
 	}
 
 	return 0;
-}
-
-static
-void* ref(exec_ctx_t* cx, ival_t v) {
-	switch (v.stype) {
-	case IVAL_REG: return &cx->regs[cx->reg_offs + v.reg];
-	case IVAL_REG | IVAL_REF: return (u8*)cx->regs[cx->reg_offs + v.reg] + v.disp; break;
-	case IVAL_IMM | IVAL_REF: return (u8*)v.uint_val + v.disp; break;
-	case IVAL_DSO | IVAL_REF: return (u8*)cx->ds[v.dso].data + v.disp; break;
-	case IVAL_CSO | IVAL_REF: return (u8*)cx->cs[v.cso].data + v.disp; break;
-	default:
-		LT_ASSERT_NOT_REACHED();
-		return NULL;
-	}
 }
 
 static LT_INLINE
@@ -218,11 +224,9 @@ void icode_exec(exec_ctx_t* cx) {
 		case IR_CSETGE: mov(cx, ip->arg1, ivext(ip->arg2) >= ivext(ip->arg3)); break;
 
 		case IR_CSETB: mov(cx, ip->arg1, val(cx, ip->arg2) < val(cx, ip->arg3)); break;
-		case IR_CSETA: //lt_printf("\nGot %uq >= %uq\n", val(cx, ip->arg2), val(cx, ip->arg3));
-			mov(cx, ip->arg1, val(cx, ip->arg2) > val(cx, ip->arg3)); break;
+		case IR_CSETA: mov(cx, ip->arg1, val(cx, ip->arg2) > val(cx, ip->arg3)); break;
 		case IR_CSETBE: mov(cx, ip->arg1, val(cx, ip->arg2) <= val(cx, ip->arg3)); break;
-		case IR_CSETAE: //lt_printf("\nGot %uq >= %uq\n", val(cx, ip->arg2), val(cx, ip->arg3));
-			mov(cx, ip->arg1, val(cx, ip->arg2) >= val(cx, ip->arg3)); break;
+		case IR_CSETAE: mov(cx, ip->arg1, val(cx, ip->arg2) >= val(cx, ip->arg3)); break;
 
 		case IR_CSETE: mov(cx, ip->arg1, val(cx, ip->arg2) == val(cx, ip->arg3)); break;
 		case IR_CSETNE: mov(cx, ip->arg1, val(cx, ip->arg2) != val(cx, ip->arg3)); break;
