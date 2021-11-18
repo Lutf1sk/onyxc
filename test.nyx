@@ -76,9 +76,6 @@ def struc :: struct {
 	i64 v1, v2;
 }
 
-struc const_glob :: { 1, 2 };
-struc mut_glob = { 1, 2 };
-
 let main :: i64() {
 	for i64 i..16 {
 		print_i64(i);
@@ -86,6 +83,9 @@ let main :: i64() {
 		print_h64(i);
 		print("\n");
 	}
+
+	u32 a = 5, b = 6;
+	a * b;
 
 	return 69;
 }

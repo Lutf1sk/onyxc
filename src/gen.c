@@ -11,10 +11,10 @@
 #include <lt/mem.h>
 #include <lt/align.h>
 
-#define ICODE_BLOCK_SIZE 1024
+#define ICODE_BLOCK_SIZE 512
 #define ICODE_BLOCK_MASK (ICODE_BLOCK_SIZE-1)
 
-#define SEGMENT_BLOCK_SIZE 1024
+#define SEGMENT_BLOCK_SIZE 512
 #define SEGMENT_BLOCK_MASK (ICODE_BLOCK_SIZE-1)
 
 void* ival_data(gen_ctx_t* cx, ival_t* v) {
@@ -379,8 +379,11 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			gen_sym_def(cx, sym, NULL);
 			emit(cx, ICODE2(IR_GETARG, sym->ival, IVAL(ISZ_64, IVAL_IMM, .uint_val = stack_size)));
 		}
+
 		icode_gen_stmt(cx, expr->stmt);
-		emit(cx, ICODE0(IR_RET));
+
+		// TODO: Insert a ret when not all code paths return
+// 		emit(cx, ICODE0(IR_RET));
 
 		cx->curr_func = old_func;
 		return IVAL(type_bytes(expr->type), IVAL_CSO, .uint_val = new_func);
