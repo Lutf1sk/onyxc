@@ -17,7 +17,7 @@
 #include "exec.h"
 
 #include "target.h"
-#include "amd64.h"
+#include "amd64/amd64.h"
 
 void type_print(lt_arena_t* arena, type_t* type) {
 	char* str_data = lt_arena_reserve(arena, 0);

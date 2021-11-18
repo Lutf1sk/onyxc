@@ -1,15 +1,16 @@
 #ifndef AMD64_H
 #define AMD64_H 1
 
-#include "fwd.h"
+#include "../fwd.h"
 
 #include <lt/fwd.h>
 #include <lt/lt.h>
 
-#define AMD64_RMAP_PRESENT 1
-#define AMD64_RMAP_REF 2
+// amd64.c
 
 #define AMD64_REG_COUNT 16
+#define AMD64_RMAP_PRESENT 1
+#define AMD64_RMAP_REF 2
 
 #define REGM_REG 1
 #define REGM_LBL 2
