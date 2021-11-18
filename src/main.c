@@ -196,6 +196,7 @@ int main(int argc, char** argv) {
 
 		// Generate intermediate code
 		gen_ctx_t gen_cx;
+		gen_cx.lex_cx = &lex_cx;
 		gen_cx.curr_func = -1;
 		gen_cx.code_seg = NULL;
 		gen_cx.code_seg_count = 0;

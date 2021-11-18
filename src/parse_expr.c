@@ -11,25 +11,25 @@
 #include <lt/str.h>
 
 expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
-	tk_t tk = *peek(cx, 0);
+	tk_t* tk = peek(cx, 0);
 
 	if (type) {
-		if (type->stype == TP_FUNC && tk.stype == TK_LEFT_BRACE) {
+		if (type->stype == TP_FUNC && tk->stype == TK_LEFT_BRACE) {
 			type_t* old_func_type = cx->curr_func_type;
 			cx->curr_func_type = type;
 
 			stmt_t* compound = parse_func_body(cx);
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*new = EXPR(EXPR_LAMBDA, type);
+			*new = EXPR(EXPR_LAMBDA, type, tk);
 			new->stmt = compound;
 
 			cx->curr_func_type = old_func_type;
 			return new;
 		}
-		else if (type->stype == TP_ARRAY && tk.stype == TK_LEFT_BRACE) {
+		else if (type->stype == TP_ARRAY && tk->stype == TK_LEFT_BRACE) {
 			consume(cx);
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*new = EXPR(EXPR_ARRAY, type);
+			*new = EXPR(EXPR_ARRAY, type, tk);
 
 			expr_t** it = &new->child_1;
 			usz count = 0;
@@ -50,13 +50,13 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
 			return new;
 		}
-		else if (type->stype == TP_ARRAY_VIEW && tk.stype == TK_LEFT_BRACE) {
+		else if (type->stype == TP_ARRAY_VIEW && tk->stype == TK_LEFT_BRACE) {
 			consume(cx);
 			type_t* new_type = lt_arena_reserve(cx->arena, sizeof(type_t));
 			*new_type = TYPE(TP_ARRAY, type->base);
 
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*new = EXPR(EXPR_ARRAY, new_type);
+			*new = EXPR(EXPR_ARRAY, new_type, tk);
 
 			expr_t** it = &new->child_1;
 			usz count = 0;
@@ -78,10 +78,10 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			new_type->child_count = count;
 			return new;
 		}
-		else if (type->stype == TP_STRUCT && tk.stype == TK_LEFT_BRACE) {
+		else if (type->stype == TP_STRUCT && tk->stype == TK_LEFT_BRACE) {
 			consume(cx);
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*new = EXPR(EXPR_STRUCT, type);
+			*new = EXPR(EXPR_STRUCT, type, tk);
 
 			expr_t** it = &new->child_1;
 			usz i = 0;
@@ -105,14 +105,14 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 				consume(cx);
 			}
 			if (i < type->child_count)
-				werr("uninitialized elements of "A_BOLD"'%S'"A_RESET, cx->lex, tk,
+				werr("uninitialized elements of "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
 						type_to_reserved_str(cx->arena, type));
 			consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
 			return new;
 		}
 	}
 
-	switch (tk.stype) {
+	switch (tk->stype) {
 	case TK_LEFT_PARENTH: consume(cx); {
 		expr_t* new = parse_expr(cx, type);
 		consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET));
@@ -121,27 +121,27 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 	case TK_NUMBER: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_INTEGER, &i64_def);
+		*new = EXPR(EXPR_INTEGER, &i64_def, tk);
 
 		isz i = 0;
 
 		u64 iv = 0;
-		if (tk.str.len > 2 && tk.str.str[0] == '0') {
-			switch (tk.str.str[1]) {
+		if (tk->str.len > 2 && tk->str.str[0] == '0') {
+			switch (tk->str.str[1]) {
 			case 'x': case 'X': // Parse hexadecimal integer
 				i += 2;
-				while (i < tk.str.len) {
+				while (i < tk->str.len) {
 					iv <<= 4;
-					iv |= digit_uint_val(tk.str.str[i++]);
+					iv |= digit_uint_val(tk->str.str[i++]);
 				}
 				new->type = &u64_def;
 				break;
 
 			case 'b': case 'B': // Parse binary integer
 				i += 2;
-				while (i < tk.str.len) {
+				while (i < tk->str.len) {
 					iv <<= 1;
-					iv |= tk.str.str[i++] - '0';
+					iv |= tk->str.str[i++] - '0';
 				}
 				new->type = &u64_def;
 				break;
@@ -155,17 +155,17 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			}
 		}
 		else {
-			while (i < tk.str.len) { // Parse decimal integer
-				char c = tk.str.str[i++];
+			while (i < tk->str.len) { // Parse decimal integer
+				char c = tk->str.str[i++];
 
 				if (c == '.') { // Parse float
 				parse_float:
 					u64 low = 0;
 					u64 mult = 1;
-					while (i < tk.str.len) {
+					while (i < tk->str.len) {
 						mult *= 10;
 						low *= 10;
-						low += tk.str.str[i++] - '0';
+						low += tk->str.str[i++] - '0';
 					}
 
 					new->float_val = (f64)iv + ((f64)low / (f64)mult);
@@ -185,15 +185,15 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 	case TK_CHAR: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_INTEGER, &u8_def);
+		*new = EXPR(EXPR_INTEGER, &u8_def, tk);
 
 		char* str = lt_arena_reserve(cx->arena, 0);
-		usz len = unescape_str(cx->lex, str, &tk);
+		usz len = unescape_str(cx->lex, str, tk);
 
 		if (len > 1)
-			ferr("character literal exceeds max length", cx->lex, tk);
+			ferr("character literal exceeds max length", cx->lex, *tk);
 		else if (!len)
-			ferr("empty character literal", cx->lex, tk);
+			ferr("empty character literal", cx->lex, *tk);
 
 		new->int_val = str[0];
 		return new;
@@ -201,7 +201,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 	case TK_STRING: consume(cx); {
 		char* data = lt_arena_reserve(cx->arena, 0);
-		usz len = unescape_str(cx->lex, data, &tk);
+		usz len = unescape_str(cx->lex, data, tk);
 		lt_arena_reserve(cx->arena, len);
 
 		type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
@@ -209,14 +209,14 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		type->child_count = len;
 
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_STRING, type);
+		*new = EXPR(EXPR_STRING, type, tk);
 		new->str_val = LSTR(data, len);
 		return new;
 	}
 
 	case TK_KW_NULL: consume(cx); {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_INTEGER, &void_ptr_def);
+		*new = EXPR(EXPR_INTEGER, &void_ptr_def, tk);
 		new->uint_val = 0;
 		return new;
 	}
@@ -224,7 +224,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	case TK_KW_SYSCALL: consume(cx); {
 		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET));
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_SYSCALL, &i64_def);
+		*new = EXPR(EXPR_SYSCALL, &i64_def, tk);
 
 		expr_t** eit = &new->child_1;
 		while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
@@ -239,14 +239,14 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	}
 
 	case TK_IDENTIFIER: {
-		sym_t* sym = symtab_find(cx->symtab, tk.str);
+		sym_t* sym = symtab_find(cx->symtab, tk->str);
 		if (!sym)
 			goto undeclared;
 
 		if (sym->stype == SYM_VAR) {
 			consume(cx);
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*new = EXPR(EXPR_SYM, sym->type);
+			*new = EXPR(EXPR_SYM, sym->type, tk);
 			sym->flags |= SYMFL_ACCESSED;
 			new->sym = sym;
 			return new;
@@ -272,11 +272,11 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		}
 
 	undeclared:
-		ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, cx->lex, tk, tk.str);
+		ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, cx->lex, *tk, tk->str);
 	}
 
 	default:
-		ferr("unexpected token "A_BOLD"'%S'"A_RESET" in expression", cx->lex, tk, tk.str);
+		ferr("unexpected token "A_BOLD"'%S'"A_RESET" in expression", cx->lex, *tk, tk->str);
 	}
 }
 
@@ -314,7 +314,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			type_t* it = operand->type;
 			while (it->stype == TP_PTR) {
 				expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-				*new = EXPR(EXPR_DEREFERENCE, it->base);
+				*new = EXPR(EXPR_DEREFERENCE, it->base, tk);
 				new->child_1 = operand;
 				operand = new;
 
@@ -330,10 +330,10 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				if (lt_lstr_eq(member_name, CLSTR("data"))) {
 					type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
 					*type = TYPE(TP_PTR, it->base);
-					*new = EXPR(EXPR_DATA, type);
+					*new = EXPR(EXPR_DATA, type, tk);
 				}
 				else if (lt_lstr_eq(member_name, CLSTR("count")))
-					*new = EXPR(EXPR_COUNT, &u64_def);
+					*new = EXPR(EXPR_COUNT, &u64_def, tk);
 				else
 					ferr(A_BOLD"'%S'"A_RESET" has no member named "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
 						type_to_reserved_str(cx->arena, it), member_name);
@@ -359,7 +359,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 
 		member_found:
 			expr_t* member = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*member = EXPR(EXPR_MEMBER, it->children[member_index]);
+			*member = EXPR(EXPR_MEMBER, it->children[member_index], tk);
 			member->child_1 = operand;
 			member->member_index = member_index;
 			operand = member;
@@ -370,7 +370,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 						cx->lex, *tk, type_to_reserved_str(cx->arena, operand->type));
 
 			expr_t* subscript = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*subscript = EXPR(EXPR_SUBSCRIPT, operand->type->base);
+			*subscript = EXPR(EXPR_SUBSCRIPT, operand->type->base, tk);
 			subscript->child_1 = operand;
 
 			// Insert EXPR_DATA node if the type is an array
@@ -379,7 +379,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				*ptr_type = TYPE(TP_PTR, operand->type->base);
 
 				expr_t* data_ptr = lt_arena_reserve(cx->arena, sizeof(expr_t));
-				*data_ptr = EXPR(EXPR_DATA, type);
+				*data_ptr = EXPR(EXPR_DATA, type, tk);
 				data_ptr->child_1 = operand;
 				subscript->child_1 = data_ptr;
 			}
@@ -397,7 +397,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 						type_to_reserved_str(cx->arena, operand->type));
 
 			expr_t* call = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*call = EXPR(EXPR_CALL, operand->type->base);
+			*call = EXPR(EXPR_CALL, operand->type->base, tk);
 			call->child_1 = operand;
 
 			expr_t** current_arg = &call->child_2;
@@ -432,7 +432,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 		}
 		else {
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*new = EXPR(op->expr, operand->type);
+			*new = EXPR(op->expr, operand->type, tk);
 			new->child_1 = operand;
 			operand = new;
 		}
@@ -442,13 +442,13 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 }
 
 expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
-	tk_t tk = *peek(cx, 0);
+	tk_t* tk = peek(cx, 0);
 
-	operator_t* op = find_pfx_operator(tk.stype);
+	operator_t* op = find_pfx_operator(tk->stype);
 	if (op) {
 		consume(cx);
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(op->expr, NULL);
+		*new = EXPR(op->expr, NULL, tk);
 
 		expr_t* child = parse_expr_unary(cx, type, precedence);
 		new->child_1 = child;
@@ -456,7 +456,7 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 		switch (op->expr) {
 		case EXPR_DEREFERENCE:
 			if (child->type->stype != TP_PTR)
-				ferr("dereferenced type "A_BOLD"'%S'"A_RESET" is not a pointer", cx->lex, tk,
+				ferr("dereferenced type "A_BOLD"'%S'"A_RESET" is not a pointer", cx->lex, *tk,
 						type_to_reserved_str(cx->arena, child->type));
 			new->type = child->type->base;
 			break;
@@ -498,7 +498,7 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 		type_make_compatible(cx, tk, op->expr, &left, &right);
 
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(op->expr, type);
+		*new = EXPR(op->expr, type, tk);
 		new->child_1 = left;
 		new->child_2 = right;
 

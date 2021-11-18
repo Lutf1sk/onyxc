@@ -6,6 +6,7 @@
 #include "symtab.h"
 #include "segment.h"
 #include "tk.h"
+#include "err.h"
 
 #include <lt/io.h>
 #include <lt/mem.h>
@@ -134,8 +135,8 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 		}
 		else {
 			u8 flags = sym->flags;
-			if (!(flags & SYMFL_ACCESSED))
-				return;
+// 			if (!(flags & SYMFL_ACCESSED))
+// 				return;
 
 			usz size = type_bytes(sym->type);
 			usz align = type_align(sym->type);
@@ -431,7 +432,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_REFERENCE: {
 		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		LT_ASSERT(a1.stype & IVAL_REF);
+		if (!(a1.stype & IVAL_REF))
+			ferr("Referenced value must be an lvalue", cx->lex_cx, *expr->tk);
 		a1.stype &= ~IVAL_REF;
 		a1.size = ISZ_64;
 		return a1;

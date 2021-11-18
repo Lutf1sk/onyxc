@@ -7,6 +7,7 @@
 typedef
 struct gen_ctx {
 	isz curr_func;
+	lex_ctx_t* lex_cx;
 
 	usz code_seg_count;
 	seg_ent_t* code_seg;

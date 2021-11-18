@@ -4,14 +4,14 @@
 #include "interm.h"
 #include "segment.h"
 
-#define REG_A	0b000
-#define REG_C	0b001
-#define REG_D	0b010
-#define REG_B	0b011
-#define REG_SP	0b100
-#define REG_BP	0b101
-#define REG_SI	0b110
-#define REG_DI	0b111
+#define REG_A	0b0000
+#define REG_C	0b0001
+#define REG_D	0b0010
+#define REG_B	0b0011
+#define REG_SP	0b0100
+#define REG_BP	0b0101
+#define REG_SI	0b0110
+#define REG_DI	0b0111
 
 #define REG_8	0b1000
 #define REG_9	0b1001
@@ -379,6 +379,17 @@ void reg_free(amd64_ctx_t* cx, u8 reg) {
 	cx->reg_allocated[reg] = 0;
 }
 
+
+static
+void zero_reg(amd64_ctx_t* cx, u8 reg) {
+	amd64_instr_t instr;
+	instr.op = X64_XOR;
+	instr.var = 0;
+	instr.reg_rm = reg | (reg << 4);
+	instr.mod = MOD_REG;
+	emit(cx, instr);
+}
+
 static
 void gen_modrm(amd64_ctx_t* cx, ival_t* iv, u8* mod, u8* reg_rm) {
 	u8 rm;
@@ -409,7 +420,6 @@ u8 find_var2(u8 op, u8 dst, u8 src) {
 			return i;
 	}
 
-	
 	LT_ASSERT_NOT_REACHED();
 	return -1;
 }
@@ -437,23 +447,17 @@ void mov_from_reg(amd64_ctx_t* cx, ival_t* iv, u8 reg) {
 }
 
 static
-void zero_reg(amd64_ctx_t* cx, u8 reg) {
-	amd64_instr_t instr;
-	instr.op = X64_XOR;
-	instr.var = 0;
-	instr.reg_rm = reg | (reg << 4);
-	instr.mod = MOD_REG;
-	emit(cx, instr);
-}
-
-static
 void gen_op3(amd64_ctx_t* cx, u8 op, ival_t* a1, ival_t* a2, ival_t* a3) {
 	amd64_instr_t i;
 	i.mod = MOD_REG;
 	i.op = op;
 	i.var = find_var2(op, VMOD_REG, VMOD_MRM);
-
+	i.reg_rm = REG_A;
+// 	gen_modrm(cx, a3, &i.mod, &i.reg_rm);
+// 
+// 	mov_to_reg(cx, REG_A, a2);
 	emit(cx, i);
+// 	mov_from_reg(cx, a1, REG_A);
 }
 
 static

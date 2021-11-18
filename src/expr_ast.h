@@ -94,10 +94,11 @@ typedef struct expr {
 		lstr_t str_val;
 	};
 	type_t* type;
+	tk_t* tk;
 	struct expr* next;
 } expr_t;
 
-#define EXPR_INIT(stype, type) { (stype), NULL, NULL, {}, (type), NULL }
-#define EXPR(stype, type) ((expr_t)EXPR_INIT(stype, type))
+#define EXPR_INIT(stype, type, tk) { (stype), NULL, NULL, {}, (type), (tk), NULL }
+#define EXPR(stype, type, tk) ((expr_t)EXPR_INIT(stype, type, tk))
 
 #endif

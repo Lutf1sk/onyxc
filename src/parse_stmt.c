@@ -253,7 +253,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		tk_t ident_tk = *consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
 
 		expr_t* init = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*init = EXPR(EXPR_INTEGER, it_type);
+		*init = EXPR(EXPR_INTEGER, it_type, tk);
 		init->uint_val = 0;
 
 		sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
