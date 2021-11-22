@@ -384,7 +384,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		icode_gen_stmt(cx, expr->stmt);
 
 		// TODO: Insert a ret when not all code paths return
-// 		emit(cx, ICODE0(IR_RET));
+		emit(cx, ICODE0(IR_RET));
 
 		cx->curr_func = old_func;
 		return IVAL(type_bytes(expr->type), IVAL_CSO, .uint_val = new_func);
