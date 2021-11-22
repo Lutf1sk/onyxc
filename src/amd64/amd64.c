@@ -13,16 +13,20 @@ static
 void convert_icode(amd64_ctx_t* cx, icode_t* ir) {
 	amd64_instr_t i;
 	memset(&i, 0, sizeof(i));
-	i.mod = MOD_REG;
 
 	switch (ir->op) {
-	case IR_ADD: break;
+	case IR_ADD: {
+		amd64_mval_t dst = ival_convert(cx, &ir->arg1);
+		amd64_mval_t a1 = ival_convert(cx, &ir->arg2);
+		amd64_mval_t a2 = ival_convert(cx, &ir->arg3);
+		gen_op3(cx, X64_ADD, &dst, &a1, &a2);
+	}	break;
+
 	case IR_SUB: break;
 
 	case IR_AND: break;
 	case IR_OR: break;
 	case IR_XOR: break;
-
 
 	case IR_USHL:break;
 	case IR_USHR: case IR_ISHR: break;
@@ -71,8 +75,6 @@ void convert_icode(amd64_ctx_t* cx, icode_t* ir) {
 		break;
 
 	case IR_MOV:
-		i.op = X64_MOV;
-		emit(cx, i);
 		break;
 
 	case IR_LEA:
@@ -117,6 +119,9 @@ void convert_icode(amd64_ctx_t* cx, icode_t* ir) {
 }
 
 void amd64_gen(amd64_ctx_t* cx) {
+	usz rmap_size = sizeof(amd64_mval_t) * 256;
+	cx->reg_map = lt_arena_reserve(cx->arena, rmap_size);
+
 	for (usz i = 0; i < cx->cs_count; ++i) {
 		memset(cx->reg_allocated, 0, sizeof(cx->reg_allocated));
 		cx->reg_allocated[REG_A] = 1;
@@ -127,7 +132,7 @@ void amd64_gen(amd64_ctx_t* cx) {
 		cx->reg_allocated[REG_12] = 1;
 		cx->reg_allocated[REG_13] = 1;
 
-		memset(cx->reg_map, 0, sizeof(cx->reg_map));
+		memset(cx->reg_map, 0, rmap_size);
 
 		lt_printf("Assembling cs'%uq\n", i);
 

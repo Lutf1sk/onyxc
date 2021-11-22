@@ -8,8 +8,8 @@ lstr_t reg_names[AMD64_REG_COUNT][4] = {
 	{ CLSTR("cl"),		CLSTR("cx"),	CLSTR("ecx"),	CLSTR("rcx") },
 	{ CLSTR("dl"),		CLSTR("dx"),	CLSTR("edx"),	CLSTR("rdx") },
 	{ CLSTR("bl"),		CLSTR("bx"),	CLSTR("ebx"),	CLSTR("rbx") },
-	{ NLSTR(),			CLSTR("sp"),	CLSTR("esp"),	CLSTR("rsp") },
-	{ NLSTR(),			CLSTR("bp"),	CLSTR("ebp"),	CLSTR("rbp") },
+	{ CLSTR("spl"),		CLSTR("sp"),	CLSTR("esp"),	CLSTR("rsp") },
+	{ CLSTR("bpl"),		CLSTR("bp"),	CLSTR("ebp"),	CLSTR("rbp") },
 	{ CLSTR("sil"),		CLSTR("si"),	CLSTR("esi"),	CLSTR("rsi") },
 	{ CLSTR("dil"),		CLSTR("di"),	CLSTR("edi"),	CLSTR("rdi") },
 

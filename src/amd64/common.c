@@ -7,6 +7,53 @@
 #define AMD64_BLOCK_SIZE 512
 #define AMD64_BLOCK_MASK (AMD64_BLOCK_SIZE-1)
 
+b8 is_ref(u8 stype) {
+	switch (stype) {
+	case MVAL_REG: case MVAL_IMM: case MVAL_LBL:
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+amd64_mval_t ival_convert(amd64_ctx_t* cx, ival_t* ival) {
+	amd64_mval_t mval;
+	memset(&mval, 0, sizeof(mval));
+
+	switch (ival->stype) {
+	case IVAL_REG:
+		mval.stype = MVAL_REG;
+		break;
+
+	case IVAL_IMM:
+		mval.stype = MVAL_IMM;
+		mval.disp = ival->uint_val;
+		break;
+
+	case IVAL_CSO:
+		mval.stype = MVAL_LBL;
+		mval.disp = ival->disp;
+		break;
+
+	case IVAL_DSO:
+		mval.stype = MVAL_LBL;
+		mval.disp = ival->disp;
+		break;
+
+	case IVAL_REG | IVAL_REF:
+		break;
+	case IVAL_IMM | IVAL_REF:
+		break;
+	case IVAL_CSO | IVAL_REF:
+		break;
+	case IVAL_DSO | IVAL_REF:
+		break;
+	}
+
+	LT_ASSERT(mval.stype != MVAL_INVAL);
+	return mval;
+}
+
 usz emit(amd64_ctx_t* cx, amd64_instr_t instr) {
 	LT_ASSERT(cx->curr_func != -1);
 
@@ -19,22 +66,11 @@ usz emit(amd64_ctx_t* cx, amd64_instr_t instr) {
 	return ent->size++;
 }
 
-void gen_modrm(amd64_ctx_t* cx, ival_t* iv, u8* mod, u8* reg_rm) {
-	u8 rm;
+void gen_op3(amd64_ctx_t* cx, u8 op, amd64_mval_t* dst, amd64_mval_t* src1, amd64_mval_t* src2) {
+	amd64_instr_t instr;
+	instr.op = op;
+	instr.var = 0;
 
-	switch (iv->stype) {
-	case IVAL_REG: rm = iv->reg & 0b1111; *mod = MOD_REG; break;
-	case IVAL_IMM: LT_ASSERT_NOT_REACHED(); break;
-	case IVAL_CSO: LT_ASSERT_NOT_REACHED(); break;
-	case IVAL_DSO: LT_ASSERT_NOT_REACHED(); break;
-
-	case IVAL_REG | IVAL_REF: rm = iv->reg & 0b1111; *mod = MOD_DREG; break;
-	case IVAL_IMM | IVAL_REF: LT_ASSERT_NOT_REACHED(); break;
-	case IVAL_CSO | IVAL_REF: LT_ASSERT_NOT_REACHED(); break;
-	case IVAL_DSO | IVAL_REF: LT_ASSERT_NOT_REACHED(); break;
-	}
-
-	*reg_rm |= rm << 4;
+	emit(cx, instr);
 }
-
 

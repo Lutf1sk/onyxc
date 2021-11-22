@@ -36,6 +36,28 @@
 #define SIB_S4 2
 #define SIB_S8 3
 
+#define MVAL_INVAL 0
+#define MVAL_REG 1
+#define MVAL_LBL 2
+#define MVAL_DREG 3
+#define MVAL_DREG_DSP 4
+#define MVAL_DLBL 5
+#define MVAL_IMM 6
+#define MVAL_DIMM 7
+
+typedef
+struct amd64_mval {
+	u8 stype;
+	u8 reg;
+	u16 flags;
+	u32 disp;
+} amd64_mval_t;
+
+b8 is_ref(u8 stype);
+
+amd64_mval_t ival_convert(amd64_ctx_t* cx, ival_t* ival);
+
 usz emit(amd64_ctx_t* cx, amd64_instr_t instr);
+void gen_op3(amd64_ctx_t* cx, u8 op, amd64_mval_t* dst, amd64_mval_t* src1, amd64_mval_t* src2);
 
 #endif
