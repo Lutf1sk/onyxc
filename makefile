@@ -26,14 +26,14 @@ OBJS = \
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 
 CC = cc
-CC_FLAGS += -Wall -Werror -Wno-error=unused-variable -Wno-unused-function -Ilt/include/ -Wno-pedantic -std=c11
+CC_FLAGS += -O2 -Wall -Werror -Wno-error=unused-variable -Wno-unused-function -Ilt/include/ -Wno-pedantic -std=c11
 
 LNK = cc
 LNK_FLAGS += -o $(OUT) -rdynamic -g
 LNK_LIBS += -lpthread -ldl -lm
 
 ifdef DEBUG
-	CC_FLAGS += -g -O0
+	CC_FLAGS += -g
 endif
 
 ifdef UBSAN

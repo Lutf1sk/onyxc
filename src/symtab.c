@@ -3,19 +3,19 @@
 #include <lt/align.h>
 #include <lt/str.h>
 #include <lt/mem.h>
+#include <lt/bits.h>
 
 static
-u8 hash_lstr_start(lstr_t str) {
-	return (str.len & 3) | ((*str.str & 0x3F) << 2);
+u16 hash_lstr(lstr_t str) {
+	u16 hash = 0;
+	for (usz i = 0; i < str.len; ++i)
+		hash = lt_rotl16(hash, 10) ^ str.str[i];
+
+	return hash;
 }
 
-// static
-// u8 hash_lstr_end(lstr_t str) {
-// 	return (str.len & 3) | ((str.str[str.len] & 0x3F) << 2);
-// }
-
 sym_t* symtab_find(symtab_t* tab, lstr_t name) {
-	u8 index = hash_lstr_start(name);
+	u8 index = hash_lstr(name);
 	sympool_t pool = tab->pools[index];
 	usz count = tab->counts[index];
 
@@ -30,7 +30,7 @@ sym_t* symtab_find(symtab_t* tab, lstr_t name) {
 }
 
 b8 symtab_definable(symtab_t* tab, lstr_t name) {
-	u8 index = hash_lstr_start(name);
+	u8 index = hash_lstr(name);
 	sympool_t pool = tab->pools[index];
 	usz count = tab->counts[index];
 
@@ -50,7 +50,7 @@ static
 void pool_append(sympool_t* pool, u32* count, lstr_t name, sym_t* sym) {
 	usz last_count = (*count)++;
 
-	if (!last_count) {
+	if (!last_count) { // TODO: grow the array when necessary
 		pool->keys = malloc(ALLOC_COUNT * (sizeof(lstr_t) + sizeof(sym_t*)));
 		pool->values = (sym_t**)(pool->keys + ALLOC_COUNT);
 	}
@@ -60,8 +60,14 @@ void pool_append(sympool_t* pool, u32* count, lstr_t name, sym_t* sym) {
 }
 
 void symtab_insert(symtab_t* tab, lstr_t name, sym_t* sym) {
-	u8 index = hash_lstr_start(name);
+	u8 index = hash_lstr(name);
 	sympool_t* pool = &tab->pools[index];
+
+// 	lt_printf("Inserting '%S' at index 0x%hd\n", name, index);
+// 
+// 	static int collision = 0;
+// 	if (tab->counts[index])
+// 		lt_printf("Collision #%ud\n", ++collision);
 
 // 	if (tab->counts[index] == SYMPOOL_SUBTAB) {
 // 		index = hash_lstr_end(name);
