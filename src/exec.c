@@ -44,7 +44,7 @@ void* ref(exec_ctx_t* cx, ival_t v) {
 
 static
 u64 val(exec_ctx_t* cx, ival_t v) {
-	u8* ptr;
+	u8* ptr = NULL;
 
 	switch (v.stype) {
 	case IVAL_IMM:
