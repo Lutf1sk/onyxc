@@ -55,9 +55,9 @@ struct amd64_mval {
 
 b8 is_ref(u8 stype);
 
-amd64_mval_t ival_convert(amd64_ctx_t* cx, ival_t* ival);
+// amd64_mval_t ival_convert(amd64_ctx_t* cx, ival_t* ival);
 
-usz emit(amd64_ctx_t* cx, amd64_instr_t instr);
-void gen_op3(amd64_ctx_t* cx, u8 op, amd64_mval_t* dst, amd64_mval_t* src1, amd64_mval_t* src2);
+// usz emit(amd64_ctx_t* cx, amd64_instr_t instr);
+// void gen_op3(amd64_ctx_t* cx, u8 op, amd64_mval_t* dst, amd64_mval_t* src1, amd64_mval_t* src2);
 
 #endif

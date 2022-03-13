@@ -379,7 +379,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				*ptr_type = TYPE(TP_PTR, operand->type->base);
 
 				expr_t* data_ptr = lt_arena_reserve(cx->arena, sizeof(expr_t));
-				*data_ptr = EXPR(EXPR_DATA, type, tk);
+				*data_ptr = EXPR(EXPR_DATA, ptr_type, tk);
 				data_ptr->child_1 = operand;
 				subscript->child_1 = data_ptr;
 			}

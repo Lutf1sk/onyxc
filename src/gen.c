@@ -18,26 +18,11 @@
 #define SEGMENT_BLOCK_SIZE 512
 #define SEGMENT_BLOCK_MASK (ICODE_BLOCK_SIZE-1)
 
-void* ival_data(gen_ctx_t* cx, ival_t* v) {
-	switch (v->stype) {
-	case IVAL_IMM:
-		if (v->size > 8 || !lt_is_pow2(v->size))
-			return cx->data_seg[v->dso].data;
-		return &v->uint_val;
-
-	case IVAL_CSO | IVAL_REF:
-	case IVAL_DSO | IVAL_REF: return cx->data_seg[v->dso].data;
-	default:
-		LT_ASSERT_NOT_REACHED();
-		return NULL;
-	}
-}
-
 static
 usz emit(gen_ctx_t* cx, icode_t instr) {
 	LT_ASSERT(cx->curr_func != -1);
 
-	seg_ent_t* ent = &cx->code_seg[cx->curr_func];
+	seg_ent_t* ent = &cx->seg[cx->curr_func];
 
 	if (!(ent->size & ICODE_BLOCK_MASK))
 		ent->data = realloc(ent->data, (ent->size + ICODE_BLOCK_SIZE) * sizeof(icode_t));
@@ -46,404 +31,808 @@ usz emit(gen_ctx_t* cx, icode_t instr) {
 	return ent->size++;
 }
 
+
+
 static
 usz new_code_seg(gen_ctx_t* cx, type_t* type) {
-	if (!(cx->code_seg_count & SEGMENT_BLOCK_MASK))
-		cx->code_seg = realloc(cx->code_seg, (cx->code_seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
-	memset(&cx->code_seg[cx->code_seg_count], 0, sizeof(seg_ent_t));
-	cx->code_seg[cx->code_seg_count].type = type;
-	return cx->code_seg_count++;
+	if (!(cx->seg_count & SEGMENT_BLOCK_MASK))
+		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
+	memset(&cx->seg[cx->seg_count], 0, sizeof(seg_ent_t));
+	cx->seg[cx->seg_count].type = type;
+	return cx->seg_count++;
 }
 
 static
 usz new_data_seg(gen_ctx_t* cx, seg_ent_t new_ent) {
-	if (!(cx->data_seg_count & SEGMENT_BLOCK_MASK))
-		cx->data_seg = realloc(cx->data_seg, (cx->data_seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
-	cx->data_seg[cx->data_seg_count] = new_ent;
-	return cx->data_seg_count++;
+	if (!(cx->seg_count & SEGMENT_BLOCK_MASK))
+		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
+	cx->seg[cx->seg_count] = new_ent;
+	return cx->seg_count++;
 }
 
+#define REG_COUNT (cx->seg[cx->curr_func].regs)
+
 static
-usz alloc_reg(gen_ctx_t* cx) {
+u32 alloc_reg(gen_ctx_t* cx) {
 	LT_ASSERT(cx->curr_func != -1);
-	return cx->code_seg[cx->curr_func].regs++;
+	return ++REG_COUNT;
 }
 
 static
-ival_t gen_offset_ref(gen_ctx_t* cx, ival_t ref, ival_t offs) {
-	LT_ASSERT(ref.stype & IVAL_REF);
+u32 immi_reg(gen_ctx_t* cx, usz size, u64 v) {
+	u32 reg = alloc_reg(cx);
+	emit(cx, ICODE(IR_INT, size, reg, .uint_val = v));
+	return reg;
+}
 
-	switch (ref.stype & ~IVAL_REF) {
-	case IVAL_IMM:
-		if (offs.stype == IVAL_IMM) {
-			ref.uint_val += offs.uint_val;
-			return ref;
-		}
-	case IVAL_REG: {
-		if (offs.stype == IVAL_IMM) {
-			if (offs.uint_val == 0)
-				return ref;
-			ref.disp += offs.uint_val;
-			return ref;
-		}
+static
+u32 ref_reg(gen_ctx_t* cx, usz size, u32 ref) {
+	u32 reg = alloc_reg(cx);
+	emit(cx, ICODE2(IR_LOAD, size, reg, ref));
+	return reg;
+}
 
-		usz size = ref.size;
+static
+u32 ival_reg(gen_ctx_t* cx, usz size, ival_t v) {
+	switch (v.stype) {
+	case IVAL_REG: return v.reg;
+	case IVAL_IMM: return immi_reg(cx, size, v.uint_val);
 
-		ival_t dst = IVAL(ISZ_64, IVAL_REG, .reg = alloc_reg(cx));
-		ref.stype &= ~IVAL_REF;
-		ref.size = ISZ_64;
-
-		emit(cx, ICODE(IR_ADD, dst, ref, offs));
-		dst.size = size;
-		dst.stype |= IVAL_REF;
-		return dst;
+	case IVAL_SEG: {
+		u32 reg = alloc_reg(cx);
+		emit(cx, ICODE2(IR_SEG, size, reg, v.uint_val));
+		return reg;
 	}
 
-	case IVAL_DSO: case IVAL_CSO: {
-		ival_t dst = IVAL(ISZ_64, IVAL_REG, .reg = alloc_reg(cx));
-		emit(cx, ICODE(IR_LEA, dst, ref, IVAL(0, 0)));
-
-		ival_t dst2 = IVAL(ISZ_64, IVAL_REG, .reg = alloc_reg(cx));
-		emit(cx, ICODE(IR_ADD, dst2, dst, offs));
-		dst2.stype |= IVAL_REF;
-		dst2.size = ref.size;
-		return dst2;
+	case IVAL_SEG | IVAL_REF: {
+		u32 ptr = alloc_reg(cx);
+		emit(cx, ICODE2(IR_SEG, ISZ_64, ptr, v.uint_val));
+		u32 reg = alloc_reg(cx);
+		emit(cx, ICODE2(IR_LOAD, size, reg, ptr));
+		return reg;
 	}
+
+	case IVAL_REG | IVAL_REF: return ref_reg(cx, size, v.reg);
 	}
 
 	LT_ASSERT_NOT_REACHED();
-	return IVAL(0, 0);
+	return 0;
 }
+
+static
+u32 ival_ptr(gen_ctx_t* cx, ival_t v) {
+	switch (v.stype) {
+	case IVAL_SEG:
+	case IVAL_SEG | IVAL_REF: {
+		u32 reg = alloc_reg(cx);
+		emit(cx, ICODE2(IR_SEG, ISZ_64, reg, v.uint_val));
+		return reg;
+	}
+
+	case IVAL_REG:
+	case IVAL_REG | IVAL_REF: return v.reg;
+	}
+
+	LT_ASSERT_NOT_REACHED();
+	return 0;
+}
+
+static
+void* ival_data(gen_ctx_t* cx, ival_t* v) {
+	switch (v->stype) {
+	case IVAL_IMM: return &v->uint_val;
+	case IVAL_SEG: return &cx->seg[v->uint_val].data;
+	case IVAL_SEG | IVAL_REF: return cx->seg[v->uint_val].data;
+	}
+
+	LT_ASSERT_NOT_REACHED();
+	return 0;
+}
+
+static
+u8* ival_write_comp(gen_ctx_t* cx, type_t* type, ival_t v, u8* out) {
+	if (v.stype != IVAL_COM) {
+		void* ptr = NULL;
+		switch (v.stype) {
+		case IVAL_IMM: ptr = &v.uint_val; break;
+		case IVAL_SEG: ptr = cx->seg[v.uint_val].data; break;
+		default:
+			LT_ASSERT_NOT_REACHED();
+		}
+		usz size = type_bytes(type);
+		memcpy(out, ptr, size);
+		return out + size;
+	}
+
+	LT_ASSERT(v.stype == IVAL_COM);
+
+	if (type->stype == TP_STRUCT) {
+		type_t** types = type->children;
+
+		for (usz i = 0; i < v.child_count; ++i) {
+			type_t* memb_type = types[i];
+			ival_t memb_v = v.children[i];
+
+			void* ptr = NULL;
+			switch (memb_v.stype) {
+			case IVAL_IMM: ptr = &memb_v.uint_val; break;
+			case IVAL_SEG: ptr = cx->seg[memb_v.uint_val].data; break;
+
+			case IVAL_COM:
+				out = ival_write_comp(cx, memb_type, memb_v, out);
+				continue;
+
+			default:
+				LT_ASSERT_NOT_REACHED();
+			}
+
+			usz size = type_bytes(memb_type);
+			memcpy(out, ptr, size);
+			out += size;
+		}
+		return out;
+	}
+	else if (type->stype == TP_ARRAY_VIEW) {
+		*(u64*)out = (u64)cx->seg[v.children[0].uint_val].data; // !!
+		out += sizeof(u64);
+		*(u64*)out = v.children[1].uint_val;
+		return out + sizeof(u64);
+	}
+	else if (type->stype == TP_ARRAY) {
+		usz child_count = v.child_count;
+		for (usz i = 0; i < child_count; ++i)
+			out = ival_write_comp(cx, type->base, v.children[i], out);
+		return out;
+	}
+
+	lt_printf("type: %ud\n", type->stype);
+	LT_ASSERT_NOT_REACHED();
+	return NULL;
+}
+
+static
+ival_t gen_assign(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	u32 r1 = ival_ptr(cx, a1);
+
+	if (size > ISZ_64) {
+		u32 r2 = ival_ptr(cx, a2);
+		emit(cx, ICODE2(IR_MCOPY, size, r1, r2));
+		return a1;
+	}
+	else {
+		u32 src = ival_reg(cx, size, a2);
+		emit(cx, ICODE2(IR_STOR, size, src, r1));
+		return REG(src);
+	}
+}
+
+static
+u32 reg_add_immi(gen_ctx_t* cx, u32 reg, u64 v) {
+	u32 new_reg = alloc_reg(cx);
+	u32 immi = immi_reg(cx, ISZ_64, v);
+	emit(cx, ICODE3(IR_ADD, ISZ_64, new_reg, reg, immi));
+	return new_reg;
+}
+
+static
+u32 ival_gen_comp(gen_ctx_t* cx, type_t* type, ival_t v, u32 reg) {
+	LT_ASSERT(v.stype == IVAL_COM);
+
+	if (type->stype == TP_STRUCT) {
+		type_t** types = type->children;
+
+		for (usz i = 0; i < v.child_count; ++i) {
+			type_t* memb_type = types[i];
+			ival_t memb_v = v.children[i];
+
+			if (memb_v.stype == IVAL_COM)
+				reg = ival_gen_comp(cx, memb_type, memb_v, reg);
+			else {
+				usz size = type_bytes(memb_type);
+				gen_assign(cx, size, REF(reg), memb_v);
+				reg = reg_add_immi(cx, reg, size);
+			}
+		}
+		return reg;
+	}
+	else if (type->stype == TP_ARRAY_VIEW) {
+		gen_assign(cx, ISZ_64, REF(reg), v.children[0]);
+		reg = reg_add_immi(cx, reg, sizeof(u64));
+		gen_assign(cx, ISZ_64, REF(reg), v.children[1]);
+		return reg_add_immi(cx, reg, sizeof(u64));
+	}
+	else if (type->stype == TP_ARRAY) {
+		for (usz i = 0; i < v.child_count; ++i)
+			reg = ival_gen_comp(cx, type->base, v.children[i], reg);
+		return reg;
+	}
+
+	lt_printf("type: %ud\n", type->stype);
+	LT_ASSERT_NOT_REACHED();
+	return 0;
+}
+
+#define OP_GEN(name, instr, op) \
+static \
+ival_t gen_##name(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) { \
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) \
+		return IMMI(a1.uint_val op a2.uint_val); \
+ \
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2); \
+ \
+	u32 dst = alloc_reg(cx); \
+	emit(cx, ICODE3(instr, size, dst, r1, r2)); \
+	return REG(dst); \
+}
+
+static
+ival_t gen_add(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+		return IMMI(a1.uint_val + a2.uint_val);
+
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+
+	u32 dst = alloc_reg(cx);
+	emit(cx, ICODE3(IR_ADD, size, dst, r1, r2));
+	return REG(dst);
+}
+
+static
+ival_t gen_sub(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+		return IMMI(a1.uint_val - a2.uint_val);
+
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+
+	u32 dst = alloc_reg(cx);
+	emit(cx, ICODE3(IR_SUB, size, dst, r1, r2));
+	return REG(dst);
+}
+
+static
+ival_t gen_imul(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+		return IMMI(a1.int_val * a2.int_val);
+
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+
+	u32 dst = alloc_reg(cx);
+	emit(cx, ICODE3(IR_IMUL, size, dst, r1, r2));
+	return REG(dst);
+}
+
+static
+ival_t gen_umul(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+		return IMMI(a1.uint_val * a2.uint_val);
+
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+
+	u32 dst = alloc_reg(cx);
+	emit(cx, ICODE3(IR_UMUL, size, dst, r1, r2));
+	return REG(dst);
+}
+
+static
+ival_t gen_idiv(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+		return IMMI(a1.int_val / a2.int_val);
+
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+
+	u32 dst = alloc_reg(cx);
+	emit(cx, ICODE3(IR_IDIV, size, dst, r1, r2));
+	return REG(dst);
+}
+
+static
+ival_t gen_udiv(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+		return IMMI(a1.uint_val / a2.uint_val);
+
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+
+	u32 dst = alloc_reg(cx);
+	emit(cx, ICODE3(IR_UDIV, size, dst, r1, r2));
+	return REG(dst);
+}
+
+static
+ival_t gen_irem(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+		return IMMI(a1.int_val % a2.int_val);
+
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+
+	u32 dst = alloc_reg(cx);
+	emit(cx, ICODE3(IR_IREM, size, dst, r1, r2));
+	return REG(dst);
+}
+
+static
+ival_t gen_urem(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+		return IMMI(a1.uint_val % a2.uint_val);
+
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+
+	u32 dst = alloc_reg(cx);
+	emit(cx, ICODE3(IR_UREM, size, dst, r1, r2));
+	return REG(dst);
+}
+
+OP_GEN(and, IR_AND, &)
+OP_GEN(or, IR_OR, |)
+OP_GEN(xor, IR_XOR, ^)
+
+#define OP_GEN_SHIFT(name, instr, op, sign) \
+static \
+ival_t gen_##name(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) { \
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) \
+		return IMMI(a1.sign##int_val op a2.sign##int_val); \
+ \
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, ISZ_8, a2); \
+ \
+	u32 dst = alloc_reg(cx); \
+	emit(cx, ICODE3(instr, size, dst, r1, r2)); \
+	return REG(dst); \
+}
+
+OP_GEN_SHIFT(ishl, IR_ISHL, <<, )
+OP_GEN_SHIFT(ushl, IR_USHL, <<, u)
+OP_GEN_SHIFT(ishr, IR_ISHR, >>, )
+OP_GEN_SHIFT(ushr, IR_USHR, >>, u)
 
 static
 void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 	if (sym->flags & SYMFL_CONST)
-		sym->ival = icode_gen_expr(cx, expr);
+		sym->val = gen_const_expr(cx, expr);
 	else {
 		if (sym->flags & SYMFL_GLOBAL) {
 			usz size = type_bytes(sym->type);
 			void* data = lt_arena_reserve(cx->arena, size);
-
 			memset(data, 0, size);
+			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx, SEG_ENT(SEG_DATA, sym->name, size, data)));
+
 			if (expr) {
-				ival_t val = icode_gen_expr(cx, expr);
-				memcpy(data, ival_data(cx, &val), type_bytes(expr->type));
+				ival_t v = gen_const_expr(cx, expr);
+				if (v.stype == IVAL_COM)
+					ival_write_comp(cx, expr->type, v, data);
+				else
+					memcpy(data, ival_data(cx, &v), size);
 			}
 
-			usz offs = new_data_seg(cx, SEG_ENT(sym->name, size, data));
-			sym->ival = IVAL(size, IVAL_DSO | IVAL_REF, .uint_val = offs);
 		}
 		else {
-			u8 flags = sym->flags;
-// 			if (!(flags & SYMFL_ACCESSED))
-// 				return;
-
 			usz size = type_bytes(sym->type);
 			usz align = type_align(sym->type);
-			usz reg = alloc_reg(cx);
-			ival_t val = REG(size, reg);
-			b8 scalar = is_scalar(sym->type);
+			ival_t val = REF(alloc_reg(cx));
+			emit(cx, ICODE3(IR_SRESV, ISZ_64, val.reg, size, align));
 
-			if (!scalar) {
-				emit(cx, ICODE3(IR_SRESV, REG(ISZ_64, reg), IMM(ISZ_64, size), IMM(ISZ_64, align)));
-				val.stype |= IVAL_REF;
-
-				if (expr) {
-					ival_t init = icode_gen_expr(cx, expr);
-					emit(cx, ICODE(IR_COPY, val, init, IVAL(0, 0)));
-				}
+			if (expr) {
+				if (size > ISZ_64)
+					gen_assign(cx, size, val, icode_gen_expr(cx, expr));
+				else if (expr)
+					emit(cx, ICODE2(IR_STOR, size, ival_reg(cx, size, icode_gen_expr(cx, expr)), val.reg));
 			}
-			else if (flags & SYMFL_REFERENCED) {
-				emit(cx, ICODE3(IR_SRESV, REG(ISZ_64, reg), IMM(ISZ_64, size), IMM(ISZ_64, align)));
-				val.stype |= IVAL_REF;
 
-				if (expr)
-					emit(cx, ICODE2(IR_MOV, val, icode_gen_expr(cx, expr)));
-			}
-			else if (expr)
-				emit(cx, ICODE(IR_MOV, val, icode_gen_expr(cx, expr), IVAL(0, 0)));
-
-			sym->ival = val;
+			sym->val = val;
 		}
 	}
 }
 
-#define GENERIC_EXPR_BINARY(icode, operator, sign) { \
-	ival_t a1 = icode_gen_expr(cx, expr->child_1); \
-	ival_t a2 = icode_gen_expr(cx, expr->child_2); \
-	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) \
-		return IVAL(a1.size, IVAL_IMM, .uint_val = a1.sign##int_val operator a2.sign##int_val); \
-	ival_t dst = IVAL(type_bytes(expr->type), IVAL_REG, .reg = alloc_reg(cx)); \
-	emit(cx, ICODE((icode), dst, a1, a2)); \
-	return dst; \
+static
+b8 is_lval(ival_t v) {
+	return v.stype & IVAL_REF;
 }
 
-#define GENERIC_EXPR_UNARY(icode, operator) { \
-	ival_t a1 = icode_gen_expr(cx, expr->child_1); \
-	if (a1.stype == IVAL_IMM) \
-		return IVAL(a1.size, IVAL_IMM, .uint_val = operator a1.int_val); \
-	ival_t dst = IVAL(type_bytes(expr->type), IVAL_REG, .reg = alloc_reg(cx)); \
-	emit(cx, ICODE((icode), dst, a1, IVAL(0, 0))); \
-	return dst; \
+static
+void check_lval(gen_ctx_t* cx, tk_t* tk, ival_t a) {
+	if (!is_lval(a))
+		ferr("operator requires an lvalue", cx->lex_cx, *tk);
 }
 
-#define FUNC_INSTR(x) (((icode_t*)cx->code_seg[cx->curr_func].data)[(x)])
-#define CURR_INSTR() (cx->code_seg[cx->curr_func].size)
+#define FUNC_INSTR(x) (((icode_t*)cx->seg[cx->curr_func].data)[(x)])
+#define CURR_IP() (cx->seg[cx->curr_func].size)
 
-ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
+ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
+	// TODO: Evaluate constant expressions properly
+
 	switch (expr->stype) {
-	case EXPR_ADD:
-		GENERIC_EXPR_BINARY(IR_ADD, +, u);
-
-	case EXPR_SUBTRACT:
-		GENERIC_EXPR_BINARY(IR_SUB, -, u);
-
-	case EXPR_MULTIPLY:
-		if (is_int(expr->type))
-			GENERIC_EXPR_BINARY(IR_IMUL, *, )
-		else if (is_uint(expr->type))
-			GENERIC_EXPR_BINARY(IR_UMUL, *, u)
-
-	case EXPR_DIVIDE:
-		if (is_int(expr->type))
-			GENERIC_EXPR_BINARY(IR_IDIV, /, )
-		else if (is_uint(expr->type))
-			GENERIC_EXPR_BINARY(IR_UDIV, /, u)
-
-	case EXPR_MODULO:
-		if (is_int(expr->type))
-			GENERIC_EXPR_BINARY(IR_IREM, %, )
-		else if (is_uint(expr->type))
-			GENERIC_EXPR_BINARY(IR_UREM, %, u)
-
-	case EXPR_NEGATE:
-		GENERIC_EXPR_UNARY(IR_NEG, -);
-
-	case EXPR_PFX_INCREMENT: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (a1.stype == IVAL_IMM)
-			return IVAL(a1.size, IVAL_IMM, .uint_val = a1.int_val + 1);
-
-		emit(cx, ICODE1(IR_INC, a1));
-		return a1;
-	}
-
-	case EXPR_PFX_DECREMENT: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (a1.stype == IVAL_IMM)
-			return IVAL(a1.size, IVAL_IMM, .uint_val = a1.int_val - 1);
-
-		emit(cx, ICODE1(IR_DEC, a1));
-		return a1;
-	}
-
-	case EXPR_SFX_INCREMENT: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		ival_t dst = IVAL(a1.size, IVAL_REG, .reg = alloc_reg(cx));
-		emit(cx, ICODE2(IR_MOV, dst, a1));
-		emit(cx, ICODE1(IR_INC, a1));
-		return dst;
-	}
-
-	case EXPR_SFX_DECREMENT: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		ival_t dst = IVAL(a1.size, IVAL_REG, .reg = alloc_reg(cx));
-		emit(cx, ICODE2(IR_MOV, dst, a1));
-		emit(cx, ICODE1(IR_DEC, a1));
-		return dst;
-	}
-
-	case EXPR_BIT_AND:
-		GENERIC_EXPR_BINARY(IR_AND, &, u);
-
-	case EXPR_BIT_OR:
-		GENERIC_EXPR_BINARY(IR_OR, |, u);
-
-	case EXPR_BIT_XOR:
-		GENERIC_EXPR_BINARY(IR_XOR, ^, u);
-
-	case EXPR_BIT_SHIFT_LEFT:
-		if (is_int(expr->type))
-			GENERIC_EXPR_BINARY(IR_ISHL, <<, )
-		else if (is_uint(expr->type))
-			GENERIC_EXPR_BINARY(IR_USHL, <<, u)
-
-	case EXPR_BIT_SHIFT_RIGHT:
-		if (is_int(expr->type))
-			GENERIC_EXPR_BINARY(IR_ISHR, >>, )
-		else if (is_uint(expr->type))
-			GENERIC_EXPR_BINARY(IR_USHR, >>, u)
-
-	case EXPR_BIT_NOT:
-		GENERIC_EXPR_UNARY(IR_NOT, ~);
-
-	case EXPR_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-
-		if (a1.size > 8 || !lt_is_pow2(a1.size))
-			emit(cx, ICODE2(IR_COPY, a1, a2));
-		else
-			emit(cx, ICODE2(IR_MOV, a1, a2));
-		return a1;
-	}
-
-	case EXPR_ADD_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		emit(cx, ICODE3(IR_ADD, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_SUBTRACT_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		emit(cx, ICODE3(IR_SUB, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_MULTIPLY_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		if (is_int(expr->type))
-			emit(cx, ICODE3(IR_IMUL, a1, a1, a2));
-		else
-			emit(cx, ICODE3(IR_UMUL, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_DIVIDE_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		if (is_int(expr->type))
-			emit(cx, ICODE3(IR_IDIV, a1, a1, a2));
-		else
-			emit(cx, ICODE3(IR_UDIV, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_MODULO_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		if (is_int(expr->type))
-			emit(cx, ICODE3(IR_IREM, a1, a1, a2));
-		else
-			emit(cx, ICODE3(IR_UREM, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_BIT_SHIFT_LEFT_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		if (is_int(expr->type))
-			emit(cx, ICODE3(IR_ISHL, a1, a1, a2));
-		else
-			emit(cx, ICODE3(IR_USHL, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_BIT_SHIFT_RIGHT_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		if (is_int(expr->type))
-			emit(cx, ICODE3(IR_ISHR, a1, a1, a2));
-		else
-			emit(cx, ICODE3(IR_USHR, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_BIT_AND_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		emit(cx, ICODE3(IR_AND, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_BIT_XOR_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		emit(cx, ICODE3(IR_XOR, a1, a1, a2));
-		return a1;
-	}
-	case EXPR_BIT_OR_ASSIGN: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		LT_ASSERT(a1.stype & IVAL_REF || a1.stype == IVAL_REG);
-		emit(cx, ICODE3(IR_OR, a1, a1, a2));
-		return a1;
-	}
-
-	case EXPR_LAMBDA:
+	case EXPR_LAMBDA: {
 		isz old_func = cx->curr_func;
 		usz new_func = new_code_seg(cx, expr->type);
 		cx->curr_func = new_func;
 
-		emit(cx, ICODE0(IR_ENTER));
+		emit(cx, ICODE0(IR_ENTER, ISZ_64));
 		sym_t** args = expr->type->child_syms;
 		isz arg_count = expr->type->child_count;
 		usz stack_size = 0;
 		for (isz i = arg_count - 1; i >= 0; stack_size += type_bytes(expr->type->children[i--])) {
 			sym_t* sym = args[i];
-			if (!sym || !(sym->flags & SYMFL_ACCESSED))
+			if (!sym /*|| !(sym->flags & SYMFL_ACCESSED)*/)
 				continue;
 			gen_sym_def(cx, sym, NULL);
-			emit(cx, ICODE2(IR_GETARG, sym->ival, IVAL(ISZ_64, IVAL_IMM, .uint_val = stack_size)));
+			emit(cx, ICODE1(IR_GETARG, type_bytes(sym->type), sym->val.reg));
 		}
 
 		icode_gen_stmt(cx, expr->stmt);
 
-		// TODO: Insert a ret when not all code paths return
-		emit(cx, ICODE0(IR_RET));
+		// TODO: Insert a ret only when not all code paths return
+		emit(cx, ICODE0(IR_RET, 0));
 
 		cx->curr_func = old_func;
-		return IVAL(type_bytes(expr->type), IVAL_CSO, .uint_val = new_func);
-
-	case EXPR_INTEGER:
-		return IVAL(type_bytes(expr->type), IVAL_IMM, .uint_val = expr->uint_val);
-
-	case EXPR_FLOAT:
-		return IVAL(type_bytes(expr->type), IVAL_IMM, .float_val = expr->float_val);
-
-	case EXPR_SYM:
-		return expr->sym->ival;
-
-	case EXPR_STRING: {
-		usz offs = new_data_seg(cx, SEG_ENT(CLSTR("@STRING"), expr->str_val.len, expr->str_val.str));
-		return IVAL(type_bytes(expr->type), IVAL_DSO | IVAL_REF, .uint_val = offs);
+		return SEG(new_func);
 	}
 
-	case EXPR_CONVERT: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (a1.stype == IVAL_IMM || type_bytes(expr->type) <= a1.size) {
-			a1.size = type_bytes(expr->type);
-			return a1;
+	case EXPR_STRUCT: {
+		usz max_children = expr->type->child_count;
+		ival_t* children = lt_arena_reserve(cx->arena, max_children * sizeof(ival_t));
+
+		expr_t* it = expr->child_1;
+		usz i = 0;
+		for (; i < max_children && it; ++i) {
+			children[i] = gen_const_expr(cx, it);
+			it = it->next;
 		}
 
-		ival_t dst = IVAL(type_bytes(expr->type), IVAL_REG, .reg = alloc_reg(cx));
-		if (is_int(expr->type) && is_int(expr->child_1->type))
-			emit(cx, ICODE(IR_IEXT, dst, a1, IVAL(0, 0)));
+		return IVAL(IVAL_COM, i, .children = children);
+	}
+
+	case EXPR_VIEW: {
+		usz child_count = 2;
+		ival_t* children = lt_arena_reserve(cx->arena, child_count * sizeof(ival_t));
+		ival_t addr = icode_gen_expr(cx, expr->child_1);
+		children[0] = IMMI((u64)cx->seg[addr.uint_val].data); // !!
+		children[1] = IMMI(expr->child_1->type->child_count);
+		return IVAL(IVAL_COM, child_count, .children = children);
+	}
+
+	case EXPR_ARRAY: {
+		usz count = expr->type->child_count;
+		ival_t* children = lt_arena_reserve(cx->arena, count * type_bytes(expr->type->base));
+
+		expr_t* it = expr->child_1;
+		usz i = 0;
+		for (; i < count && it; ++i) {
+			children[i] = gen_const_expr(cx, it);
+			it = it->next;
+		}
+		return IVAL(IVAL_COM, i, .children = children);
+	}
+
+	case EXPR_INTEGER:
+		return IMMI(expr->uint_val);
+
+	case EXPR_FLOAT:
+		return IMMF(expr->float_val);
+
+	case EXPR_STRING: {
+		usz offs = new_data_seg(cx, SEG_ENT(SEG_DATA, CLSTR("@STRING"), expr->str_val.len, expr->str_val.str));
+		return SEG(offs);
+	}
+
+	case EXPR_CONVERT:
+		return gen_const_expr(cx, expr->child_1);
+
+	case EXPR_REFERENCE: {
+		if (expr->child_1->stype != EXPR_SYM)
+			goto expected_lval;
+		ival_t ival = expr->child_1->sym->val;
+		if (!(ival.stype & IVAL_REF)) {
+expected_lval:
+			ferr("expected an lvalue", cx->lex_cx, *expr->tk);
+		}
+
+		ival.stype &= ~IVAL_REF;
+		return ival;
+	}
+
+	default:
+		lt_printf("%S\n");
+		ferr("expected a compile-time constant", cx->lex_cx, *expr->tk);
+	}
+}
+
+ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
+	switch (expr->stype) {
+	// Literals
+	case EXPR_LAMBDA:
+	case EXPR_INTEGER:
+	case EXPR_FLOAT:
+	case EXPR_STRING:
+		return gen_const_expr(cx, expr);
+
+	case EXPR_SYM:
+		return expr->sym->val;
+
+	case EXPR_VIEW: {
+		u32 ptr = ival_ptr(cx, icode_gen_expr(cx, expr->child_1));
+
+		usz count = expr->child_1->type->child_count;
+		u32 view_start = alloc_reg(cx);
+		emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
+
+		gen_assign(cx, ISZ_64, REF(view_start), REG(ptr));
+		u32 count_ptr = ival_reg(cx, ISZ_64, gen_add(cx, ISZ_64, REG(view_start), IMMI(8)));
+		gen_assign(cx, ISZ_64, REF(count_ptr), IMMI(count));
+
+		return REF(view_start);
+	}
+
+	case EXPR_ARRAY: {
+		usz count = expr->type->child_count;
+		usz elem_size = type_bytes(expr->type->base);
+		usz size = count * elem_size;
+		LT_ASSERT(cx->curr_func != -1);
+
+		usz arr_start = alloc_reg(cx);
+		emit(cx, ICODE3(IR_SRESV, ISZ_64, arr_start, size, type_align(expr->type)));
+
+		expr_t* it = expr->child_1;
+		for (usz i = 0; i < count && it; ++i) {
+			ival_t a1 = icode_gen_expr(cx, it);
+
+			ival_t member_start = gen_add(cx, ISZ_64, REG(arr_start), IMMI(i * elem_size));
+			member_start.stype |= IVAL_REF;
+
+			gen_assign(cx, elem_size, member_start, a1);
+
+			it = it->next;
+		}
+		return REF(arr_start);
+	}
+
+	case EXPR_STRUCT: {
+		usz size = type_bytes(expr->type);
+		usz count = expr->type->child_count;
+		LT_ASSERT(cx->curr_func != -1);
+
+		u32 struct_start = alloc_reg(cx);
+		emit(cx, ICODE3(IR_SRESV, ISZ_64, struct_start, size, type_align(expr->type)));
+
+		usz stack_it = 0;
+		expr_t* it = expr->child_1;
+
+		for (usz i = 0; i < count && it; ++i) {
+			usz elem_size = type_bytes(it->type);
+			ival_t a1 = icode_gen_expr(cx, it);
+
+			ival_t member_start = gen_add(cx, ISZ_64, REG(struct_start), IMMI(stack_it));
+			member_start.stype |= IVAL_REF;
+
+			gen_assign(cx, elem_size, member_start, a1);
+			stack_it += elem_size;
+			it = it->next;
+		}
+		return REF(struct_start);
+	}
+
+	// Binary
+	case EXPR_ADD:
+		return gen_add(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_SUBTRACT:
+		return gen_sub(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_MULTIPLY:
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			return gen_imul(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 		else
-			emit(cx, ICODE(IR_UEXT, dst, a1, IVAL(0, 0)));
-		return dst;
+			return gen_umul(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_DIVIDE:
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			return gen_idiv(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+		else
+			return gen_udiv(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_MODULO:
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			return gen_irem(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+		else
+			return gen_urem(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_BIT_AND:
+		return gen_and(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_BIT_OR:
+		return gen_or(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_BIT_XOR:
+		return gen_xor(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_BIT_SHIFT_LEFT:
+		if (is_int(expr->child_1->type))
+			return gen_ishl(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+		else
+			return gen_ushl(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_BIT_SHIFT_RIGHT:
+		if (is_int(expr->child_1->type))
+			return gen_ishr(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+		else
+			return gen_ushr(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
+
+	case EXPR_CONVERT: {
+		usz to = type_bytes(expr->type), from = type_bytes(expr->child_1->type);
+		ival_t a1 = icode_gen_expr(cx, expr->child_1);
+		if (to <= from || a1.stype == IVAL_IMM)
+			return a1;
+
+		u32 op = IR_INVAL;
+		if (is_int(expr->type) && is_int(expr->child_1->type)) {
+			switch (to) {
+			case ISZ_16: op = IR_TOI16; break;
+			case ISZ_32: op = IR_TOI32; break;
+			case ISZ_64: op = IR_TOI64; break;
+			}
+		}
+		else {
+			switch (to) {
+			case ISZ_16: op = IR_TOU16; break;
+			case ISZ_32: op = IR_TOU32; break;
+			case ISZ_64: op = IR_TOU64; break;
+			}
+		}
+		u32 r1 = ival_reg(cx, from, a1), dst = alloc_reg(cx);
+		emit(cx, ICODE2(op, from, dst, r1));
+		return REG(dst);
+	}
+
+	// Unary
+	case EXPR_NEGATE: {
+		ival_t a = icode_gen_expr(cx, expr->child_1);
+		if (a.stype == IVAL_IMM)
+			return IMMI(-a.uint_val);
+		usz size = type_bytes(expr->type);
+		u32 r = ival_reg(cx, size, a), dst = alloc_reg(cx);
+		emit(cx, ICODE2(IR_NEG, size, dst, r));
+		return REG(dst);
+	}
+
+	case EXPR_PFX_INCREMENT: {
+		ival_t a = icode_gen_expr(cx, expr->child_1);
+		check_lval(cx, expr->tk, a);
+		usz size = type_bytes(expr->type);
+
+		u32 ptr = ival_ptr(cx, a);
+		u32 dst = alloc_reg(cx), val = ref_reg(cx, size, ptr);
+
+		emit(cx, ICODE2(IR_INC, size, dst, val));
+		emit(cx, ICODE2(IR_STOR, size, dst, ptr));
+		return REG(dst);
+	}
+
+	case EXPR_PFX_DECREMENT: {
+		ival_t a = icode_gen_expr(cx, expr->child_1);
+		check_lval(cx, expr->tk, a);
+		usz size = type_bytes(expr->type);
+
+		u32 ptr = ival_ptr(cx, a);
+		u32 dst = alloc_reg(cx), val = ref_reg(cx, size, ptr);
+
+		emit(cx, ICODE2(IR_DEC, size, dst, val));
+		emit(cx, ICODE2(IR_STOR, size, dst, ptr));
+		return REG(dst);
+	}
+
+	case EXPR_SFX_INCREMENT: {
+		ival_t a = icode_gen_expr(cx, expr->child_1);
+		check_lval(cx, expr->tk, a);
+		usz size = type_bytes(expr->type);
+
+		u32 ptr = ival_ptr(cx, a);
+		u32 tmp = alloc_reg(cx), val = ref_reg(cx, size, ptr);
+
+		emit(cx, ICODE2(IR_INC, size, tmp, val));
+		emit(cx, ICODE2(IR_STOR, size, tmp, ptr));
+		return REG(val);
+	}
+
+	case EXPR_SFX_DECREMENT: {
+		ival_t a = icode_gen_expr(cx, expr->child_1);
+		check_lval(cx, expr->tk, a);
+		usz size = type_bytes(expr->type);
+
+		u32 ptr = ival_ptr(cx, a);
+		u32 tmp = alloc_reg(cx), val = ref_reg(cx, size, ptr);
+
+		emit(cx, ICODE2(IR_DEC, size, tmp, val));
+		emit(cx, ICODE2(IR_STOR, size, tmp, ptr));
+		return REG(val);
+	}
+
+	case EXPR_BIT_NOT: {
+		ival_t a = icode_gen_expr(cx, expr->child_1);
+		if (a.stype == IVAL_IMM)
+			return IMMI(!a.uint_val);
+		usz size = type_bytes(expr->type);
+		u32 r = ival_reg(cx, size, a), dst = alloc_reg(cx);
+		emit(cx, ICODE2(IR_NOT, size, dst, r));
+		return REG(dst);
 	}
 
 	case EXPR_DEREFERENCE: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (a1.stype & IVAL_REF) {
-			ival_t dst = IVAL(type_bytes(expr->type), IVAL_REG, .reg = alloc_reg(cx));
-			emit(cx, ICODE(IR_MOV, dst, a1, IVAL(0, 0)));
-			a1 = dst;
-		}
-		a1.stype |= IVAL_REF;
-		a1.size = type_bytes(expr->type);
-		return a1;
+		ival_t a = icode_gen_expr(cx, expr->child_1);
+		return REF(ival_reg(cx, ISZ_64, a));
 	}
 
 	case EXPR_REFERENCE: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (!(a1.stype & IVAL_REF))
-			ferr("Referenced value must be an lvalue", cx->lex_cx, *expr->tk);
-		a1.stype &= ~IVAL_REF;
-		a1.size = ISZ_64;
-		return a1;
+		ival_t a = icode_gen_expr(cx, expr->child_1);
+		check_lval(cx, expr->tk, a);
+		return REG(ival_ptr(cx, a));
+	}
+
+	case EXPR_CALL: {
+		ival_t ret_val = IVAL(0);
+		usz ret_size = type_bytes(expr->type);
+		usz ret_align = type_align(expr->type);
+
+		if (expr->type->stype == TP_VOID)
+			;
+		else if (ret_size > 8) {
+			u32 reg = alloc_reg(cx);
+			emit(cx, ICODE3(IR_SRESV, ISZ_64, reg, ret_size, ret_align));
+			ret_val = REF(reg);
+		}
+		else
+			ret_val = REG(alloc_reg(cx));
+
+		expr_t* it = expr->child_2;
+		while (it) {
+			usz size = type_bytes(it->type);
+			ival_t ival = icode_gen_expr(cx, it);
+			u32 reg;
+			if (size > ISZ_64) {
+				if (ival.stype == IVAL_COM) {
+					reg = alloc_reg(cx);
+					emit(cx, ICODE3(IR_SRESV, ISZ_64, reg, type_bytes(it->type), type_align(it->type)));
+					ival_gen_comp(cx, it->type, ival, reg);
+				}
+				else
+					reg = ival_ptr(cx, ival);
+			}
+			else
+				reg = ival_reg(cx, size, ival);
+			emit(cx, ICODE1(IR_SETARG, size, reg));
+			it = it->next;
+		}
+
+		u32 func_addr = ival_reg(cx, ISZ_64, icode_gen_expr(cx, expr->child_1));
+		emit(cx, ICODE3(IR_CALL, ret_size, func_addr, ret_val.reg, REG_COUNT));
+		return ret_val;
+	}
+
+	case EXPR_SUBSCRIPT: {
+		LT_ASSERT(expr->child_1->type->stype == TP_PTR);
+
+		ival_t ptr_val = icode_gen_expr(cx, expr->child_1), indx_val = icode_gen_expr(cx, expr->child_2);
+
+		if (ptr_val.stype == IVAL_COM) {
+			if (indx_val.stype != IVAL_IMM)
+				ferr("Index to compile-time subscript must be constant", cx->lex_cx, *expr->tk);
+			u64 indx = indx_val.uint_val;
+			if (indx >= ptr_val.child_count)
+				ferr("Index out of range", cx->lex_cx, *expr->child_2->tk);
+			return ptr_val.children[indx];
+		}
+
+		usz size = type_bytes(expr->type);
+		ival_t offs_val = gen_imul(cx, ISZ_64, indx_val, IMMI(size));
+		ival_t res = gen_add(cx, ISZ_64, ptr_val, offs_val);
+		u32 reg = ival_reg(cx, ISZ_64, res);
+		return REF(reg);
 	}
 
 	case EXPR_MEMBER: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		LT_ASSERT(expr->child_1->type->stype == TP_STRUCT);
-		LT_ASSERT(a1.stype & IVAL_REF);
+		ival_t v = icode_gen_expr(cx, expr->child_1);
+		if (v.stype == IVAL_COM) {
+			LT_ASSERT(v.child_count > expr->member_index);
+			return v.children[expr->member_index];
+		}
 
+		u32 ptr = ival_ptr(cx, v);
 		LT_ASSERT(expr->child_1->type->child_count > expr->member_index);
 
 		type_t** members = expr->child_1->type->children;
@@ -451,309 +840,266 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		for (usz i = 0; i < expr->member_index; ++i)
 			member_offs += type_bytes(members[i]);
 
-		type_t* member = members[expr->member_index];
-
-		ival_t dst = gen_offset_ref(cx, a1, IVAL(ISZ_64, IVAL_IMM, .uint_val = member_offs));
-		dst.size = type_bytes(member);
-		return dst;
-	}
-
-	case EXPR_CALL: {
-		ival_t dst = IVAL(0, 0);
-		usz ret_size = type_bytes(expr->type);
-		usz ret_align = type_align(expr->type);
-
-		if (expr->type->stype == TP_VOID) {
-
-		}
-		else if (ret_size > 8 || !lt_is_pow2(ret_size)) {
-			usz reg = alloc_reg(cx);
-			emit(cx, ICODE3(IR_SRESV, REG(ISZ_64, reg), IMM(ISZ_64, ret_size), IMM(ISZ_64, ret_align)));
-			dst = IVAL(ret_size, IVAL_REG | IVAL_REF, .reg = reg);
-		}
-		else
-			dst = REG(ret_size, alloc_reg(cx));
-
-		usz arg_i = 0;
-		expr_t* it = expr->child_2;
-		usz stack_size = 0;
-		while (it) {
-			emit(cx, ICODE2(IR_SETARG, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i++), icode_gen_expr(cx, it)));
-			stack_size += type_bytes(it->type);
-			it = it->next;
-		}
-
-		emit(cx, ICODE3(IR_CALL, dst, icode_gen_expr(cx, expr->child_1), IVAL(ISZ_64, IVAL_IMM, .uint_val = stack_size)));
-
-		return dst;
-	}
-
-	case EXPR_LOGIC_AND: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), dst = IVAL(ISZ_8, IVAL_REG, .reg = alloc_reg(cx));
-		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
-
-		usz jmp1 = emit(cx, ICODE2(IR_CJMPZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), a1));
-		ival_t a2 = icode_gen_expr(cx, expr->child_2);
-		emit(cx, ICODE2(IR_CSETNZ, dst, a2));
-
-		seg_ent_t* cs = &cx->code_seg[cx->curr_func];
-		icode_t* ic = cs->data;
-		ic[jmp1].arg1.disp = cs->size * sizeof(icode_t);
-		return dst;
-	}
-	case EXPR_LOGIC_OR: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), dst = IVAL(ISZ_8, IVAL_REG, .reg = alloc_reg(cx));
-		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 1)));
-
-		usz jmp1 = emit(cx, ICODE2(IR_CJMPNZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), a1));
-		ival_t a2 = icode_gen_expr(cx, expr->child_2);
-		usz jmp2 = emit(cx, ICODE2(IR_CJMPNZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), a2));
-		emit(cx, ICODE2(IR_MOV, dst, IVAL(ISZ_8, IVAL_IMM, .uint_val = 0)));
-
-		seg_ent_t* cs = &cx->code_seg[cx->curr_func];
-		FUNC_INSTR(jmp1).arg1.disp = cs->size * sizeof(icode_t);
-		FUNC_INSTR(jmp2).arg1.disp = cs->size * sizeof(icode_t);
-		return dst;
-	}
-
-	case EXPR_LOGIC_NOT: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (a1.stype == IVAL_IMM)
-			return IVAL(ISZ_8, IVAL_IMM, .uint_val = !a1.uint_val);
-
-		ival_t dst = REG(ISZ_8, alloc_reg(cx));
-		emit(cx, ICODE2(IR_CSETZ, dst, a1));
-		return dst;
-	}
-	case EXPR_LESSER: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
-			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val < a2.uint_val); // TODO: account for sign
-
-		ival_t dst = REG(ISZ_8, alloc_reg(cx));
-		if (is_int(expr->child_1->type))
-			emit(cx, ICODE3(IR_CSETL, dst, a1, a2));
-		else
-			emit(cx, ICODE3(IR_CSETB, dst, a1, a2));
-		return dst;
-	}
-	case EXPR_GREATER: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
-			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val > a2.uint_val);
-
-		ival_t dst = REG(ISZ_8, alloc_reg(cx));
-		if (is_int(expr->child_1->type))
-			emit(cx, ICODE3(IR_CSETG, dst, a1, a2));
-		else
-			emit(cx, ICODE3(IR_CSETA, dst, a1, a2));
-		return dst;
-	}
-	case EXPR_LESSER_OR_EQUAL: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
-			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val <= a2.uint_val);
-
-		ival_t dst = REG(ISZ_8, alloc_reg(cx));
-		if (is_int(expr->child_1->type))
-			emit(cx, ICODE3(IR_CSETLE, dst, a1, a2));
-		else
-			emit(cx, ICODE3(IR_CSETBE, dst, a1, a2));
-		return dst;
-	}
-	case EXPR_GREATER_OR_EQUAL: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
-			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val >= a2.uint_val);
-
-		ival_t dst = REG(ISZ_8, alloc_reg(cx));
-		if (is_int(expr->child_1->type))
-			emit(cx, ICODE3(IR_CSETGE, dst, a1, a2));
-		else
-			emit(cx, ICODE3(IR_CSETAE, dst, a1, a2));
-		return dst;
-	}
-	case EXPR_EQUAL: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
-			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val == a2.uint_val);
-
-		ival_t dst = REG(ISZ_8, alloc_reg(cx));
-		emit(cx, ICODE3(IR_CSETE, dst, a1, a2));
-		return dst;
-	}
-	case EXPR_NOT_EQUAL: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
-			return IVAL(ISZ_8, IVAL_IMM, .uint_val = a1.uint_val != a2.uint_val);
-
-		ival_t dst = REG(ISZ_8, alloc_reg(cx));
-		emit(cx, ICODE3(IR_CSETNE, dst, a1, a2));
-		return dst;
-	}
-
-	case EXPR_SUBSCRIPT: {
-		usz base_size = type_bytes(expr->type);
-		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
-		ival_t dst = IVAL(ISZ_64, IVAL_REG, .reg = alloc_reg(cx));
-		emit(cx, ICODE2(IR_MOV, dst, a2));
-		// TODO: Optimize this and don't reassign values
-		if (base_size != 1)
-			emit(cx, ICODE3(IR_UMUL, dst, dst, IMM(ISZ_64, base_size)));
-		emit(cx, ICODE3(IR_ADD, dst, dst, a1));
-		dst.stype |= IVAL_REF;
-		dst.size = base_size;
-		return dst;
-	}
-
-	case EXPR_VIEW: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		LT_ASSERT(a1.stype & IVAL_REF);
-		a1.size = ISZ_64;
-		a1.stype &= ~IVAL_REF;
-		usz count = expr->child_1->type->child_count;
-
-		usz reg = alloc_reg(cx);
-		emit(cx, ICODE3(IR_SRESV, REG(ISZ_64, reg), IMM(ISZ_64, 16), IMM(ISZ_64, 8)));
-
-		emit(cx, ICODE2(IR_MOV, IVAL(ISZ_64, IVAL_REG | IVAL_REF, .reg = reg), a1));
-		emit(cx, ICODE2(IR_MOV, IVAL(ISZ_64, IVAL_REG | IVAL_REF, .reg = reg, .disp = 8), IMM(ISZ_64, count)));
-		return IVAL(16, IVAL_REG | IVAL_REF, .reg = reg);
-	}
-
-	case EXPR_ARRAY: {
-		usz count = expr->type->child_count;
-		usz elem_size = type_bytes(expr->type->base);
-		usz size = count * elem_size;
-
-		if (cx->curr_func != -1) {
-			// Allocate stack space
-			usz reg = alloc_reg(cx);
-			emit(cx, ICODE3(IR_SRESV, REG(ISZ_64, reg), IMM(ISZ_64, size), IMM(ISZ_64, 8)));
-
-			// Set initialized elements
-			u8 move_op = IR_MOV;
-			if (elem_size > 8 || !lt_is_pow2(elem_size))
-				move_op = IR_COPY;
-
-			expr_t* it = expr->child_1;
-			for (usz i = 0; i < count && it; ++i) {
-				ival_t a1 = icode_gen_expr(cx, it);
-				emit(cx, ICODE2(move_op, IVAL(elem_size, IVAL_REG | IVAL_REF, .reg = reg, .disp = i * elem_size), a1));
-				it = it->next;
-			}
-			return IVAL(size, IVAL_REG | IVAL_REF, .reg = reg);
-		}
-
-		// Create data segment
-		u8* data = lt_arena_reserve(cx->arena, size);
-		usz dso = new_data_seg(cx, SEG_ENT(CLSTR("@CONST"), size, data));
-
-		// Set initialized elements
-		expr_t* it = expr->child_1;
-		for (usz i = 0; i < count && it; ++i) {
-			ival_t a1 = icode_gen_expr(cx, it);
-
-			memcpy(data, ival_data(cx, &a1), elem_size);
-			data += elem_size;
-			it = it->next;
-		}
-
-		return IVAL(size, IVAL_DSO | IVAL_REF, .dso = dso);
-	}
-
-	case EXPR_STRUCT: {
-		usz size = type_bytes(expr->type);
-		usz count = expr->type->child_count;
-
-		if (cx->curr_func != -1) {
-			// Allocate stack space
-			usz reg = alloc_reg(cx);
-			emit(cx, ICODE3(IR_SRESV, REG(ISZ_64, reg), IMM(ISZ_64, size), IMM(ISZ_64, 8)));
-
-			// Set initialized members
-			usz stack_it = 0;
-			expr_t* it = expr->child_1;
-			for (usz i = 0; i < count && it; ++i) {
-				usz elem_size = type_bytes(it->type);
-				ival_t a1 = icode_gen_expr(cx, it);
-
-				u8 move_op = IR_MOV;
-				if (elem_size > 8 || !lt_is_pow2(elem_size))
-					move_op = IR_COPY;
-				emit(cx, ICODE2(move_op, IVAL(elem_size, IVAL_REG | IVAL_REF, .reg = reg, .disp = stack_it), a1));
-				stack_it += elem_size;
-				it = it->next;
-			}
-			return IVAL(size, IVAL_REG | IVAL_REF, .reg = reg);
-		}
-
-		// If the struct literal is inside a global initializer
-
-		// Create data segment
-		u8* data = lt_arena_reserve(cx->arena, size);
-		usz dso = new_data_seg(cx, SEG_ENT(CLSTR("@CONST"), size, data));
-
-		// Set initialized members
-		expr_t* it = expr->child_1;
-		for (usz i = 0; i < count && it; ++i) {
-			usz elem_size = type_bytes(it->type);
-			ival_t a1 = icode_gen_expr(cx, it);
-
-			memcpy(data, ival_data(cx, &a1), elem_size);
-			data += elem_size;
-			it = it->next;
-		}
-
-		return IVAL(size, IVAL_DSO | IVAL_REF, .dso = dso);
+		ival_t ref = gen_add(cx, ISZ_64, REG(ptr), IMMI(member_offs));
+		ref.stype |= IVAL_REF;
+		return ref;
 	}
 
 	case EXPR_COUNT: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		LT_ASSERT(a1.stype & IVAL_REF);
+		switch (expr->child_1->type->stype) {
+		case TP_ARRAY:
+			return IMMI(expr->child_1->type->child_count);
+		case TP_ARRAY_VIEW: {
+			ival_t val = icode_gen_expr(cx, expr->child_1);
+			if (val.stype == IVAL_COM)
+				return val.children[1];
+			LT_ASSERT(val.stype == (IVAL_REG | IVAL_REF));
+			val.stype = IVAL_REG;
 
-		if (expr->child_1->type->stype == TP_ARRAY)
-			return IMM(ISZ_64, expr->child_1->type->child_count);
-		else if (expr->child_1->type->stype == TP_ARRAY_VIEW) {
-			a1.size = ISZ_64;
-			return gen_offset_ref(cx, a1, IMM(ISZ_64, 8));
+			ival_t ref = gen_add(cx, ISZ_64, val, IMMI(8));
+			ref.stype |= IVAL_REF;
+			return ref;
 		}
-		LT_ASSERT_NOT_REACHED();
+		default:
+			LT_ASSERT_NOT_REACHED();
+			return REG(0);
+		}
 	}
 
 	case EXPR_DATA: {
-		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		LT_ASSERT(a1.stype & IVAL_REF);
-
-		a1.size = ISZ_64;
-		if (expr->child_1->type->stype == TP_ARRAY) {
-			a1.stype &= ~IVAL_REF;
-			return a1;
+		switch (expr->child_1->type->stype) {
+		case TP_ARRAY: {
+			ival_t val = icode_gen_expr(cx, expr->child_1);
+			if (val.stype == IVAL_COM)
+				return val;
+			check_lval(cx, expr->tk, val);
+			return REG(ival_ptr(cx, val));
 		}
-		else if (expr->child_1->type->stype == TP_ARRAY_VIEW)
-			return a1;
-		LT_ASSERT_NOT_REACHED();
+		case TP_ARRAY_VIEW: {
+			ival_t val = icode_gen_expr(cx, expr->child_1);
+			if (val.stype == IVAL_COM)
+				return val.children[0];
+			check_lval(cx, expr->tk, val);
+			return val;
+		}
+		default:
+			LT_ASSERT_NOT_REACHED();
+			return REG(0);
+		}
 	}
 
+	// Assigned binary
+	case EXPR_ASSIGN: {
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		check_lval(cx, expr->tk, a1);
+		return gen_assign(cx, type_bytes(expr->type), a1, a2);
+	}
+
+#define OP_ASSIGN(op) { \
+	usz size = type_bytes(expr->type); \
+	ival_t v, dst = icode_gen_expr(cx, expr->child_1); \
+	check_lval(cx, expr->tk, dst); \
+	v = gen_##op(cx, size, dst, icode_gen_expr(cx, expr->child_2)); \
+	gen_assign(cx, size, dst, v); \
+	return v; \
+}
+
+	case EXPR_ADD_ASSIGN:
+		OP_ASSIGN(add)
+	case EXPR_SUBTRACT_ASSIGN:
+		OP_ASSIGN(sub)
+	case EXPR_MULTIPLY_ASSIGN:
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			OP_ASSIGN(imul)
+		else
+			OP_ASSIGN(umul)
+	case EXPR_DIVIDE_ASSIGN:
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			OP_ASSIGN(idiv)
+		else
+			OP_ASSIGN(udiv)
+	case EXPR_MODULO_ASSIGN:
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			OP_ASSIGN(irem)
+		else
+			OP_ASSIGN(urem)
+	case EXPR_BIT_SHIFT_LEFT_ASSIGN:
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			OP_ASSIGN(ishl)
+		else
+			OP_ASSIGN(ushl)
+	case EXPR_BIT_SHIFT_RIGHT_ASSIGN:
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			OP_ASSIGN(ishr)
+		else
+			OP_ASSIGN(ushr)
+	case EXPR_BIT_AND_ASSIGN:
+		OP_ASSIGN(and)
+	case EXPR_BIT_XOR_ASSIGN:
+		OP_ASSIGN(xor)
+	case EXPR_BIT_OR_ASSIGN:
+		OP_ASSIGN(or)
+
+	// Logical
+	case EXPR_LOGIC_AND: {
+		usz size = type_bytes(expr->type);
+		u32 dst = immi_reg(cx, size, 0);
+
+		u32 r1 = ival_reg(cx, size, icode_gen_expr(cx, expr->child_1));
+		u32 trg = alloc_reg(cx);
+		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		emit(cx, ICODE2(IR_CJMPZ, size, trg, r1));
+
+		u32 r2 = ival_reg(cx, size, icode_gen_expr(cx, expr->child_2));
+		emit(cx, ICODE2(IR_CSETNZ, size, dst, r2));
+
+		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+		return REG(dst);
+	}
+
+	case EXPR_LOGIC_OR: {
+		usz size = type_bytes(expr->type);
+		u32 dst = immi_reg(cx, size, 1);
+
+		u32 r1 = ival_reg(cx, size, icode_gen_expr(cx, expr->child_1));
+		u32 trg = alloc_reg(cx);
+		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		emit(cx, ICODE2(IR_CJMPNZ, size, trg, r1));
+
+		u32 r2 = ival_reg(cx, size, icode_gen_expr(cx, expr->child_2));
+		emit(cx, ICODE2(IR_CSETNZ, size, dst, r2));
+
+		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+		return REG(dst);
+	}
+
+	case EXPR_LOGIC_NOT: {
+		usz size = type_bytes(expr->type);
+		u32 r = ival_reg(cx, size, icode_gen_expr(cx, expr->child_1));
+		u32 dst = alloc_reg(cx);
+		emit(cx, ICODE2(IR_CSETZ, size, dst, r));
+		return REG(dst);
+	}
+
+	case EXPR_LESSER: {
+		usz size = type_bytes(expr->type);
+		u32 dst = alloc_reg(cx);
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
+			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+				return IMMI(a1.int_val < a2.int_val);
+			else
+				return IMMI(a1.uint_val < a2.uint_val);
+		}
+
+		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			emit(cx, ICODE3(IR_CSETL, size, dst, r1, r2));
+		else
+			emit(cx, ICODE3(IR_CSETB, size, dst, r1, r2));
+		return REG(dst);
+	}
+
+	case EXPR_GREATER: {
+		usz size = type_bytes(expr->type);
+		u32 dst = alloc_reg(cx);
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
+			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+				return IMMI(a1.int_val > a2.int_val);
+			else
+				return IMMI(a1.uint_val > a2.uint_val);
+		}
+
+		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			emit(cx, ICODE3(IR_CSETG, size, dst, r1, r2));
+		else
+			emit(cx, ICODE3(IR_CSETA, size, dst, r1, r2));
+		return REG(dst);
+	}
+
+	case EXPR_LESSER_OR_EQUAL: {
+		usz size = type_bytes(expr->type);
+		u32 dst = alloc_reg(cx);
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
+			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+				return IMMI(a1.int_val <= a2.int_val);
+			else
+				return IMMI(a1.uint_val <= a2.uint_val);
+		}
+
+		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			emit(cx, ICODE3(IR_CSETLE, size, dst, r1, r2));
+		else
+			emit(cx, ICODE3(IR_CSETBE, size, dst, r1, r2));
+		return REG(dst);
+	}
+
+	case EXPR_GREATER_OR_EQUAL: {
+		usz size = type_bytes(expr->type);
+		u32 dst = alloc_reg(cx);
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
+			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+				return IMMI(a1.int_val >= a2.int_val);
+			else
+				return IMMI(a1.uint_val >= a2.uint_val);
+		}
+
+		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			emit(cx, ICODE3(IR_CSETGE, size, dst, r1, r2));
+		else
+			emit(cx, ICODE3(IR_CSETAE, size, dst, r1, r2));
+		return REG(dst);
+	}
+
+	case EXPR_EQUAL: {
+		usz size = type_bytes(expr->type);
+		u32 dst = alloc_reg(cx);
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+			return IMMI(a1.uint_val == a2.uint_val);
+
+		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+		emit(cx, ICODE3(IR_CSETE, size, dst, r1, r2));
+		return REG(dst);
+	}
+
+	case EXPR_NOT_EQUAL: {
+		usz size = type_bytes(expr->type);
+		u32 dst = alloc_reg(cx);
+		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
+			return IMMI(a1.uint_val != a2.uint_val);
+
+		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
+		emit(cx, ICODE3(IR_CSETNE, size, dst, r1, r2));
+		return REG(dst);
+	}
+
+	// Misc.
 	case EXPR_SYSCALL: {
 		expr_t* it = expr->child_1;
-		usz arg_i = 0;
+		usz argc = 0;
 		while (it) {
-			emit(cx, ICODE2(IR_SETARG, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i++), icode_gen_expr(cx, it)));
+			emit(cx, ICODE1(IR_SETARG, ISZ_64, ival_reg(cx, ISZ_64, icode_gen_expr(cx, it))));
 			it = it->next;
+			++argc;
 		}
-		ival_t dst = IVAL(ISZ_64, IVAL_REG, .reg = alloc_reg(cx));
-		emit(cx, ICODE2(IR_SYSCALL, dst, IVAL(ISZ_64, IVAL_IMM, .uint_val = arg_i)));
-		return dst;
+		u32 dst = alloc_reg(cx);
+		emit(cx, ICODE2(IR_SYSCALL, ISZ_64, dst, argc));
+		return REG(dst);
 	}
-
 
 	default:
 		break;
 	}
 
-	LT_ASSERT_NOT_REACHED();
-	return IVAL(0, 0);
+	lt_ferrf("Unhandled expression type '%S'\n", expr_type_str(expr->stype));
 }
 
 void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
@@ -770,37 +1116,6 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		icode_gen_expr(cx, stmt->expr);
 		break;
 
-	case STMT_DEF:
-		break;
-
-	case STMT_IF: {
-		ival_t cond = icode_gen_expr(cx, stmt->expr);
-		usz jmp1 = emit(cx, ICODE2(IR_CJMPZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), cond));
-		icode_gen_stmt(cx, stmt->child);
-
-		usz jmp2;
-		if (stmt->child_2)
-			jmp2 = emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func)));
-
-		FUNC_INSTR(jmp1).arg1.disp = CURR_INSTR() * sizeof(icode_t);
-
-		if (stmt->child_2) {
-			icode_gen_stmt(cx, stmt->child_2);
-			FUNC_INSTR(jmp2).arg1.disp = CURR_INSTR() * sizeof(icode_t);
-		}
-	}	break;
-
-	case STMT_WHILE: {
-		usz eval = CURR_INSTR();
-		ival_t cond = icode_gen_expr(cx, stmt->expr);
-		usz jmp1 = emit(cx, ICODE2(IR_CJMPZ, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), cond));
-
-		icode_gen_stmt(cx, stmt->child);
-
-		emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .disp = eval * sizeof(icode_t))));
-		FUNC_INSTR(jmp1).arg1.disp = CURR_INSTR() * sizeof(icode_t);
-	}	break;
-
 	case STMT_COMPOUND: {
 		stmt_t* it = stmt->child;
 		while (it) {
@@ -810,32 +1125,103 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	}	break;
 
 	case STMT_RETURN: {
-		ival_t val = IVAL(0, 0);
-		if (stmt->expr)
-			val = icode_gen_expr(cx, stmt->expr);
-		emit(cx, ICODE1(IR_RET, val));
+		u32 reg = 0;
+		usz size = 0;
+		if (stmt->expr) {
+			size = type_bytes(stmt->expr->type);
+			if (size <= ISZ_64)
+				reg = ival_reg(cx, size, icode_gen_expr(cx, stmt->expr));
+			else {
+				ival_t ival = icode_gen_expr(cx, stmt->expr);
+				LT_ASSERT(ival.stype & IVAL_REF);
+				reg = ival_ptr(cx, ival);
+			}
+		}
+		emit(cx, ICODE1(IR_RET, size, reg));
 		break;
 	}
 
-	case STMT_FOR: {
-		gen_sym_def(cx, stmt->sym, stmt->sym->expr);
 
-		usz eval = CURR_INSTR();
+ 	case STMT_DEF:
+ 		break;
 
-		ival_t end = icode_gen_expr(cx, stmt->expr);
-		usz jmp1 = emit(cx, ICODE3(IR_CJMPAE, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func), stmt->sym->ival, end));
+	case STMT_WHILE: {
+		usz start = CURR_IP();
+
+		ival_t cond_v = icode_gen_expr(cx, stmt->expr);
+		u32 cond_reg = ival_reg(cx, ISZ_8, cond_v);
+		u32 trg = alloc_reg(cx);
+		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+
+		emit(cx, ICODE2(IR_CJMPZ, ISZ_8, trg, cond_reg));
 
 		icode_gen_stmt(cx, stmt->child);
 
-		emit(cx, ICODE1(IR_INC, stmt->sym->ival));
+		trg = alloc_reg(cx);
+		usz jmp2 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 
-		emit(cx, ICODE1(IR_JMP, IVAL(ISZ_64, IVAL_CSO, .cso = cx->curr_func, .disp = eval * sizeof(icode_t))));
-		FUNC_INSTR(jmp1).arg1.disp = CURR_INSTR() * sizeof(icode_t);
-		break;
-	}
+		FUNC_INSTR(jmp2).int_val = start - jmp2;
+
+		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+	}	break;
+
+	case STMT_IF: {
+		ival_t cond_v = icode_gen_expr(cx, stmt->expr);
+		u32 cond_reg = ival_reg(cx, ISZ_8, cond_v);
+		u32 trg = alloc_reg(cx);
+		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+
+		emit(cx, ICODE2(IR_CJMPZ, ISZ_8, trg, cond_reg));
+		icode_gen_stmt(cx, stmt->child);
+
+		usz jmp2;
+		if (stmt->child_2) {
+			trg = alloc_reg(cx);
+			jmp2 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
+		}
+
+		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+
+		if (stmt->child_2) {
+			icode_gen_stmt(cx, stmt->child_2);
+			FUNC_INSTR(jmp2).int_val = CURR_IP() - jmp2;
+		}
+	}	break;
+
+	case STMT_FOR: {
+		usz it_size = type_bytes(stmt->sym->type);
+
+		gen_sym_def(cx, stmt->sym, stmt->sym->expr);
+
+		usz eval_ip = CURR_IP();
+
+		ival_t end = icode_gen_expr(cx, stmt->expr);
+		u32 end_reg = ival_reg(cx, it_size, end);
+
+		u32 it_reg = ival_reg(cx, it_size, stmt->sym->val);
+
+		u32 trg = alloc_reg(cx);
+		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		emit(cx, ICODE3(IR_CJMPAE, it_size, trg, it_reg, end_reg));
+
+		icode_gen_stmt(cx, stmt->child);
+
+		u32 new_it = alloc_reg(cx);
+		emit(cx, ICODE2(IR_INC, it_size, new_it, it_reg));
+		emit(cx, ICODE2(IR_STOR, it_size, new_it, stmt->sym->val.reg));
+
+		trg = alloc_reg(cx);
+		emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = eval_ip - CURR_IP()));
+		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
+
+		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+	}	break;
 
 	default:
-		LT_ASSERT_NOT_REACHED();
+		lt_ferrf("Unhandled statement type '%S'\n", stmt_type_str(stmt->stype));
+		break;
 	}
 }
 
@@ -846,5 +1232,4 @@ void icode_gen(gen_ctx_t* cx, stmt_t* root) {
 		it = it->next;
 	}
 }
-
 

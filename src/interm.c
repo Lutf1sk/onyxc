@@ -1,7 +1,7 @@
 #include "interm.h"
 
-lstr_t icode_type_str(icode_type_t type) {
-	switch (type) {
+lstr_t icode_op_str(u16 op) {
+	switch (op) {
 #define ICODE_OP(x) case IR_##x: return CLSTR(#x);
 	FOR_EACH_ICODE()
 #undef ICODE_OP
@@ -10,15 +10,12 @@ lstr_t icode_type_str(icode_type_t type) {
 	}
 }
 
-lstr_t icode_size_str(ival_t val) {
-	if (val.stype == IVAL_INVAL)
-		return CLSTR(" ");
-
-	switch (val.size) {
-	case ISZ_8: return CLSTR("b");
-	case ISZ_16: return CLSTR("w");
-	case ISZ_32: return CLSTR("d");
-	case ISZ_64: return CLSTR("q");
+lstr_t icode_size_str(u64 size) {
+	switch (size) {
+	case ISZ_8: return CLSTR("i8");
+	case ISZ_16: return CLSTR("i16");
+	case ISZ_32: return CLSTR("i32");
+	case ISZ_64: return CLSTR("i64");
 	default:
 		return CLSTR("v");
 	}

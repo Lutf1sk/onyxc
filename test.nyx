@@ -1,5 +1,5 @@
 
-let print :: i32 (u8[] str) {
+let print :: i32(u8[] str) {
 	return syscall(1, 1, str.data, str.count);
 }
 
@@ -71,19 +71,17 @@ let print_h64 :: i64(u64 n) {
 	return view.count;
 }
 
-
-def st :: struct {
-	i64 v1, v2;
+let print_s :: void(u8[] s) {
+	print(s);
 }
 
-let main :: i64() {
-	for i64 i..16 {
+let main :: u64() {
+	for u32 i..0x10000 {
 		print_i64(i);
-		print(" : 0x");
+		print(": 0x");
 		print_h64(i);
 		print("\n");
 	}
-
-	return 69;
 }
+
 

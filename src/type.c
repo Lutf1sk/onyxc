@@ -13,7 +13,10 @@ b8 type_eq(type_t* t1, type_t* t2) {
 			return type_eq(t1->base, t2->base);
 
 		case TP_PTR:
-		case TP_ARRAY: case TP_ARRAY_VIEW:
+		case TP_ARRAY:
+			return type_eq(t1->base, t2->base) && t1->child_count == t2->child_count;
+
+		case TP_ARRAY_VIEW:
 			return type_eq(t1->base, t2->base);
 
 		default:

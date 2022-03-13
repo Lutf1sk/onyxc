@@ -4,6 +4,7 @@
 #include "expr_ast.h"
 #include "type.h"
 #include "symtab.h"
+#include "gen.h"
 
 #include <lt/str.h>
 #include <lt/io.h>
@@ -93,7 +94,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 					ferr("fixed array size must be an integer", cx->lex, *tk);
 
 				*new = TYPE(TP_ARRAY, base);
-				new->child_count = expr_eval_const(cx, expr, tk).uint_val;
+				new->child_count = gen_const_expr(cx->gen_cx, expr).uint_val;
 				if (is_int(expr->type) && (isz)new->child_count < 0)
 					ferr("fixed array size cannot be negative", cx->lex, *tk);
 			}

@@ -9,8 +9,6 @@
 
 u64 syscall(u64, ...);
 
-#define ivext(iv) (sign_extend((iv).size, val(cx, (iv))))
-
 static
 i64 sign_extend(usz from, i64 v) {
 	switch (from) {
@@ -25,160 +23,147 @@ i64 sign_extend(usz from, i64 v) {
 }
 
 static
-void* ref(exec_ctx_t* cx, ival_t v) {
-	switch (v.stype) {
-	case IVAL_REG:
-		LT_ASSERT(!v.disp);
-		return &cx->regs[cx->reg_offs + v.reg];
+u64 uval(exec_ctx_t* cx, usz size, u32 reg) {
+	switch (size) {
+	case 1: return *(u8*)&cx->regs[cx->reg_offs + reg];
+	case 2: return *(u16*)&cx->regs[cx->reg_offs + reg];
+	case 4: return *(u32*)&cx->regs[cx->reg_offs + reg];
+	case 8: return *(u64*)&cx->regs[cx->reg_offs + reg];
+	}
 
-	case IVAL_REG | IVAL_REF: return (u8*)cx->regs[cx->reg_offs + v.reg] + v.disp; break;
-	case IVAL_IMM | IVAL_REF: return (u8*)v.uint_val + v.disp; break;
-	case IVAL_DSO | IVAL_REF: return (u8*)cx->ds[v.dso].data + v.disp; break;
-	case IVAL_CSO | IVAL_REF: return (u8*)cx->cs[v.cso].data + v.disp; break;
+	LT_ASSERT_NOT_REACHED();
+	return 0;
+}
 
+static
+i64 ival(exec_ctx_t* cx, usz size, u32 reg) {
+	switch (size) {
+	case 1: return *(i8*)&cx->regs[cx->reg_offs + reg];
+	case 2: return *(i16*)&cx->regs[cx->reg_offs + reg];
+	case 4: return *(i32*)&cx->regs[cx->reg_offs + reg];
+	case 8: return *(i64*)&cx->regs[cx->reg_offs + reg];
+	}
+
+	LT_ASSERT_NOT_REACHED();
+	return 0;
+}
+
+static
+u64 load(usz size, usz addr) {
+	switch (size) {
+	case 1: return *(u8*)addr;
+	case 2: return *(u16*)addr;
+	case 4: return *(u32*)addr;
+	case 8: return *(u64*)addr;
 	default:
 		LT_ASSERT_NOT_REACHED();
-		return NULL;
+		return 0;
 	}
 }
 
 static
-u64 val(exec_ctx_t* cx, ival_t v) {
-	u8* ptr = NULL;
-
-	switch (v.stype) {
-	case IVAL_IMM:
-		LT_ASSERT(!v.disp);
-		return v.uint_val;
-
-	case IVAL_REG: ptr = ref(cx, v); break;
-	case IVAL_DSO: return (usz)cx->ds[v.dso].data + v.disp;
-	case IVAL_CSO: return (usz)cx->cs[v.cso].data + v.disp;
-
-	default:
-		if (v.stype & IVAL_REF) {
-			ptr = ref(cx, v);
-			break;
-		}
-		LT_ASSERT_NOT_REACHED();
-	}
-
-	switch (v.size) {
-	case 1: return *(u8*)ptr;
-	case 2: return *(u16*)ptr;
-	case 4: return *(u32*)ptr;
-	case 8: return *(u64*)ptr;
-
-	default:
-		LT_ASSERT_NOT_REACHED();
-	}
-
-	return 0;
-}
-
-static LT_INLINE
-void mov(exec_ctx_t* cx, ival_t dst, u64 v) {
-	void* dst_ptr = ref(cx, dst);
-
-	switch (dst.size) {
-	case 1: *(u8*)dst_ptr = v; break;
-	case 2: *(u16*)dst_ptr = v; break;
-	case 4: *(u32*)dst_ptr = v; break;
-	case 8: *(u64*)dst_ptr = v; break;
-
+void store(usz size, usz addr, u64 val) {
+	switch (size) {
+	case 1: *(u8*)addr = val; break;
+	case 2: *(u16*)addr = val; break;
+	case 4: *(u32*)addr = val; break;
+	case 8: *(u64*)addr = val; break;
 	default:
 		LT_ASSERT_NOT_REACHED();
 	}
 }
 
-static LT_INLINE
+static
+void push64(exec_ctx_t* cx, u64 v) {
+	*(u64*)cx->sp = v;
+	cx->sp += 8;
+}
+
+static
 u64 pop64(exec_ctx_t* cx) {
 	return *(u64*)(cx->sp -= 8);
 }
 
 static
-void pop(exec_ctx_t* cx, ival_t dst) {
-	void* dst_ptr = ref(cx, dst);
-	memcpy(dst_ptr, cx->sp -= dst.size, dst.size);
-}
-
-
-static LT_INLINE
-void push64(exec_ctx_t* cx, u64 val) {
-	*(u64*)cx->sp = val;
-	cx->sp += 8;
-}
-
-static
-void push(exec_ctx_t* cx, ival_t ival) {
-	u64 v = 0;
-	void* ptr = &v;
-	if (ival.stype & IVAL_REF || ival.stype == IVAL_REG)
-		ptr = ref(cx, ival);
-	else
-		v = val(cx, ival);
-	memcpy(cx->sp, ptr, ival.size);
-	cx->sp += ival.size;
+void push(exec_ctx_t* cx, usz size, void* ptr) {
+	memcpy(cx->sp, ptr, size);
+	cx->sp += size;
 }
 
 void icode_exec(exec_ctx_t* cx) {
+	usz arg_stack = 0;
+
 	icode_t* ip = cx->ip;
 	for (;;) {
 		switch (ip->op) {
-		case IR_NEG: mov(cx, ip->arg1, -val(cx, ip->arg2)); break;
+		case IR_INT: cx->regs[cx->reg_offs + ip->dst] = ip->uint_val; break;
+		case IR_FLOAT: cx->regs[cx->reg_offs + ip->dst] = ip->uint_val; break;
+		case IR_SEG: cx->regs[cx->reg_offs + ip->dst] = (u64)cx->seg[ip->uint_val].data; break; 
+		case IR_IPO: cx->regs[cx->reg_offs + ip->dst] = (u64)(ip + ip->int_val); break;
 
-		case IR_INC: mov(cx, ip->arg1, val(cx, ip->arg1) + 1); break;
-		case IR_DEC: mov(cx, ip->arg1, val(cx, ip->arg1) - 1); break;
+		case IR_LOAD: cx->regs[cx->reg_offs + ip->dst] = load(ip->size, uval(cx, ISZ_64, ip->regs[0])); break;
+		case IR_STOR: store(ip->size, uval(cx, ISZ_64, ip->regs[0]), uval(cx, ip->size, ip->dst)); break;
 
-		case IR_ADD: mov(cx, ip->arg1, val(cx, ip->arg2) + val(cx, ip->arg3)); break;
-		case IR_SUB: mov(cx, ip->arg1, val(cx, ip->arg2) - val(cx, ip->arg3)); break;
+		case IR_NEG: cx->regs[cx->reg_offs + ip->dst] = -uval(cx, ip->size, ip->regs[0]); break;
 
-		case IR_IMUL: mov(cx, ip->arg1, ivext(ip->arg2) * ivext(ip->arg3)); break;
-		case IR_IDIV: mov(cx, ip->arg1, ivext(ip->arg2) / ivext(ip->arg3)); break;
-		case IR_IREM: mov(cx, ip->arg1, ivext(ip->arg2) % ivext(ip->arg3)); break;
+		case IR_INC: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) + 1; break;
+		case IR_DEC: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) - 1; break;
 
-		case IR_UMUL: mov(cx, ip->arg1, val(cx, ip->arg2) * val(cx, ip->arg3)); break;
-		case IR_UDIV: mov(cx, ip->arg1, val(cx, ip->arg2) / val(cx, ip->arg3)); break;
-		case IR_UREM: mov(cx, ip->arg1, val(cx, ip->arg2) % val(cx, ip->arg3)); break;
+		case IR_ADD: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) + uval(cx, ip->size, ip->regs[1]); break;
+		case IR_SUB: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) - uval(cx, ip->size, ip->regs[1]); break;
+
+		case IR_IMUL: cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) * ival(cx, ip->size, ip->regs[1]); break;
+		case IR_IDIV: cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) / ival(cx, ip->size, ip->regs[1]); break;
+		case IR_IREM: cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) % ival(cx, ip->size, ip->regs[1]); break;
+
+		case IR_UMUL: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) * uval(cx, ip->size, ip->regs[1]); break;
+		case IR_UDIV: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) / uval(cx, ip->size, ip->regs[1]); break;
+		case IR_UREM: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) % uval(cx, ip->size, ip->regs[1]); break;
 
 		case IR_SRESV: {
-			u64 size = val(cx, ip->arg2);
-			u64 align = val(cx, ip->arg3);
+			u64 size = ip->regs[0];
+			u64 align = ip->regs[1];
 			usz padding = lt_pad((usz)cx->sp, align);
-			mov(cx, ip->arg1, (u64)cx->sp + padding);
+			cx->regs[cx->reg_offs + ip->dst] = (u64)cx->sp + padding;
 			cx->sp += padding + size;
 		}	break;
 
-		case IR_MOV: mov(cx, ip->arg1, val(cx, ip->arg2)); break;
-		case IR_LEA: mov(cx, ip->arg1, (u64)ref(cx, ip->arg2)); break;
-		case IR_COPY: memcpy(ref(cx, ip->arg1), ref(cx, ip->arg2), ip->arg1.size); break;
+		case IR_COPY: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]); break;
+		case IR_MCOPY: memcpy((void*)uval(cx, ISZ_64, ip->dst), (void*)uval(cx, ISZ_64, ip->regs[0]), ip->size); break;
 
-		case IR_IEXT: mov(cx, ip->arg1, ivext(ip->arg2)); break;
-		case IR_UEXT: mov(cx, ip->arg1, val(cx, ip->arg2)); break;
+		case IR_TOI16: cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]); break;
+		case IR_TOI32: cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]); break;
+		case IR_TOI64: cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]); break;
+
+		case IR_TOU16: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]); break;
+		case IR_TOU32: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]); break;
+		case IR_TOU64: cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]); break;
 
 		case IR_ENTER:
 			push64(cx, (u64)cx->bp);
 			cx->bp = cx->sp;
 			break;
 
-		case IR_GETARG: {
-			void* dst = ref(cx, ip->arg1);
-			void* src = cx->bp - (val(cx, ip->arg2) + 16 + ip->arg1.size);
-			memcpy(dst, src, ip->arg1.size);
-		}	break;
+		case IR_GETARG:
+			usz arg_size = ip->size;
+			memcpy((void*)uval(cx, ISZ_64, ip->dst), (void*)(cx->bp - 16 - arg_size - arg_stack), arg_size);
+			arg_stack += arg_size;
+			break;
 
 		case IR_SETARG:
-			push(cx, ip->arg2);
+			if (ip->size > ISZ_64)
+				push(cx, ip->size, (void*)uval(cx, ISZ_64, ip->dst));
+			else
+				push(cx, ip->size, &cx->regs[cx->reg_offs + ip->dst]);
 			break;
 
 		case IR_RET: {
-			if (ip->arg1.stype != IVAL_INVAL) {
-				if (ip->arg1.stype & IVAL_REF || ip->arg1.stype == IVAL_REG)
-					memcpy(cx->ret_ptr, ref(cx, ip->arg1), ip->arg1.size);
+			if (ip->dst && ip->size) {
+				if (ip->size > ISZ_64)
+					memcpy(cx->ret_ptr, (void*)uval(cx, ISZ_64, ip->dst), ip->size);
 				else {
-					u64 v = val(cx, ip->arg1);
-					LT_ASSERT(cx->ret_ptr);
-					memcpy(cx->ret_ptr, &v, ip->arg1.size);
+					u64 v = uval(cx, ip->size, ip->dst);
+					memcpy(cx->ret_ptr, &v, ip->size);
 				}
 			}
 			cx->sp = cx->bp;
@@ -188,60 +173,60 @@ void icode_exec(exec_ctx_t* cx) {
 		}
 
 		case IR_CJMPZ:
-			if (!val(cx, ip->arg2)) {
-				ip = (icode_t*)val(cx, ip->arg1);
+			if (!uval(cx, ip->size, ip->regs[0])) {
+				ip = (icode_t*)uval(cx, ISZ_64, ip->dst);
 				continue;
 			}
 			break;
 
 		case IR_CJMPNZ:
-			if (val(cx, ip->arg2)) {
-				ip = (icode_t*)val(cx, ip->arg1);
+			if (uval(cx, ip->size, ip->regs[0])) {
+				ip = (icode_t*)uval(cx, ISZ_64, ip->dst);
 				continue;
 			}
 			break;
 
 		case IR_CJMPA:
-			if (val(cx, ip->arg2) > val(cx, ip->arg3)) {
-				ip = (icode_t*)val(cx, ip->arg1);
+			if (uval(cx, ip->size, ip->regs[0]) > uval(cx, ip->size, ip->regs[1])) {
+				ip = (icode_t*)uval(cx, ISZ_64, ip->dst);
 				continue;
 			}
 			break;
 
 		case IR_CJMPAE:
-			if (val(cx, ip->arg2) >= val(cx, ip->arg3)) {
-				ip = (icode_t*)val(cx, ip->arg1);
+			if (uval(cx, ip->size, ip->regs[0]) >= uval(cx, ip->size, ip->regs[1])) {
+				ip = (icode_t*)uval(cx, ISZ_64, ip->dst);
 				continue;
 			}
 			break;
 
-		case IR_CSETZ: mov(cx, ip->arg1, !val(cx, ip->arg2)); break;
-		case IR_CSETNZ: mov(cx, ip->arg1, !!val(cx, ip->arg2)); break;
+		case IR_CSETZ:	cx->regs[cx->reg_offs + ip->dst] = !uval(cx, ip->size, ip->regs[0]); break;
+		case IR_CSETNZ:	cx->regs[cx->reg_offs + ip->dst] = !!uval(cx, ip->size, ip->regs[0]); break;
 
-		case IR_CSETL: mov(cx, ip->arg1, ivext(ip->arg2) < ivext(ip->arg3)); break;
-		case IR_CSETG: mov(cx, ip->arg1, ivext(ip->arg2) > ivext(ip->arg3)); break;
-		case IR_CSETLE: mov(cx, ip->arg1, ivext(ip->arg2) <= ivext(ip->arg3)); break;
-		case IR_CSETGE: mov(cx, ip->arg1, ivext(ip->arg2) >= ivext(ip->arg3)); break;
+		case IR_CSETL:	cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) <	ival(cx, ip->size, ip->regs[1]); break;
+		case IR_CSETG:	cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) >	ival(cx, ip->size, ip->regs[1]); break;
+		case IR_CSETLE:	cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) <=	ival(cx, ip->size, ip->regs[1]); break;
+		case IR_CSETGE:	cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) >=	ival(cx, ip->size, ip->regs[1]); break;
 
-		case IR_CSETB: mov(cx, ip->arg1, val(cx, ip->arg2) < val(cx, ip->arg3)); break;
-		case IR_CSETA: mov(cx, ip->arg1, val(cx, ip->arg2) > val(cx, ip->arg3)); break;
-		case IR_CSETBE: mov(cx, ip->arg1, val(cx, ip->arg2) <= val(cx, ip->arg3)); break;
-		case IR_CSETAE: mov(cx, ip->arg1, val(cx, ip->arg2) >= val(cx, ip->arg3)); break;
+		case IR_CSETB:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) <	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_CSETA:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) >	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_CSETBE:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) <=	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_CSETAE:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) >=	uval(cx, ip->size, ip->regs[1]); break;
 
-		case IR_CSETE: mov(cx, ip->arg1, val(cx, ip->arg2) == val(cx, ip->arg3)); break;
-		case IR_CSETNE: mov(cx, ip->arg1, val(cx, ip->arg2) != val(cx, ip->arg3)); break;
+		case IR_CSETE:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) ==	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_CSETNE:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) !=	uval(cx, ip->size, ip->regs[1]); break;
 
-		case IR_AND: mov(cx, ip->arg1, val(cx, ip->arg2) & val(cx, ip->arg3)); break;
-		case IR_OR: mov(cx, ip->arg1, val(cx, ip->arg2) | val(cx, ip->arg3)); break;
-		case IR_XOR: mov(cx, ip->arg1, val(cx, ip->arg2) ^ val(cx, ip->arg3)); break;
-		case IR_NOT: mov(cx, ip->arg1, ~val(cx, ip->arg2)); break;
-		case IR_USHL: mov(cx, ip->arg1, val(cx, ip->arg2) << val(cx, ip->arg3)); break;
-		case IR_ISHL: mov(cx, ip->arg1, (i64)val(cx, ip->arg2) << (i64)val(cx, ip->arg3)); break;
-		case IR_USHR: mov(cx, ip->arg1, val(cx, ip->arg2) >> val(cx, ip->arg3)); break;
-		case IR_ISHR: mov(cx, ip->arg1, (i64)val(cx, ip->arg2) >> (i64)val(cx, ip->arg3)); break;
+		case IR_AND:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) &	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_OR:		cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) |	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_XOR:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) ^	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_NOT:	cx->regs[cx->reg_offs + ip->dst] = ~uval(cx, ip->size, ip->regs[0]); break;
+		case IR_USHL:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) <<	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_ISHL:	cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) <<	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_USHR:	cx->regs[cx->reg_offs + ip->dst] = uval(cx, ip->size, ip->regs[0]) >>	uval(cx, ip->size, ip->regs[1]); break;
+		case IR_ISHR:	cx->regs[cx->reg_offs + ip->dst] = ival(cx, ip->size, ip->regs[0]) >>	uval(cx, ip->size, ip->regs[1]); break;
 
 		case IR_SYSCALL: {
-			usz count = val(cx, ip->arg2), code = -1;
+			usz count = ip->regs[0], code = -1;
 			u64 a1, a2, a3, a4;
 			switch (count) {
 			case 1:
@@ -264,34 +249,38 @@ void icode_exec(exec_ctx_t* cx) {
 			default:
 				LT_ASSERT_NOT_REACHED();
 			}
-			mov(cx, ip->arg1, code);
+			cx->regs[cx->reg_offs + ip->dst] = code;
 		}	break;
 
 		case IR_CALL: {
 			push64(cx, (u64)ip);
-			cx->ip = (icode_t*)val(cx, ip->arg2);
-			usz stack_pop = val(cx, ip->arg3);
+			cx->ip = (icode_t*)uval(cx, ISZ_64, ip->dst);
+			usz reg_count = ip->regs[1];
 
 			void* old_ret_ptr = cx->ret_ptr;
-			if (ip->arg1.stype != IVAL_INVAL)
-				cx->ret_ptr = ref(cx, ip->arg1);
+			if (ip->regs[0]) {
+				if (ip->size <= ISZ_64)
+					cx->ret_ptr = (u8*)&cx->regs[cx->reg_offs + ip->regs[0]];
+				else {
+					cx->ret_ptr = (u8*)uval(cx, ISZ_64, ip->regs[0]);
+				}
+			}
 
-			cx->reg_offs += 32; // !!
+			cx->reg_offs += reg_count; // !!
 			icode_exec(cx);
-			cx->reg_offs -= 32; // !!
+			cx->reg_offs -= reg_count; // !!
 
 			cx->ret_ptr = old_ret_ptr;
 
 			ip = cx->ip;
-			cx->sp -= stack_pop;
 		}	break;
 
 		case IR_JMP:
-			ip = (icode_t*)val(cx, ip->arg1);
+			ip = (icode_t*)uval(cx, ISZ_64, ip->dst);
 			continue;
 
 		default:
-			lt_ferrf("Unhandled operation '%S'\n", icode_type_str(ip->op));
+			lt_ferrf("Unhandled operation '%S'\n", icode_op_str(ip->op));
 		}
 		++ip;
 	}

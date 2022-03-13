@@ -5,8 +5,12 @@
 
 #include <lt/lt.h>
 
+#define SEG_CODE 0
+#define SEG_DATA 1
+
 typedef
 struct seg_ent {
+	u64 stype;
 	lstr_t name;
 	usz size;
 	void* data;
@@ -14,7 +18,7 @@ struct seg_ent {
 	usz regs;
 } seg_ent_t;
 
-#define SEG_ENT_INIT(name, size, data) { (name), (size), (data) }
-#define SEG_ENT(name, size, data) ((seg_ent_t)SEG_ENT_INIT(name, size, data))
+#define SEG_ENT_INIT(stype, name, size, data) { (stype), (name), (size), (data) }
+#define SEG_ENT(stype, name, size, data) ((seg_ent_t)SEG_ENT_INIT(stype, name, size, data))
 
 #endif

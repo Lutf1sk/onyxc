@@ -88,20 +88,6 @@ void stmt_print(lt_arena_t* arena, stmt_t* st) {
 
 #define PRIMITIVE_INITIALIZER(T) CLSTR(#T), { SYM_TYPE, 0, CLSTR(#T), &T##_def, NULL }
 
-void print_ival(ival_t ival) {
-	switch (ival.stype) {
-	case IVAL_REG: lt_printf("r%iq ", ival.reg); break;
-	case IVAL_IMM: lt_printf("%iq ", ival.uint_val); break;
-	case IVAL_DSO: lt_printf("ds'%iq+%id ", ival.dso, ival.disp); break;
-	case IVAL_CSO: lt_printf("cs'%iq+%id ", ival.cso, ival.disp); break;
-
-	case IVAL_REG | IVAL_REF: lt_printf("[r%iq+%id] ", ival.reg, ival.disp); break;
-	case IVAL_IMM | IVAL_REF: lt_printf("[%iq+%id] ", ival.uint_val, ival.disp); break;
-	case IVAL_DSO | IVAL_REF: lt_printf("[ds'%iq+%id] ", ival.dso, ival.disp); break;
-	case IVAL_CSO | IVAL_REF: lt_printf("[cs'%iq+%id] ", ival.cso, ival.disp); break;
-	}
-}
-
 int main(int argc, char** argv) {
 	char** in_files = malloc(argc * sizeof(char*));
 	if (!in_files)
@@ -180,6 +166,13 @@ int main(int argc, char** argv) {
 		// Parse token array
 		lt_arena_t* parse_arena = lt_arena_alloc(LT_MB(128));
 
+		gen_ctx_t gen_cx;
+		gen_cx.lex_cx = &lex_cx;
+		gen_cx.curr_func = -1;
+		gen_cx.seg = NULL;
+		gen_cx.seg_count = 0;
+		gen_cx.arena = parse_arena;
+
 		parse_ctx_t parse_cx;
 		memset(&parse_cx, 0, sizeof(parse_cx));
 		parse_cx.data = tk_data;
@@ -188,6 +181,7 @@ int main(int argc, char** argv) {
 		parse_cx.arena = parse_arena;
 		parse_cx.symtab = &symtab;
 		parse_cx.lex = &lex_cx;
+		parse_cx.gen_cx = &gen_cx;
 		stmt_t* root = parse(&parse_cx);
 
 		// Print AST
@@ -195,34 +189,24 @@ int main(int argc, char** argv) {
 			stmt_print(lex_arena, root);
 
 		// Generate intermediate code
-		gen_ctx_t gen_cx;
-		gen_cx.lex_cx = &lex_cx;
-		gen_cx.curr_func = -1;
-		gen_cx.code_seg = NULL;
-		gen_cx.code_seg_count = 0;
-		gen_cx.data_seg = NULL;
-		gen_cx.data_seg_count = 0;
-		gen_cx.arena = parse_arena;
-
 		icode_gen(&gen_cx, root);
 
 		if (run_mode) {
 			// Execute intermediate code
 			u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
-			u64 code;
+			u64 code = 0;
 
 			sym_t* main = symtab_find(&symtab, CLSTR("main"));
 			if (!main)
 				lt_ferr(CLSTR("program has no entry point\n"));
-			if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->ival.stype != IVAL_CSO)
+			if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->val.stype != IVAL_SEG)
 				lt_ferr(CLSTR("'main' symbol must be a function\n"));
 
 			exec_ctx_t exec_cx;
 			exec_cx.sp = (u8*)stack;
 			exec_cx.bp = (u8*)stack;
-			exec_cx.ip = gen_cx.code_seg[main->ival.cso].data;
-			exec_cx.cs = gen_cx.code_seg;
-			exec_cx.ds = gen_cx.data_seg;
+			exec_cx.ip = gen_cx.seg[main->val.uint_val].data;
+			exec_cx.seg = gen_cx.seg;
 			exec_cx.ret_ptr = (u8*)&code;
 			exec_cx.reg_offs = 0;
 
@@ -230,42 +214,54 @@ int main(int argc, char** argv) {
 			return code;
 		}
 
-		// Print intermediate code
-		for (usz i = 0; i < gen_cx.code_seg_count; ++i) {
-			icode_t* icode = gen_cx.code_seg[i].data;
-			usz icode_count = gen_cx.code_seg[i].size;
+		// Print segments
+		for (usz i = 0; i < gen_cx.seg_count; ++i) {
+			seg_ent_t* seg = &gen_cx.seg[i];
+			if (seg->stype == SEG_DATA) {
+				lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
+				continue;
+			}
+
+			icode_t* icode = seg->data;
+			usz icode_count = seg->size;
 
 			lt_printf("CS %uq:\n", i);
 			for (usz i = 0; i < icode_count; ++i) {
 				icode_t ic = icode[i];
 
-				lt_printc('\t');
-				lt_printf("%S%S%S", icode_size_str(ic.arg1), icode_size_str(ic.arg2), icode_size_str(ic.arg3));
+				lt_printf("\t%S\t%S\t", icode_size_str(ic.size), icode_op_str(ic.op));
 
-				lt_printf("\t%S\t", icode_type_str(ic.op));
-				print_ival(ic.arg1);
-				print_ival(ic.arg2);
-				print_ival(ic.arg3);
-				lt_printc('\n');
+				if (!ic.dst) {
+					lt_printc('\n');
+					continue;
+				}
+				lt_printf("r%iq ", ic.dst);
+				switch (ic.op) {
+				case IR_INT: lt_printf("0x%hq\n", ic.uint_val); break;
+				case IR_FLOAT: lt_printf("FLOAT\n"); break;
+				case IR_SRESV: lt_printf("%ud %ud\n", ic.regs[0], ic.regs[1]); break;
+				case IR_IPO: lt_printf("%iq\n", ic.int_val); break;
+				case IR_SEG: lt_printf("%ud\n", ic.regs[0]); break;
+				default:
+					for (usz i = 0; i < 2; ++i)
+						if (ic.regs[i])
+							lt_printf("r%iq ", ic.regs[i]);
+					lt_printc('\n');
+					break;
+				}
 			}
-		}
-
-		// Print data segments
-		for (usz i = 0; i < gen_cx.data_seg_count; ++i) {
-			seg_ent_t* seg = &gen_cx.data_seg[i];
-			lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
 		}
 
 		switch (target) {
 		case TRG_AMD64: {
 			amd64_ctx_t x64;
 			x64.arena = parse_arena;
-			x64.cs_count = gen_cx.code_seg_count;
-			x64.ds_count = gen_cx.data_seg_count;
-			x64.cs = lt_arena_reserve(parse_arena, x64.cs_count * sizeof(seg_ent_t));
-			x64.ds = lt_arena_reserve(parse_arena, x64.ds_count * sizeof(seg_ent_t));
-			x64.ir_cs = gen_cx.code_seg;
-			x64.ir_ds = gen_cx.data_seg;
+// 			x64.cs_count = gen_cx.code_seg_count;
+// 			x64.ds_count = gen_cx.data_seg_count;
+// 			x64.cs = lt_arena_reserve(parse_arena, x64.cs_count * sizeof(seg_ent_t));
+// 			x64.ds = lt_arena_reserve(parse_arena, x64.ds_count * sizeof(seg_ent_t));
+// 			x64.ir_cs = gen_cx.code_seg;
+// 			x64.ir_ds = gen_cx.data_seg;
 
 			amd64_gen(&x64);
 

@@ -16,8 +16,7 @@ struct exec_ctx {
 
 	u8* ret_ptr;
 
-	seg_ent_t* cs;
-	seg_ent_t* ds;
+	seg_ent_t* seg;
 } exec_ctx_t;
 
 void icode_exec(exec_ctx_t* cx);

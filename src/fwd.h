@@ -22,8 +22,6 @@ typedef struct seg_ent seg_ent_t;
 
 typedef struct exec_ctx exec_ctx_t;
 
-typedef struct ival ival_t;
-
 typedef struct amd64_ctx amd64_ctx_t;
 typedef struct amd64_instr amd64_instr_t;
 typedef struct amd64_mval amd64_mval_t;

@@ -18,6 +18,7 @@ typedef struct parse_ctx {
 	lt_arena_t* arena;
 
 	lex_ctx_t* lex;
+	gen_ctx_t* gen_cx;
 } parse_ctx_t;
 
 typedef

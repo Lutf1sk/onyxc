@@ -26,7 +26,7 @@ OBJS = \
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 
 CC = cc
-CC_FLAGS += -O2 -Wall -Werror -Wno-error=unused-variable -Wno-unused-function -Ilt/include/ -Wno-pedantic -std=c11
+CC_FLAGS += -O2 -fmax-errors=3 -Wall -Werror -Wno-strict-aliasing -Wno-error=unused-variable -Wno-unused-function -Ilt/include/ -Wno-pedantic -std=c11
 
 LNK = cc
 LNK_FLAGS += -o $(OUT) -rdynamic -g

@@ -5,8 +5,6 @@
 
 #define FOR_EACH_ICODE() \
 	ICODE_OP(INVAL) \
-	ICODE_OP(LEA) \
-	ICODE_OP(MOV) \
 	ICODE_OP(ADD) \
 	ICODE_OP(SUB) \
 	ICODE_OP(IMUL) \
@@ -22,18 +20,18 @@
 	ICODE_OP(USHL) \
 	ICODE_OP(ISHR) \
 	ICODE_OP(USHR) \
-	ICODE_OP(IEXT) \
-	ICODE_OP(UEXT) \
+	ICODE_OP(TOI16) \
+	ICODE_OP(TOI32) \
+	ICODE_OP(TOI64) \
+	ICODE_OP(TOU16) \
+	ICODE_OP(TOU32) \
+	ICODE_OP(TOU64) \
 	ICODE_OP(DEC) \
 	ICODE_OP(INC) \
 	ICODE_OP(NEG) \
 	ICODE_OP(NOT) \
 	ICODE_OP(JMP) \
-	ICODE_OP(SETARG) \
-	ICODE_OP(GETARG) \
 	ICODE_OP(CALL) \
-	ICODE_OP(RET) \
-	ICODE_OP(COPY) \
 	\
 	ICODE_OP(CSETG) \
 	ICODE_OP(CSETGE) \
@@ -61,10 +59,21 @@
 	ICODE_OP(CJMPZ) \
 	ICODE_OP(CJMPNZ) \
 	\
+	ICODE_OP(COPY) \
+	ICODE_OP(MCOPY) \
 	ICODE_OP(SRESV) \
+	ICODE_OP(LOAD) \
+	ICODE_OP(STOR) \
+	ICODE_OP(INT) \
+	ICODE_OP(FLOAT) \
+	ICODE_OP(SEG) \
+	ICODE_OP(IPO) \
 	\
+	ICODE_OP(SETARG) \
+	ICODE_OP(GETARG) \
 	ICODE_OP(ENTER) \
 	ICODE_OP(EXIT) \
+	ICODE_OP(RET) \
 	ICODE_OP(SYSCALL)
 
 typedef
@@ -75,7 +84,30 @@ enum icode_type {
 } icode_type_t;
 
 typedef
-enum ival_size {
+enum ival_stype {
+	IVAL_REG = 0,
+	IVAL_IMM = 1,
+ 	IVAL_SEG = 2,
+	IVAL_COM = 3,
+
+	IVAL_REF = 16,
+} ival_stype_t;
+
+typedef
+struct ival {
+	u32 stype;
+	u32 child_count;
+	union {
+		u64 uint_val;
+		i64 int_val;
+		f64 float_val;
+		u32 reg;
+		struct ival* children;
+	};
+} ival_t;
+
+typedef
+enum icode_size {
 	ISZ_8 = 1,
 	ISZ_16 = 2,
 	ISZ_32 = 4,
@@ -83,52 +115,36 @@ enum ival_size {
 } icode_size_t;
 
 typedef
-enum ival_stype {
-	IVAL_INVAL = 0,
-	IVAL_IMM = 1,
-	IVAL_REG = 2,
-	IVAL_DSO = 3,
-	IVAL_CSO = 4,
-
-	IVAL_REF = 8,
-} ival_stype_t;
-
-typedef
-struct ival {
-	u16 size;
-	u8 stype;
-	u16 disp;
+struct icode {
+	u32 op;
+	u32 dst;
 	union {
-		usz reg;
-		usz cso;
-		usz dso;
+		u32 regs[2];
 		u64 uint_val;
 		i64 int_val;
 		f64 float_val;
 	};
-} ival_t;
-
-typedef
-struct icode {
-	ival_t arg1, arg2, arg3;
-	u8 op;
+	u64 size;
 } icode_t;
 
-lstr_t icode_type_str(icode_type_t type);
-lstr_t icode_size_str(ival_t size);
+lstr_t icode_op_str(u16 op);
+lstr_t icode_size_str(u64 size);
 
-#define ICODE_INIT(op, v1, v2, v3) { (v1), (v2), (v3), (op) }
-#define ICODE(op, v1, v2, v3) ((icode_t)ICODE_INIT(op, v1, v2, v3))
+#define ICODE_INIT(op, size, dst, ...) { (op), (dst), __VA_ARGS__, (size) }
+#define ICODE(op, size, dst, ...) ((icode_t)ICODE_INIT((op), (size), (dst), __VA_ARGS__))
 
-#define ICODE0(op) ICODE(op, IVAL(0, 0), IVAL(0, 0), IVAL(0, 0))
-#define ICODE1(op, v1) ICODE(op, v1, IVAL(0, 0), IVAL(0, 0))
-#define ICODE2(op, v1, v2) ICODE(op, v1, v2, IVAL(0, 0))
-#define ICODE3(op, v1, v2, v3) ICODE(op, v1, v2, v3)
+#define ICODE0(op, size) ICODE((op), (size), 0, .regs = {0, 0})
+#define ICODE1(op, size, v1) ICODE((op), (size), (v1), .regs = {0, 0})
+#define ICODE2(op, size, v1, v2) ICODE((op), (size), (v1), .regs = {(v2), 0})
+#define ICODE3(op, size, v1, v2, v3) ICODE((op), (size), (v1), .regs = {(v2), (v3)})
 
-#define IVAL_INIT(size, flags, ...) {(size), (flags), 0, __VA_ARGS__}
-#define IVAL(size, flags, ...) ((ival_t)IVAL_INIT(size, flags, __VA_ARGS__))
+#define IVAL_INIT(stype, ...) { (stype), __VA_ARGS__ }
+#define IVAL(stype, ...) ((ival_t)IVAL_INIT((stype), __VA_ARGS__))
 
-#define IMM(size, val) IVAL(size, IVAL_IMM, .uint_val = val)
-#define REG(size, reg_) IVAL(size, IVAL_REG, .reg = reg_)
+#define IMMI(i) IVAL(IVAL_IMM, .uint_val = (i))
+#define IMMF(f) IVAL(IVAL_IMM, .float_val = (f))
+#define REG(r) IVAL(IVAL_REG, .reg = (r))
+#define REF(r) IVAL(IVAL_REG | IVAL_REF, .reg = (r))
+#define SEG(s) IVAL(IVAL_SEG, .uint_val = (s))
 
 #endif

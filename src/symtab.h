@@ -35,10 +35,10 @@ struct sym {
 	lstr_t name;
 	type_t* type;
 	expr_t* expr;
-	ival_t ival;
+	ival_t val;
 } sym_t;
 
-#define SYM_INIT(stype, name) { (stype), 0, (name), NULL, NULL, IVAL(0, 0) }
+#define SYM_INIT(stype, name) { (stype), 0, (name), NULL, NULL, {} }
 #define SYM(stype, name) ((sym_t)SYM_INIT(stype, name))
 
 typedef
