@@ -5,8 +5,9 @@
 
 #include <lt/lt.h>
 
-#define SEG_CODE 0
-#define SEG_DATA 1
+#define SEG_ICODE 0
+#define SEG_MCODE 1
+#define SEG_DATA 2
 
 typedef
 struct seg_ent {

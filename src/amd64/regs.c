@@ -24,30 +24,29 @@ lstr_t reg_names[AMD64_REG_COUNT][4] = {
 };
 
 u8 reg_alloc(amd64_ctx_t* cx) {
-// 	for (usz i = 0; i < AMD64_REG_COUNT; ++i) {
-// 		if (!cx->reg_allocated[i]) {
-// 			cx->reg_allocated[i] = 1;
-// 			return i;
-// 		}
-// 	}
-// 	LT_ASSERT_NOT_REACHED();
-// 	return REG_A;
-	return 0;
+	for (usz i = 0; i < AMD64_REG_COUNT; ++i) {
+		if (!cx->reg_allocated[i]) {
+			cx->reg_allocated[i] = 1;
+			return i;
+		}
+	}
+	LT_ASSERT_NOT_REACHED();
+	return REG_A;
 }
 
 void reg_free(amd64_ctx_t* cx, u8 reg) {
-// 	LT_ASSERT(reg < AMD64_REG_COUNT);
-// 	LT_ASSERT(cx->reg_allocated[reg]);
-// 	cx->reg_allocated[reg] = 0;
+	LT_ASSERT(reg < AMD64_REG_COUNT);
+	LT_ASSERT(cx->reg_allocated[reg]);
+	cx->reg_allocated[reg] = 0;
 }
 
 void zero_reg(amd64_ctx_t* cx, u8 reg) {
-// 	amd64_instr_t instr;
-// 	instr.op = X64_XOR;
-// 	instr.var = 0;
-// 	instr.reg_rm = reg | (reg << 4);
-// 	instr.mod = MOD_REG;
-// 	emit(cx, instr);
+	amd64_instr_t instr;
+	instr.op = X64_XOR;
+	instr.var = 0;
+	instr.reg_rm = reg | (reg << 4);
+	instr.mod = MOD_REG;
+	emit(cx, instr);
 }
 
 

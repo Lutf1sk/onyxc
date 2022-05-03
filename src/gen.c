@@ -39,6 +39,7 @@ usz new_code_seg(gen_ctx_t* cx, type_t* type) {
 		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
 	memset(&cx->seg[cx->seg_count], 0, sizeof(seg_ent_t));
 	cx->seg[cx->seg_count].type = type;
+	cx->seg[cx->seg_count].stype = SEG_ICODE;
 	return cx->seg_count++;
 }
 
@@ -132,19 +133,11 @@ void* ival_data(gen_ctx_t* cx, ival_t* v) {
 static
 u8* ival_write_comp(gen_ctx_t* cx, type_t* type, ival_t v, u8* out) {
 	if (v.stype != IVAL_COM) {
-		void* ptr = NULL;
-		switch (v.stype) {
-		case IVAL_IMM: ptr = &v.uint_val; break;
-		case IVAL_SEG: ptr = cx->seg[v.uint_val].data; break;
-		default:
-			LT_ASSERT_NOT_REACHED();
-		}
+		void* ptr = ival_data(cx, &v);
 		usz size = type_bytes(type);
 		memcpy(out, ptr, size);
 		return out + size;
 	}
-
-	LT_ASSERT(v.stype == IVAL_COM);
 
 	if (type->stype == TP_STRUCT) {
 		type_t** types = type->children;
@@ -152,23 +145,7 @@ u8* ival_write_comp(gen_ctx_t* cx, type_t* type, ival_t v, u8* out) {
 		for (usz i = 0; i < v.child_count; ++i) {
 			type_t* memb_type = types[i];
 			ival_t memb_v = v.children[i];
-
-			void* ptr = NULL;
-			switch (memb_v.stype) {
-			case IVAL_IMM: ptr = &memb_v.uint_val; break;
-			case IVAL_SEG: ptr = cx->seg[memb_v.uint_val].data; break;
-
-			case IVAL_COM:
-				out = ival_write_comp(cx, memb_type, memb_v, out);
-				continue;
-
-			default:
-				LT_ASSERT_NOT_REACHED();
-			}
-
-			usz size = type_bytes(memb_type);
-			memcpy(out, ptr, size);
-			out += size;
+			out = ival_write_comp(cx, memb_type, memb_v, out);
 		}
 		return out;
 	}
@@ -216,7 +193,11 @@ u32 reg_add_immi(gen_ctx_t* cx, u32 reg, u64 v) {
 
 static
 u32 ival_gen_comp(gen_ctx_t* cx, type_t* type, ival_t v, u32 reg) {
-	LT_ASSERT(v.stype == IVAL_COM);
+	if (v.stype != IVAL_COM) {
+		usz size = type_bytes(type);
+		gen_assign(cx, size, REF(reg), v);
+		reg = reg_add_immi(cx, reg, size);
+	}
 
 	if (type->stype == TP_STRUCT) {
 		type_t** types = type->children;
@@ -225,13 +206,7 @@ u32 ival_gen_comp(gen_ctx_t* cx, type_t* type, ival_t v, u32 reg) {
 			type_t* memb_type = types[i];
 			ival_t memb_v = v.children[i];
 
-			if (memb_v.stype == IVAL_COM)
-				reg = ival_gen_comp(cx, memb_type, memb_v, reg);
-			else {
-				usz size = type_bytes(memb_type);
-				gen_assign(cx, size, REF(reg), memb_v);
-				reg = reg_add_immi(cx, reg, size);
-			}
+			reg = ival_gen_comp(cx, memb_type, memb_v, reg);
 		}
 		return reg;
 	}
@@ -384,9 +359,21 @@ OP_GEN_SHIFT(ishr, IR_ISHR, >>, )
 OP_GEN_SHIFT(ushr, IR_USHR, >>, u)
 
 static
+ival_t gen_static_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
+	usz size = type_bytes(type);
+	void* data = lt_arena_reserve(cx->arena, size);
+	memset(data, 0, size);
+	ival_write_comp(cx, type, *v, data);
+	return IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx, SEG_ENT(SEG_DATA, CLSTR("@STATCOM"), size, data)));
+}
+
+static
 void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
-	if (sym->flags & SYMFL_CONST)
+	if (sym->flags & SYMFL_CONST) {
 		sym->val = gen_const_expr(cx, expr);
+		if (sym->val.stype == IVAL_SEG)
+			cx->seg[sym->val.uint_val].name = sym->name;
+	}
 	else {
 		if (sym->flags & SYMFL_GLOBAL) {
 			usz size = type_bytes(sym->type);
@@ -396,12 +383,8 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 
 			if (expr) {
 				ival_t v = gen_const_expr(cx, expr);
-				if (v.stype == IVAL_COM)
-					ival_write_comp(cx, expr->type, v, data);
-				else
-					memcpy(data, ival_data(cx, &v), size);
+				ival_write_comp(cx, expr->type, v, data);
 			}
-
 		}
 		else {
 			usz size = type_bytes(sym->type);
@@ -444,7 +427,9 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz new_func = new_code_seg(cx, expr->type);
 		cx->curr_func = new_func;
 
-		emit(cx, ICODE0(IR_ENTER, ISZ_64));
+		cx->seg[cx->curr_func].name = CLSTR("@LAMDA");
+
+		usz enter = emit(cx, ICODE0(IR_ENTER, ISZ_64));
 		sym_t** args = expr->type->child_syms;
 		isz arg_count = expr->type->child_count;
 		usz stack_size = 0;
@@ -460,6 +445,8 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		// TODO: Insert a ret only when not all code paths return
 		emit(cx, ICODE0(IR_RET, 0));
+
+		FUNC_INSTR(enter).dst = cx->seg[cx->curr_func].regs;
 
 		cx->curr_func = old_func;
 		return SEG(new_func);
@@ -483,14 +470,18 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz child_count = 2;
 		ival_t* children = lt_arena_reserve(cx->arena, child_count * sizeof(ival_t));
 		ival_t addr = icode_gen_expr(cx, expr->child_1);
-		children[0] = IMMI((u64)cx->seg[addr.uint_val].data); // !!
+		if (addr.stype == IVAL_COM)
+			addr = gen_static_compound(cx, expr->child_1->type, &addr);
+ 		LT_ASSERT(addr.stype == (IVAL_SEG | IVAL_REF));
+
+		children[0] = SEG(addr.uint_val);
 		children[1] = IMMI(expr->child_1->type->child_count);
 		return IVAL(IVAL_COM, child_count, .children = children);
 	}
 
 	case EXPR_ARRAY: {
 		usz count = expr->type->child_count;
-		ival_t* children = lt_arena_reserve(cx->arena, count * type_bytes(expr->type->base));
+		ival_t* children = lt_arena_reserve(cx->arena, count * sizeof(ival_t));
 
 		expr_t* it = expr->child_1;
 		usz i = 0;
@@ -508,8 +499,13 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 		return IMMF(expr->float_val);
 
 	case EXPR_STRING: {
-		usz offs = new_data_seg(cx, SEG_ENT(SEG_DATA, CLSTR("@STRING"), expr->str_val.len, expr->str_val.str));
-		return SEG(offs);
+		// TODO: Write some workaround to make this more space-efficient
+		usz count = expr->str_val.len;
+		ival_t* children = lt_arena_reserve(cx->arena, count * sizeof(ival_t));
+		for (usz i = 0; i < count; ++i)
+			children[i] = IMMI(expr->str_val.str[i]);
+
+		return IVAL(IVAL_COM, count, .children = children);
 	}
 
 	case EXPR_CONVERT:
@@ -519,7 +515,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 		if (expr->child_1->stype != EXPR_SYM)
 			goto expected_lval;
 		ival_t ival = expr->child_1->sym->val;
-		if (!(ival.stype & IVAL_REF)) {
+		if (!is_lval(ival)) {
 expected_lval:
 			ferr("expected an lvalue", cx->lex_cx, *expr->tk);
 		}
@@ -528,8 +524,13 @@ expected_lval:
 		return ival;
 	}
 
-	default:
-		lt_printf("%S\n");
+	case EXPR_SYM: {
+		if (expr->sym->flags & SYMFL_CONST)
+			return expr->sym->val;
+		goto expected_comptime_const;
+	}
+
+	default: expected_comptime_const:
 		ferr("expected a compile-time constant", cx->lex_cx, *expr->tk);
 	}
 }
@@ -547,7 +548,11 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return expr->sym->val;
 
 	case EXPR_VIEW: {
-		u32 ptr = ival_ptr(cx, icode_gen_expr(cx, expr->child_1));
+		ival_t v = icode_gen_expr(cx, expr->child_1);
+		if (v.stype == IVAL_COM)
+			v = gen_static_compound(cx, expr->child_1->type, &v);
+
+		u32 ptr = ival_ptr(cx, v);
 
 		usz count = expr->child_1->type->child_count;
 		u32 view_start = alloc_reg(cx);
@@ -871,7 +876,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		case TP_ARRAY: {
 			ival_t val = icode_gen_expr(cx, expr->child_1);
 			if (val.stype == IVAL_COM)
-				return val;
+				return SEG(gen_static_compound(cx, expr->child_1->type, &val).uint_val);
 			check_lval(cx, expr->tk, val);
 			return REG(ival_ptr(cx, val));
 		}
@@ -1175,19 +1180,18 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		emit(cx, ICODE2(IR_CJMPZ, ISZ_8, trg, cond_reg));
 		icode_gen_stmt(cx, stmt->child);
 
-		usz jmp2;
 		if (stmt->child_2) {
 			trg = alloc_reg(cx);
-			jmp2 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+			usz jmp2 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
 			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
-		}
 
-		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+			FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
 
-		if (stmt->child_2) {
 			icode_gen_stmt(cx, stmt->child_2);
 			FUNC_INSTR(jmp2).int_val = CURR_IP() - jmp2;
 		}
+		else
+			FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
 	}	break;
 
 	case STMT_FOR: {

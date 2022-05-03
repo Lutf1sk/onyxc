@@ -218,14 +218,14 @@ int main(int argc, char** argv) {
 		for (usz i = 0; i < gen_cx.seg_count; ++i) {
 			seg_ent_t* seg = &gen_cx.seg[i];
 			if (seg->stype == SEG_DATA) {
-				lt_printf("DS %uq %S: %uq bytes\n", i, seg->name, seg->size);
+				lt_printf("DS %uq '%S': %uq bytes\n", i, seg->name, seg->size);
 				continue;
 			}
 
 			icode_t* icode = seg->data;
 			usz icode_count = seg->size;
 
-			lt_printf("CS %uq:\n", i);
+			lt_printf("CS %uq '%S':\n", i, seg->name);
 			for (usz i = 0; i < icode_count; ++i) {
 				icode_t ic = icode[i];
 
@@ -242,6 +242,7 @@ int main(int argc, char** argv) {
 				case IR_SRESV: lt_printf("%ud %ud\n", ic.regs[0], ic.regs[1]); break;
 				case IR_IPO: lt_printf("%iq\n", ic.int_val); break;
 				case IR_SEG: lt_printf("%ud\n", ic.regs[0]); break;
+				case IR_ENTER: lt_printf("%ud\n", ic.dst); break;
 				default:
 					for (usz i = 0; i < 2; ++i)
 						if (ic.regs[i])
@@ -256,28 +257,25 @@ int main(int argc, char** argv) {
 		case TRG_AMD64: {
 			amd64_ctx_t x64;
 			x64.arena = parse_arena;
-// 			x64.cs_count = gen_cx.code_seg_count;
-// 			x64.ds_count = gen_cx.data_seg_count;
-// 			x64.cs = lt_arena_reserve(parse_arena, x64.cs_count * sizeof(seg_ent_t));
-// 			x64.ds = lt_arena_reserve(parse_arena, x64.ds_count * sizeof(seg_ent_t));
-// 			x64.ir_cs = gen_cx.code_seg;
-// 			x64.ir_ds = gen_cx.data_seg;
+			x64.curr_func = -1;
+			x64.seg = gen_cx.seg;
+			x64.seg_count = gen_cx.seg_count;
 
 			amd64_gen(&x64);
 
 			// Print machine code
-			for (usz i = 0; i < x64.cs_count; ++i) {
-				amd64_instr_t* mcode = x64.cs[i].data;
-				usz mcode_count = x64.cs[i].size;
-
-				lt_printf("CS %uq:\n", i);
-				for (usz i = 0; i < mcode_count; ++i) {
-					amd64_instr_t mc = mcode[i];
-					lt_printc('\t');
-					amd64_print_instr(mc);
-					lt_printc('\n');
-				}
-			}
+// 			for (usz i = 0; i < x64.seg_count; ++i) {
+// 				amd64_instr_t* mcode = x64.seg[i].data;
+// 				usz mcode_count = x64.seg[i].size;
+// 
+// 				lt_printf("CS %uq:\n", i);
+// 				for (usz i = 0; i < mcode_count; ++i) {
+// 					amd64_instr_t mc = mcode[i];
+// 					lt_printc('\t');
+// 					amd64_print_instr(mc);
+// 					lt_printc('\n');
+// 				}
+// 			}
 		}	break;
 
 		case TRG_X86: {

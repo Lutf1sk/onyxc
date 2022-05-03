@@ -35,8 +35,6 @@ implicitly converting between each other and promoting the smaller type when nec
 
 Pointer types can be implicitly converted to/from 'void*' types.
 
-Casting is done with the 'arrow' operator
-
 # Expressions
 Order of evaluation is undefined.
 

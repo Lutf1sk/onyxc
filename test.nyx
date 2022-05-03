@@ -1,6 +1,15 @@
+def AllocateCB	:: void*(void* usr, u64 size),
+	FreeCB		:: void(void* usr, void* ptr),
+	ReallocCB	:: void*(void* usr, void* ptr, u64 size);
 
-let print :: i32(u8[] str) {
-	return syscall(1, 1, str.data, str.count);
+def Allocator :: struct {
+	AllocateCB alloc;
+	ReallocCB realloc;
+	FreeCB free;
+}
+
+let read :: i64(i64 fd, u8[] data) {
+	return syscall(0, fd, data.data, data.count);
 }
 
 let write :: i64(i64 fd, u8[] data) {
@@ -11,24 +20,24 @@ let open :: i64(u8* path, u64 flags, u64 mode) {
 	return syscall(2, path, flags, mode);
 }
 
-let read :: i64(i64 fd, u8[] data) {
-	return syscall(0, fd, data.data, data.count);
-}
-
 let close :: i64(i64 fd) {
 	return syscall(3, fd);
 }
 
-u64 O_RDONLY :: 0,
-	O_WRONLY :: 1,
-	O_RDWR :: 2,
-	O_CREAT :: 64,
-	O_TRUNC :: 512,
-	O_APPEND :: 1024,
+let print :: i64(u8[] str) {
+	return write(1, str);
+}
 
-	S_IRUSR :: 256,
-	S_IWUSR :: 128,
-	S_IXUSR :: 64;
+u64 O_RDONLY	:: 0x00,
+	O_WRONLY	:: 0x01,
+	O_RDWR		:: 0x02,
+	O_CREAT		:: 0x40,
+	O_TRUNC		:: 0x200,
+	O_APPEND	:: 0x400,
+
+	S_IRUSR 	:: 0x100,
+	S_IWUSR 	:: 0x80,
+	S_IXUSR 	:: 0x40;
 
 let print_i64 :: i64(i64 n) {
 	if (n < 0) {
@@ -52,9 +61,15 @@ let print_i64 :: i64(i64 n) {
 	return view.count;
 }
 
-u8[16] hex_conv_tab = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+// u8[16] hex_conv_tab = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+u8[16] ctab :: "0123456789ABCDEF";
+
+u8[16] hex_conv_tab :: "0123456789ABCDEF";
 
 let print_h64 :: i64(u64 n) {
+// 	u8[16] hex_conv_tab :: ctab;
+
 	u8[32] str;
 	u8* end = str.data + u8*:(str.count), it = end - u8*:1;
 
@@ -71,17 +86,17 @@ let print_h64 :: i64(u64 n) {
 	return view.count;
 }
 
-let print_s :: void(u8[] s) {
-	print(s);
-}
-
 let main :: u64() {
-	for u32 i..0x10000 {
+	i64 fd = open("test\x00".data, 0, 0);
+
+	for u32 i..0x10 {
 		print_i64(i);
 		print(": 0x");
 		print_h64(i);
 		print("\n");
 	}
+
+	return 0;
 }
 
 
