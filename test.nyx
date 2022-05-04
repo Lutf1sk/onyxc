@@ -1,12 +1,5 @@
-def AllocateCB	:: void*(void* usr, u64 size),
-	FreeCB		:: void(void* usr, void* ptr),
-	ReallocCB	:: void*(void* usr, void* ptr, u64 size);
-
-def Allocator :: struct {
-	AllocateCB alloc;
-	ReallocCB realloc;
-	FreeCB free;
-}
+u64 PATH_MAX :: 4096,
+	FILE_MAX :: 255;
 
 let read :: i64(i64 fd, u8[] data) {
 	return syscall(0, fd, data.data, data.count);
@@ -16,8 +9,18 @@ let write :: i64(i64 fd, u8[] data) {
 	return syscall(1, fd, data.data, data.count);
 }
 
-let open :: i64(u8* path, u64 flags, u64 mode) {
-	return syscall(2, path, flags, mode);
+let open :: i64(u8[] path, u64 flags, u64 mode) {
+	if path.count >= PATH_MAX {
+		return -1;
+	}
+
+	u8[PATH_MAX] path_nt;
+
+	for u8 i..path.count {
+		path_nt[i] = path[i];
+	}
+	path_nt[path.count] = 0;
+	return syscall(2, path_nt.data, flags, mode);
 }
 
 let close :: i64(i64 fd) {
@@ -65,7 +68,7 @@ let print_i64 :: i64(i64 n) {
 
 u8[16] ctab :: "0123456789ABCDEF";
 
-u8[16] hex_conv_tab :: "0123456789ABCDEF";
+u8[] hex_conv_tab :: ctab;
 
 let print_h64 :: i64(u64 n) {
 // 	u8[16] hex_conv_tab :: ctab;
@@ -87,7 +90,7 @@ let print_h64 :: i64(u64 n) {
 }
 
 let main :: u64() {
-	i64 fd = open("test\x00".data, 0, 0);
+// 	i64 fd = open("test", O_WRONLY|O_TRUNC|O_CREAT, 0);
 
 	for u32 i..0x10 {
 		print_i64(i);

@@ -162,7 +162,6 @@ u8* ival_write_comp(gen_ctx_t* cx, type_t* type, ival_t v, u8* out) {
 		return out;
 	}
 
-	lt_printf("type: %ud\n", type->stype);
 	LT_ASSERT_NOT_REACHED();
 	return NULL;
 }
@@ -222,7 +221,6 @@ u32 ival_gen_comp(gen_ctx_t* cx, type_t* type, ival_t v, u32 reg) {
 		return reg;
 	}
 
-	lt_printf("type: %ud\n", type->stype);
 	LT_ASSERT_NOT_REACHED();
 	return 0;
 }
@@ -365,6 +363,14 @@ ival_t gen_static_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
 	memset(data, 0, size);
 	ival_write_comp(cx, type, *v, data);
 	return IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx, SEG_ENT(SEG_DATA, CLSTR("@STATCOM"), size, data)));
+}
+
+static
+ival_t gen_stack_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
+	u32 reg = alloc_reg(cx);
+	emit(cx, ICODE3(IR_SRESV, ISZ_64, reg, type_bytes(type), type_align(type)));
+	ival_gen_comp(cx, type, *v, reg);
+	return REF(reg);
 }
 
 static
@@ -784,27 +790,29 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		else
 			ret_val = REG(alloc_reg(cx));
 
+		usz arg_count = expr->child_1->type->child_count;
+		u32* arg_regs = lt_arena_reserve(cx->arena, arg_count * sizeof(u32));
+		usz* arg_sizes = lt_arena_reserve(cx->arena, arg_count * sizeof(usz));
+
 		expr_t* it = expr->child_2;
-		while (it) {
+		for (usz i = 0; it; ++i, it = it->next) {
 			usz size = type_bytes(it->type);
+			arg_sizes[i] = size;
 			ival_t ival = icode_gen_expr(cx, it);
-			u32 reg;
 			if (size > ISZ_64) {
-				if (ival.stype == IVAL_COM) {
-					reg = alloc_reg(cx);
-					emit(cx, ICODE3(IR_SRESV, ISZ_64, reg, type_bytes(it->type), type_align(it->type)));
-					ival_gen_comp(cx, it->type, ival, reg);
-				}
-				else
-					reg = ival_ptr(cx, ival);
+				if (ival.stype == IVAL_COM)
+					ival = gen_stack_compound(cx, it->type, &ival);
+				arg_regs[i] = ival_ptr(cx, ival);
 			}
 			else
-				reg = ival_reg(cx, size, ival);
-			emit(cx, ICODE1(IR_SETARG, size, reg));
-			it = it->next;
+				arg_regs[i] = ival_reg(cx, size, ival);
 		}
 
 		u32 func_addr = ival_reg(cx, ISZ_64, icode_gen_expr(cx, expr->child_1));
+
+		for (usz i = 0; i < arg_count; ++i)
+			emit(cx, ICODE1(IR_SETARG, arg_sizes[i], arg_regs[i]));
+
 		emit(cx, ICODE3(IR_CALL, ret_size, func_addr, ret_val.reg, REG_COUNT));
 		return ret_val;
 	}
@@ -858,10 +866,9 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			ival_t val = icode_gen_expr(cx, expr->child_1);
 			if (val.stype == IVAL_COM)
 				return val.children[1];
-			LT_ASSERT(val.stype == (IVAL_REG | IVAL_REF));
-			val.stype = IVAL_REG;
 
-			ival_t ref = gen_add(cx, ISZ_64, val, IMMI(8));
+			u32 reg = ival_ptr(cx, val);
+			ival_t ref = gen_add(cx, ISZ_64, REG(reg), IMMI(8));
 			ref.stype |= IVAL_REF;
 			return ref;
 		}
