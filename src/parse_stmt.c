@@ -5,6 +5,8 @@
 #include "tk.h"
 #include "type.h"
 #include "symtab.h"
+#include "gen.h"
+#include "segment.h"
 
 #include <lt/str.h>
 #include <lt/io.h>
@@ -122,6 +124,12 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 		new->type = type;
 		sym->flags = flags;
 		symtab_insert(cx->symtab, ident_tk->str, sym);
+
+		if (flags & SYMFL_CONST) {
+			sym->val = gen_const_expr(cx->gen_cx, sym->expr);
+			if ((sym->val.stype & ~IVAL_REF) == IVAL_SEG)
+				cx->gen_cx->seg[sym->val.uint_val].name = sym->name;
+		}
 
 		*it = new;
 		if (peek(cx, 0)->stype != TK_COMMA) {

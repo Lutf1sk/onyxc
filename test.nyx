@@ -90,7 +90,15 @@ let print_h64 :: i64(u64 n) {
 }
 
 let main :: u64() {
-// 	i64 fd = open("test", O_WRONLY|O_TRUNC|O_CREAT, 0);
+	i64 fd = open("test", O_WRONLY|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
+	if fd < 0 {
+		print("Failed to open file\n");
+	}
+	write(fd, "Skjut mig\n");
+	close(fd);
+
+	print_i64(PATH_MAX);
+	print("\n");
 
 	for u32 i..0x10 {
 		print_i64(i);

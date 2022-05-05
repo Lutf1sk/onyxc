@@ -94,7 +94,10 @@ type_t* parse_type(parse_ctx_t* cx) {
 					ferr("fixed array size must be an integer", cx->lex, *tk);
 
 				*new = TYPE(TP_ARRAY, base);
-				new->child_count = gen_const_expr(cx->gen_cx, expr).uint_val;
+				ival_t ival = gen_const_expr(cx->gen_cx, expr);
+				lt_printf("type: %ud\n", ival.stype);
+// 				LT_ASSERT(ival.stype == IVAL_IMM);
+				new->child_count = ival.uint_val;
 				if (is_int(expr->type) && (isz)new->child_count < 0)
 					ferr("fixed array size cannot be negative", cx->lex, *tk);
 			}

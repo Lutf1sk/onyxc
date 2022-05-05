@@ -375,38 +375,34 @@ ival_t gen_stack_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
 
 static
 void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
-	if (sym->flags & SYMFL_CONST) {
-		sym->val = gen_const_expr(cx, expr);
-		if (sym->val.stype == IVAL_SEG)
-			cx->seg[sym->val.uint_val].name = sym->name;
+	if (sym->flags & SYMFL_CONST)
+		return;
+
+	if (sym->flags & SYMFL_GLOBAL) {
+		usz size = type_bytes(sym->type);
+		void* data = lt_arena_reserve(cx->arena, size);
+		memset(data, 0, size);
+		sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx, SEG_ENT(SEG_DATA, sym->name, size, data)));
+
+		if (expr) {
+			ival_t v = gen_const_expr(cx, expr);
+			ival_write_comp(cx, expr->type, v, data);
+		}
 	}
 	else {
-		if (sym->flags & SYMFL_GLOBAL) {
-			usz size = type_bytes(sym->type);
-			void* data = lt_arena_reserve(cx->arena, size);
-			memset(data, 0, size);
-			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx, SEG_ENT(SEG_DATA, sym->name, size, data)));
+		usz size = type_bytes(sym->type);
+		usz align = type_align(sym->type);
+		ival_t val = REF(alloc_reg(cx));
+		emit(cx, ICODE3(IR_SRESV, ISZ_64, val.reg, size, align));
 
-			if (expr) {
-				ival_t v = gen_const_expr(cx, expr);
-				ival_write_comp(cx, expr->type, v, data);
-			}
+		if (expr) {
+			if (size > ISZ_64)
+				gen_assign(cx, size, val, icode_gen_expr(cx, expr));
+			else if (expr)
+				emit(cx, ICODE2(IR_STOR, size, ival_reg(cx, size, icode_gen_expr(cx, expr)), val.reg));
 		}
-		else {
-			usz size = type_bytes(sym->type);
-			usz align = type_align(sym->type);
-			ival_t val = REF(alloc_reg(cx));
-			emit(cx, ICODE3(IR_SRESV, ISZ_64, val.reg, size, align));
 
-			if (expr) {
-				if (size > ISZ_64)
-					gen_assign(cx, size, val, icode_gen_expr(cx, expr));
-				else if (expr)
-					emit(cx, ICODE2(IR_STOR, size, ival_reg(cx, size, icode_gen_expr(cx, expr)), val.reg));
-			}
-
-			sym->val = val;
-		}
+		sym->val = val;
 	}
 }
 
@@ -530,13 +526,10 @@ expected_lval:
 		return ival;
 	}
 
-	case EXPR_SYM: {
+	case EXPR_SYM:
 		if (expr->sym->flags & SYMFL_CONST)
 			return expr->sym->val;
-		goto expected_comptime_const;
-	}
-
-	default: expected_comptime_const:
+	default:
 		ferr("expected a compile-time constant", cx->lex_cx, *expr->tk);
 	}
 }
@@ -904,11 +897,11 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_ASSIGN: {
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		check_lval(cx, expr->tk, a1);
-		return gen_assign(cx, type_bytes(expr->type), a1, a2);
+		return gen_assign(cx, type_bytes(expr->child_1->type), a1, a2);
 	}
 
 #define OP_ASSIGN(op) { \
-	usz size = type_bytes(expr->type); \
+	usz size = type_bytes(expr->child_1->type); \
 	ival_t v, dst = icode_gen_expr(cx, expr->child_1); \
 	check_lval(cx, expr->tk, dst); \
 	v = gen_##op(cx, size, dst, icode_gen_expr(cx, expr->child_2)); \
