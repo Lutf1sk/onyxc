@@ -1,6 +1,9 @@
 u64 PATH_MAX :: 4096,
 	FILE_MAX :: 255;
 
+u64 a;
+let b = &a;
+
 let read :: i64(i64 fd, u8[] data) {
 	return syscall(0, fd, data.data, data.count);
 }

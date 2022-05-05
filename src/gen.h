@@ -15,6 +15,11 @@ struct gen_ctx {
 	lt_arena_t* arena;
 } gen_ctx_t;
 
+usz new_code_seg(gen_ctx_t* cx, type_t* type);
+usz new_data_seg(gen_ctx_t* cx, seg_ent_t new_ent);
+
+u8* ival_write_comp(gen_ctx_t* cx, type_t* type, ival_t v, u8* out);
+
 ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr);
 
 ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr);

@@ -22,7 +22,7 @@ usz emit(amd64_ctx_t* cx, amd64_instr_t instr) {
 #define SEGMENT_BLOCK_SIZE 512
 #define SEGMENT_BLOCK_MASK (SEGMENT_BLOCK_SIZE-1)
 
-usz new_code_seg(amd64_ctx_t* cx, type_t* type) {
+usz new_mcode_seg(amd64_ctx_t* cx, type_t* type) {
 	if (!(cx->seg_count & SEGMENT_BLOCK_MASK))
 		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
 	memset(&cx->seg[cx->seg_count], 0, sizeof(seg_ent_t));

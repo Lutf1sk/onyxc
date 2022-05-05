@@ -130,6 +130,17 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 			if ((sym->val.stype & ~IVAL_REF) == IVAL_SEG)
 				cx->gen_cx->seg[sym->val.uint_val].name = sym->name;
 		}
+		else if (flags & SYMFL_GLOBAL) {
+			usz size = type_bytes(sym->type);
+			void* data = lt_arena_reserve(cx->arena, size);
+			memset(data, 0, size);
+			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx->gen_cx, SEG_ENT(SEG_DATA, sym->name, size, data)));
+
+			if (sym->expr) {
+				ival_t v = gen_const_expr(cx->gen_cx, sym->expr);
+				ival_write_comp(cx->gen_cx, sym->expr->type, v, data);
+			}
+		}
 
 		*it = new;
 		if (peek(cx, 0)->stype != TK_COMMA) {

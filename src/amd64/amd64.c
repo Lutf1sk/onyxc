@@ -135,7 +135,7 @@ void amd64_gen(amd64_ctx_t* cx) {
 
 		lt_printf("Assembling cs'%uq\n", i);
 
-		cx->curr_func = new_code_seg(cx, cs->type);
+		cx->curr_func = new_mcode_seg(cx, cs->type);
 
 		for (usz j = 0; j < cs->size; ++j)
 			convert_icode(cx, cs, j);

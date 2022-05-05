@@ -57,6 +57,6 @@ struct amd64_mval {
 
 usz emit(amd64_ctx_t* cx, amd64_instr_t instr);
 
-usz new_code_seg(amd64_ctx_t* cx, type_t* type);
+usz new_mcode_seg(amd64_ctx_t* cx, type_t* type);
 
 #endif

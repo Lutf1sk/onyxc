@@ -32,8 +32,6 @@ usz emit(gen_ctx_t* cx, icode_t instr) {
 }
 
 
-
-static
 usz new_code_seg(gen_ctx_t* cx, type_t* type) {
 	if (!(cx->seg_count & SEGMENT_BLOCK_MASK))
 		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
@@ -43,7 +41,6 @@ usz new_code_seg(gen_ctx_t* cx, type_t* type) {
 	return cx->seg_count++;
 }
 
-static
 usz new_data_seg(gen_ctx_t* cx, seg_ent_t new_ent) {
 	if (!(cx->seg_count & SEGMENT_BLOCK_MASK))
 		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
@@ -130,7 +127,6 @@ void* ival_data(gen_ctx_t* cx, ival_t* v) {
 	return 0;
 }
 
-static
 u8* ival_write_comp(gen_ctx_t* cx, type_t* type, ival_t v, u8* out) {
 	if (v.stype != IVAL_COM) {
 		void* ptr = ival_data(cx, &v);
@@ -379,15 +375,7 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 		return;
 
 	if (sym->flags & SYMFL_GLOBAL) {
-		usz size = type_bytes(sym->type);
-		void* data = lt_arena_reserve(cx->arena, size);
-		memset(data, 0, size);
-		sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx, SEG_ENT(SEG_DATA, sym->name, size, data)));
 
-		if (expr) {
-			ival_t v = gen_const_expr(cx, expr);
-			ival_write_comp(cx, expr->type, v, data);
-		}
 	}
 	else {
 		usz size = type_bytes(sym->type);
