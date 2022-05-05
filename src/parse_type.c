@@ -95,8 +95,8 @@ type_t* parse_type(parse_ctx_t* cx) {
 
 				*new = TYPE(TP_ARRAY, base);
 				ival_t ival = gen_const_expr(cx->gen_cx, expr);
-				lt_printf("type: %ud\n", ival.stype);
-// 				LT_ASSERT(ival.stype == IVAL_IMM);
+				if (ival.stype != IVAL_IMM)
+					ferr("fixed array size must be known at parse-time", cx->lex, *tk);
 				new->child_count = ival.uint_val;
 				if (is_int(expr->type) && (isz)new->child_count < 0)
 					ferr("fixed array size cannot be negative", cx->lex, *tk);
