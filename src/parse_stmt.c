@@ -257,8 +257,8 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		*new = STMT(STMT_IF);
 		new->expr = parse_expr(cx, NULL);
 
-		if (!is_scalar(new->expr->type))
-			ferr("result of "A_BOLD"'if'"A_RESET" condition must be scalar", tk);
+		if (!is_number(new->expr->type))
+			ferr("result of "A_BOLD"'if'"A_RESET" condition must be a valid number", tk);
 
 		new->child = parse_compound(cx);
 
@@ -278,8 +278,8 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		*new = STMT(STMT_WHILE);
 		new->expr = parse_expr(cx, NULL);
 
-		if (!is_scalar(new->expr->type))
-			ferr("result of "A_BOLD"'while'"A_RESET" condition must be scalar", tk);
+		if (!is_number(new->expr->type))
+			ferr("result of "A_BOLD"'while'"A_RESET" condition must be a valid number", tk);
 		new->child = parse_compound(cx);
 		return new;
 	}

@@ -435,6 +435,9 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			*new = EXPR(op->expr, operand->type, tk);
 			new->child_1 = operand;
 			operand = new;
+
+			if (!is_number(new->type))
+				ferr("operand of unary "A_BOLD"'%S'"A_RESET" must be a valid number", *new->tk, new->tk->str);
 		}
 	}
 
@@ -471,6 +474,8 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 
 		default:
 			new->type = child->type;
+			if (!is_number(new->type))
+				ferr("operand of unary "A_BOLD"'%S'"A_RESET" must be a valid number", *new->tk, new->tk->str);
 			break;
 		}
 		return new;

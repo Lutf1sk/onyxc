@@ -40,7 +40,7 @@ void type_add_child(type_t* type, type_t* child, lstr_t name, sym_t* sym);
 
 b8 is_int_any_sign(type_t* type);
 
-b8 is_scalar(type_t* type);
+b8 is_number(type_t* type);
 b8 is_int(type_t* type);
 b8 is_uint(type_t* type);
 b8 is_float(type_t* type);
