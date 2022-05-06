@@ -23,7 +23,7 @@ u8 hex_char(u8 c) {
 	return 0; // TODO: Error checking
 }
 
-usz unescape_str(lex_ctx_t* cx, char* out, tk_t* tk) {
+usz unescape_str(char* out, tk_t* tk) {
 	lstr_t str = LSTR(tk->str.str + 1, tk->str.len - 2);
 
 	char* it = out;
@@ -48,13 +48,13 @@ usz unescape_str(lex_ctx_t* cx, char* out, tk_t* tk) {
 		case '\\': *it++ = '\\'; break;
 		case 'x': {
 			if (i >= str.len - 1)
-				ferr(A_BOLD"'\\x'"A_RESET" escape sequence must be followed by two hexadecimal digits", cx, *tk);
+				ferr(A_BOLD"'\\x'"A_RESET" escape sequence must be followed by two hexadecimal digits", *tk);
 			*it = hex_char(str.str[i++]) << 4;
 			*it++ |= hex_char(str.str[i++]);
 			break;
 		}
 		default:
-			ferr("unknown escape sequence "A_BOLD"'%S'"A_RESET, cx, *tk, LSTR(&str.str[start], i - start));
+			ferr("unknown escape sequence "A_BOLD"'%S'"A_RESET, *tk, LSTR(&str.str[start], i - start));
 		}
 	}
 	return it - out;

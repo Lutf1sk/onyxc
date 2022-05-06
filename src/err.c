@@ -8,14 +8,10 @@ LT_NORETURN
 void exit(int code);
 
 static
-lstr_t line_find_beg(lex_ctx_t* lex_c, tk_t* tk) {
+lstr_t line_find_beg(tk_t* tk) {
 	lstr_t line_beg;
 	for (char* it = tk->str.str;; --it) {
-		if (it < lex_c->data.str) {
-			line_beg.str = it;
-			break;
-		}
-		if (*it == '\n') {
+		if (!*it || *it == '\n') {
 			line_beg.str = it + 1;
 			break;
 		}
@@ -37,12 +33,12 @@ lstr_t line_find_end(tk_t* tk) {
 	return line_end;
 }
 
-void ferr(char* fmt, lex_ctx_t* lex_c, tk_t tk, ...) {
-	lstr_t line_beg = line_find_beg(lex_c, &tk), line_end = line_find_end(&tk);
+void ferr(char* fmt, tk_t tk, ...) {
+	lstr_t line_beg = line_find_beg(&tk), line_end = line_find_end(&tk);
 
 	const usz line = tk.line_index + 1;
 
-	lt_printf(A_BOLD"%s:%uz:%uz: "A_RED"error:"A_RESET" ", lex_c->path, line, line_beg.len);
+	lt_printf(A_BOLD"%s:%uz:%uz: "A_RED"error:"A_RESET" ", tk.cx->path, line, line_beg.len);
 
 	va_list args;
 	va_start(args, 0);
@@ -54,12 +50,12 @@ void ferr(char* fmt, lex_ctx_t* lex_c, tk_t tk, ...) {
 	exit(1);
 }
 
-void werr(char* fmt, lex_ctx_t* lex_c, tk_t tk, ...) {
-	lstr_t line_beg = line_find_beg(lex_c, &tk), line_end = line_find_end(&tk);
+void werr(char* fmt, tk_t tk, ...) {
+	lstr_t line_beg = line_find_beg(&tk), line_end = line_find_end(&tk);
 
 	const usz line = tk.line_index + 1;
 
-	lt_printf(A_BOLD"%s:%uz:%uz: "A_MAGENTA"warning:"A_RESET" ", lex_c->path, line, line_beg.len);
+	lt_printf(A_BOLD"%s:%uz:%uz: "A_MAGENTA"warning:"A_RESET" ", tk.cx->path, line, line_beg.len);
 
 	va_list args;
 	va_start(args, 0);

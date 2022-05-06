@@ -113,26 +113,9 @@ int main(int argc, char** argv) {
 	for (isz file_index = 0; file_index < in_file_count; ++file_index) {
 		char* in_path = in_files[file_index];
 
-		// Read source file
-		lt_arena_t* lex_arena = lt_arena_alloc(LT_MB(128));
-		lt_file_t* fp = lt_file_open(lex_arena, in_path, LT_FILE_R, 0);
-		if (!fp)
-			lt_ferrf("Failed to open '%s'\n", in_path);
+		lt_arena_t* arena = lt_arena_alloc(LT_MB(128));
 
-		usz size = lt_file_size(fp);
-		char* data = lt_arena_reserve(lex_arena, size + 1);
-		if (lt_file_read(fp, data, size) != size)
-			lt_ferrf("Failed to read from '%s'", argv[1]);
-		data[size] = 0;
-		lt_file_close(fp);
-
-		// Lex data
-		lex_ctx_t lex_cx;
-		lex_cx.path = in_path;
-		lex_cx.data = LSTR(data, size);
-
-		usz tk_count = lex(&lex_cx, lt_arena_reserve(lex_arena, 0));
-		tk_t* tk_data = lt_arena_reserve(lex_arena, tk_count * sizeof(tk_t));
+		lex_ctx_t* lex_cx = lex_file(arena, in_path, NULL);
 
 		// Create symtab and add primitives
 		symtab_t symtab;
@@ -164,36 +147,31 @@ int main(int argc, char** argv) {
 			symtab_insert(&symtab, primitives[i].name, &primitives[i].sym);
 
 		// Parse token array
-		lt_arena_t* parse_arena = lt_arena_alloc(LT_MB(128));
-
 		gen_ctx_t gen_cx;
-		gen_cx.lex_cx = &lex_cx;
+		gen_cx.lex_cx = lex_cx;
 		gen_cx.curr_func = -1;
 		gen_cx.seg = NULL;
 		gen_cx.seg_count = 0;
-		gen_cx.arena = parse_arena;
+		gen_cx.arena = arena;
 
 		parse_ctx_t parse_cx;
 		memset(&parse_cx, 0, sizeof(parse_cx));
-		parse_cx.data = tk_data;
-		parse_cx.count = tk_count;
-		parse_cx.path = in_path;
-		parse_cx.arena = parse_arena;
+		parse_cx.arena = arena;
 		parse_cx.symtab = &symtab;
-		parse_cx.lex = &lex_cx;
+		parse_cx.lex = lex_cx;
 		parse_cx.gen_cx = &gen_cx;
 		stmt_t* root = parse(&parse_cx);
 
 		// Print AST
 	 	if (!run_mode)
-			stmt_print(lex_arena, root);
+			stmt_print(arena, root);
 
 		// Generate intermediate code
 		icode_gen(&gen_cx, root);
 
 		if (run_mode) {
 			// Execute intermediate code
-			u64* stack = lt_arena_reserve(parse_arena, LT_MB(1));
+			u64* stack = lt_arena_reserve(arena, LT_MB(1));
 			u64 code = 0;
 
 			sym_t* main = symtab_find(&symtab, CLSTR("main"));
@@ -256,7 +234,7 @@ int main(int argc, char** argv) {
 		switch (target) {
 		case TRG_AMD64: {
 			amd64_ctx_t x64;
-			x64.arena = parse_arena;
+			x64.arena = arena;
 			x64.curr_func = -1;
 			x64.seg = gen_cx.seg;
 			x64.seg_count = gen_cx.seg_count;
@@ -283,8 +261,7 @@ int main(int argc, char** argv) {
 		}	break;
 		}
 
-		lt_arena_free(parse_arena);
-		lt_arena_free(lex_arena);
+		lt_arena_free(arena);
 	}
 
 	free(in_files);

@@ -402,7 +402,7 @@ b8 is_lval(ival_t v) {
 static
 void check_lval(gen_ctx_t* cx, tk_t* tk, ival_t a) {
 	if (!is_lval(a))
-		ferr("operator requires an lvalue", cx->lex_cx, *tk);
+		ferr("operator requires an lvalue", *tk);
 }
 
 #define FUNC_INSTR(x) (((icode_t*)cx->seg[cx->curr_func].data)[(x)])
@@ -507,7 +507,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 		ival_t ival = expr->child_1->sym->val;
 		if (!is_lval(ival)) {
 expected_lval:
-			ferr("expected an lvalue", cx->lex_cx, *expr->tk);
+			ferr("expected an lvalue", *expr->tk);
 		}
 
 		ival.stype &= ~IVAL_REF;
@@ -518,7 +518,7 @@ expected_lval:
 		if (expr->sym->flags & SYMFL_CONST)
 			return expr->sym->val;
 	default:
-		ferr("expected a compile-time constant", cx->lex_cx, *expr->tk);
+		ferr("expected a compile-time constant", *expr->tk);
 	}
 }
 
@@ -805,10 +805,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		if (ptr_val.stype == IVAL_COM) {
 			if (indx_val.stype != IVAL_IMM)
-				ferr("Index to compile-time subscript must be constant", cx->lex_cx, *expr->tk);
+				ferr("Index to compile-time subscript must be constant", *expr->tk);
 			u64 indx = indx_val.uint_val;
 			if (indx >= ptr_val.child_count)
-				ferr("Index out of range", cx->lex_cx, *expr->child_2->tk);
+				ferr("Index out of range", *expr->child_2->tk);
 			return ptr_val.children[indx];
 		}
 

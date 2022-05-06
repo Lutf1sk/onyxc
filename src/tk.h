@@ -80,6 +80,7 @@
 	TK_OP(KW_WHILE) \
 	TK_OP(KW_NULL) \
 	TK_OP(KW_SYSCALL) \
+	TK_OP(KW_IMPORT) \
 	\
 	TK_OP(WHITESPACE) \
 	TK_OP(MAX)
@@ -91,16 +92,17 @@ typedef enum tk_stype {
 } tk_stype_t;
 
 typedef struct tk {
-	tk_stype_t stype;
+	u32 stype;
+	u32 line_index;
 	lstr_t str;
-	usz line_index;
+	lex_ctx_t* cx;
 } tk_t;
 
 lstr_t tk_type_str(tk_stype_t stype);
 
-usz unescape_str(lex_ctx_t* cx, char* out, tk_t* tk);
+usz unescape_str(char* out, tk_t* tk);
 
-#define TK_INIT(stype, str, line) { (stype), (str), (line) }
-#define TK(stype, str, line) ((tk_t)TK_INIT(stype, str, line))
+#define TK_INIT(cx, stype, str, line) { (stype), (line), (str), (cx) }
+#define TK(cx, stype, str, line) ((tk_t)TK_INIT(cx, stype, str, line))
 
 #endif

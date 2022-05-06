@@ -37,7 +37,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 				tk_t* tk = peek(cx, 0);
 				expr_t* new = parse_expr(cx, type->base);
 				if (!type_convert_implicit(cx, type->base, &new))
-					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 							type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type->base));
 				*it = new;
 				it = &new->next;
@@ -64,7 +64,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 				tk_t* tk = peek(cx, 0);
 				expr_t* new = parse_expr(cx, new_type->base);
 				if (!type_convert_implicit(cx, type->base, &new))
-					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 							type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type->base));
 				*it = new;
 				it = &new->next;
@@ -89,11 +89,11 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 				tk_t* tk = peek(cx, 0);
 
 				if (i >= type->child_count)
-					ferr("excess elements in struct initializer", cx->lex, *tk);
+					ferr("excess elements in struct initializer", *tk);
 
 				expr_t* new = parse_expr(cx, type->children[i]);
 				if (!type_convert_implicit(cx, type->children[i], &new))
-					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 							type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type->children[i]));
 
 				*it = new;
@@ -105,7 +105,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 				consume(cx);
 			}
 			if (i < type->child_count)
-				werr("uninitialized elements of "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+				werr("uninitialized elements of "A_BOLD"'%S'"A_RESET, *tk,
 						type_to_reserved_str(cx->arena, type));
 			consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
 			return new;
@@ -188,12 +188,12 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		*new = EXPR(EXPR_INTEGER, &u8_def, tk);
 
 		char* str = lt_arena_reserve(cx->arena, 0);
-		usz len = unescape_str(cx->lex, str, tk);
+		usz len = unescape_str(str, tk);
 
 		if (len > 1)
-			ferr("character literal exceeds max length", cx->lex, *tk);
+			ferr("character literal exceeds max length", *tk);
 		else if (!len)
-			ferr("empty character literal", cx->lex, *tk);
+			ferr("empty character literal", *tk);
 
 		new->int_val = str[0];
 		return new;
@@ -201,7 +201,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 	case TK_STRING: consume(cx); {
 		char* data = lt_arena_reserve(cx->arena, 0);
-		usz len = unescape_str(cx->lex, data, tk);
+		usz len = unescape_str(data, tk);
 		lt_arena_reserve(cx->arena, len);
 
 		type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
@@ -259,24 +259,24 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 				consume(cx);
 				expr_t* expr = parse_expr_unary(cx, NULL, 0xFFFF);
 				if (!type_convert_explicit(cx, init_type, &expr))
-					ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+					ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
 				return expr;
 			}
 
 			expr_t* new = parse_expr_primary(cx, init_type);
 			if (type && !type_convert_implicit(cx, type, &new))
-				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 						type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type));
 			return new;
 		}
 
 	undeclared:
-		ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, cx->lex, *tk, tk->str);
+		ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, *tk, tk->str);
 	}
 
 	default:
-		ferr("unexpected token "A_BOLD"'%S'"A_RESET" in expression", cx->lex, *tk, tk->str);
+		ferr("unexpected token "A_BOLD"'%S'"A_RESET" in expression", *tk, tk->str);
 	}
 }
 
@@ -304,7 +304,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			(op->precedence < precedence || (op->precedence == precedence && op->associate == OP_ASSOC_RIGHT)))
 	{
 		if (operand->type->stype == TP_VOID)
-			ferr(A_BOLD"'void'"A_RESET" type in expression", cx->lex, *tk);
+			ferr(A_BOLD"'void'"A_RESET" type in expression", *tk);
 
 		tk_t* tk = consume(cx);
 
@@ -335,7 +335,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				else if (lt_lstr_eq(member_name, CLSTR("count")))
 					*new = EXPR(EXPR_COUNT, &u64_def, tk);
 				else
-					ferr(A_BOLD"'%S'"A_RESET" has no member named "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+					ferr(A_BOLD"'%S'"A_RESET" has no member named "A_BOLD"'%S'"A_RESET, *tk,
 						type_to_reserved_str(cx->arena, it), member_name);
 
 				new->child_1 = operand;
@@ -344,7 +344,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			}
 
 			if (it->stype != TP_STRUCT)
-				ferr("cannot use "A_BOLD"'.'"A_RESET" operator on a non-structure type", cx->lex, *tk);
+				ferr("cannot use "A_BOLD"'.'"A_RESET" operator on a non-structure type", *tk);
 
 			usz member_count = it->child_count;
 			usz member_index;
@@ -355,7 +355,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				}
 			}
 
-			ferr("structure has no member named "A_BOLD"'%S'"A_RESET, cx->lex, *member_name_tk, member_name_tk->str);
+			ferr("structure has no member named "A_BOLD"'%S'"A_RESET, *member_name_tk, member_name_tk->str);
 
 		member_found:
 			expr_t* member = lt_arena_reserve(cx->arena, sizeof(expr_t));
@@ -367,7 +367,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 		else if (op->expr == EXPR_SUBSCRIPT) {
 			if (operand->type->stype != TP_PTR && operand->type->stype != TP_ARRAY && operand->type->stype != TP_ARRAY_VIEW)
 				ferr("subscripted type "A_BOLD"'%S'"A_RESET" is neither an array nor a pointer",
-						cx->lex, *tk, type_to_reserved_str(cx->arena, operand->type));
+						*tk, type_to_reserved_str(cx->arena, operand->type));
 
 			expr_t* subscript = lt_arena_reserve(cx->arena, sizeof(expr_t));
 			*subscript = EXPR(EXPR_SUBSCRIPT, operand->type->base, tk);
@@ -386,14 +386,14 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 
 			subscript->child_2 = parse_expr(cx, NULL);
 			if (!is_int_any_sign(subscript->child_2->type))
-				ferr("array index must be an integer", cx->lex, *tk);
+				ferr("array index must be an integer", *tk);
 			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected "A_BOLD"']'"A_RESET" after array subscript"));
 
 			operand = subscript;
 		}
 		else if (op->expr == EXPR_CALL) {
 			if (operand->type->stype != TP_FUNC)
-				ferr("called type "A_BOLD"'%S'"A_RESET" is not a function", cx->lex, *tk,
+				ferr("called type "A_BOLD"'%S'"A_RESET" is not a function", *tk,
 						type_to_reserved_str(cx->arena, operand->type));
 
 			expr_t* call = lt_arena_reserve(cx->arena, sizeof(expr_t));
@@ -415,9 +415,9 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 
 				expr_t* arg = parse_expr(cx, arg_types[arg_i]);
 				if (arg_i == arg_count)
-					ferr("too many arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
+					ferr("too many arguments to "A_BOLD"'%S'"A_RESET", expected %uq", *tk, func_name, arg_count);
 				if (!type_convert_implicit(cx, arg_types[arg_i], &arg))
-					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 							type_to_reserved_str(cx->arena, arg->type),
 							type_to_reserved_str(cx->arena, arg_types[arg_i]));
 				*current_arg = arg;
@@ -425,7 +425,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				++arg_i;
 			}
 			if (arg_i != arg_count)
-				ferr("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
+				ferr("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", *tk, func_name, arg_count);
 			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET" after function call"));
 
 			operand = call;
@@ -456,7 +456,7 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 		switch (op->expr) {
 		case EXPR_DEREFERENCE:
 			if (child->type->stype != TP_PTR)
-				ferr("dereferenced type "A_BOLD"'%S'"A_RESET" is not a pointer", cx->lex, *tk,
+				ferr("dereferenced type "A_BOLD"'%S'"A_RESET" is not a pointer", *tk,
 						type_to_reserved_str(cx->arena, child->type));
 			new->type = child->type->base;
 			break;
@@ -522,7 +522,7 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 				goto too_many_args;
 
 			if (!type_convert_implicit(cx, arg_types[0], &obj))
-				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 						type_to_reserved_str(cx->arena, obj->type), type_to_reserved_str(cx->arena, arg_types[0]));
 			new->child_2 = obj;
 
@@ -535,10 +535,10 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 				expr_t* arg = parse_expr(cx, arg_types[arg_i]);
 				if (arg_i == arg_count) {
 				too_many_args:
-					ferr("too many arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
+					ferr("too many arguments to "A_BOLD"'%S'"A_RESET", expected %uq", *tk, func_name, arg_count);
 				}
 				if (!type_convert_implicit(cx, arg_types[arg_i], &arg))
-					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 							type_to_reserved_str(cx->arena, arg->type),
 							type_to_reserved_str(cx->arena, arg_types[arg_i]));
 				*current_arg = arg;
@@ -546,7 +546,7 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 				++arg_i;
 			}
 			if (arg_i != arg_count)
-				ferr("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", cx->lex, *tk, func_name, arg_count);
+				ferr("too few arguments to "A_BOLD"'%S'"A_RESET", expected %uq", *tk, func_name, arg_count);
 			consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET" after function call"));
 		}
 

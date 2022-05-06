@@ -7,6 +7,33 @@
 #include <lt/mem.h>
 #include <lt/io.h>
 
+lex_ctx_t* lex_file(lt_arena_t* arena, char* path, tk_t* path_tk) {
+	// Read source file
+	lt_file_t* fp = lt_file_open(arena, path, LT_FILE_R, 0);
+	if (!fp) {
+		if (path_tk)
+			ferr("failed to open '%s'", *path_tk, path);
+		lt_ferrf("failed to open '%s'\n", path);
+	}
+
+	usz size = lt_file_size(fp);
+	char* data = lt_arena_reserve(arena, size + 2);
+	if (lt_file_read(fp, data + 1, size) != size)
+		lt_ferrf("failed to read from '%s'\n", path);
+	data[0] = 0;
+	data[size + 1] = 0;
+	lt_file_close(fp);
+
+	// Lex data
+	lex_ctx_t* lex_cx = lt_arena_reserve(arena, sizeof(lex_ctx_t));
+	lex_cx->path = path;
+	lex_cx->data = LSTR(data + 1, size);
+	lex_cx->count = lex(lex_cx, lt_arena_reserve(arena, 0));
+	lex_cx->tk_data = lt_arena_reserve(arena, lex_cx->count * sizeof(tk_t));
+
+	return lex_cx;
+}
+
 static
 tk_stype_t identifier_type(lstr_t str) {
 	if (str.len < 2)
@@ -38,6 +65,7 @@ tk_stype_t identifier_type(lstr_t str) {
 
 	case 'i':
 		if (lt_lstr_eq(str, CLSTR("implicit"))) return TK_KW_IMPLICIT;
+		if (lt_lstr_eq(str, CLSTR("import"))) return TK_KW_IMPORT;
 		if (lt_lstr_eq(str, CLSTR("if"))) return TK_KW_IF;
 		break;
 
@@ -72,7 +100,7 @@ tk_stype_t identifier_type(lstr_t str) {
 
 static u8 chars[256];
 
-#define emit(x) (out_tk[tk_count++] = (tk_t){ (x), LSTR(&cx->data.str[tk_start], it - tk_start), line_index })
+#define emit(x) (out_tk[tk_count++] = TK(cx, (x), LSTR(&cx->data.str[tk_start], it - tk_start), line_index))
 
 static
 usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
@@ -187,7 +215,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			for (;;) {
 				c = data[it++];
 				if ((u8)c < 32 && c != '\t')
-					ferr("unterminated character literal", cx, TK(TK_CHAR, LSTR(&data[tk_start], it - tk_start - 1), line_index));
+					ferr("unterminated character literal", TK(cx, TK_CHAR, LSTR(&data[tk_start], it - tk_start - 1), line_index));
 				if (c == '\'')
 					break;
 				if (c == '\\')
@@ -200,7 +228,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			for (;;) {
 				c = data[it++];
 				if ((u8)c < 32 && c != '\t')
-					ferr("unterminated string literal", cx, TK(TK_STRING, LSTR(&data[tk_start], it - tk_start - 1), line_index));
+					ferr("unterminated string literal", TK(cx, TK_STRING, LSTR(&data[tk_start], it - tk_start - 1), line_index));
 				if (c == '"')
 					break;
 				if (c == '\\')
@@ -229,7 +257,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 		}	break;
 
 		case '\0':
-			ferr("unexpected character "A_BOLD"'%c'"A_RESET, cx, TK(TK_INVALID, LSTR(&data[tk_start], it - tk_start), line_index), c);
+			ferr("unexpected character "A_BOLD"'%c'"A_RESET, TK(cx, TK_INVALID, LSTR(&data[tk_start], it - tk_start), line_index), c);
 
 		default:
 			emit(tk);

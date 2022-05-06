@@ -46,7 +46,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 	}	break;
 
 	default: unexpected_tk:
-		ferr("unexpected token "A_BOLD"'%S'"A_RESET", expected a valid type", cx->lex, tk, tk.str);
+		ferr("unexpected token "A_BOLD"'%S'"A_RESET", expected a valid type", tk, tk.str);
 	}
 
 	for (;;) {
@@ -62,7 +62,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 				type_t* new = parse_type(cx);
 
 				if (new->stype == TP_VOID)
-					ferr("parameter cannot have type "A_BOLD"'void'"A_RESET, cx->lex, tk);
+					ferr("parameter cannot have type "A_BOLD"'void'"A_RESET, tk);
 
 				lstr_t name = NLSTR();
 				if (peek(cx, 0)->stype == TK_IDENTIFIER)
@@ -91,15 +91,15 @@ type_t* parse_type(parse_ctx_t* cx) {
 				tk_t* tk = peek(cx, 0);
 				expr_t* expr = parse_expr(cx, NULL);
 				if (!is_int_any_sign(expr->type))
-					ferr("fixed array size must be an integer", cx->lex, *tk);
+					ferr("fixed array size must be an integer", *tk);
 
 				*new = TYPE(TP_ARRAY, base);
 				ival_t ival = gen_const_expr(cx->gen_cx, expr);
 				if (ival.stype != IVAL_IMM)
-					ferr("fixed array size must be known at parse-time", cx->lex, *tk);
+					ferr("fixed array size must be known at parse-time", *tk);
 				new->child_count = ival.uint_val;
 				if (is_int(expr->type) && (isz)new->child_count < 0)
-					ferr("fixed array size cannot be negative", cx->lex, *tk);
+					ferr("fixed array size cannot be negative", *tk);
 			}
 
 			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected "A_BOLD"']'"A_RESET" after array size"));

@@ -98,7 +98,7 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 			flags |= SYMFL_GLOBAL;
 
 		if (!symtab_definable(cx->symtab, ident_tk->str))
-			ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET"", cx->lex, *ident_tk, ident_tk->str);
+			ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET"", *ident_tk, ident_tk->str);
 
 		type_t* type = init_type;
 		tk_t* tk = peek(cx, 0);
@@ -110,14 +110,14 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 			new->expr = parse_expr(cx, init_type);
 			if (init_type) {
 				if (!type_convert_implicit(cx, init_type, &new->expr))
-					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *ident_tk,
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *ident_tk,
 							type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, init_type));
 			}
 			else
 				type = new->expr->type;
 		}
 		else if (!type)
-			ferr("variable with implicit type must be initialized", cx->lex, *ident_tk);
+			ferr("variable with implicit type must be initialized", *ident_tk);
 
 		sym->expr = new->expr;
 		sym->type = type;
@@ -162,19 +162,46 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 	case TK_LEFT_BRACE:
 		return parse_compound(cx);
 
+	case TK_KW_IMPORT: consume(cx);
+		lex_ctx_t* old_lex_cx = cx->lex;
+		stmt_t* stmt = NULL;
+ 		stmt_t** it = &stmt;
+
+		for (;;) {
+			tk_t* path_tk = consume_type(cx, TK_STRING, CLSTR(", expected a path after 'import'"));
+			char* path = lt_arena_reserve(cx->arena, 0);
+			usz len = unescape_str(path, path_tk);
+			lt_arena_reserve(cx->arena, len + 1);
+			path[len] = 0;
+			LT_ASSERT(len < 4096);
+
+			// TODO: "include guards"
+
+			cx->lex = lex_file(cx->arena, path, path_tk);
+			*it = parse(cx);
+			cx->lex = old_lex_cx;
+
+			if (peek(cx, 0)->stype != TK_COMMA) {
+				consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after import statement"));
+				return stmt;
+			}
+			consume(cx);
+			it = &(*it)->child;
+		}
+
 	case TK_KW_LET: consume(cx);
 		return parse_let(cx, NULL);
 
 	case TK_KW_DEF: consume(cx); {
 		stmt_t* stmt = NULL;
-		stmt_t** it = &stmt;
+ 		stmt_t** it = &stmt;
 		for (;;) {
 			stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 			*new = STMT(STMT_DEF);
 			tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name"));
 
 			if (!symtab_definable(cx->symtab, ident_tk->str))
-				ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET, cx->lex, *ident_tk, ident_tk->str);
+				ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET, *ident_tk, ident_tk->str);
 
 			consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected "A_BOLD"'::'"A_RESET" after type name"));
 
@@ -214,7 +241,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		if (ret_type->stype != TP_VOID) {
 			new->expr = parse_expr(cx, NULL);
 			if (!type_convert_implicit(cx, ret_type, &new->expr))
-				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, tk,
+				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, tk,
 						type_to_reserved_str(cx->arena, new->expr->type),
 						type_to_reserved_str(cx->arena, ret_type));
 		}
@@ -231,7 +258,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		new->expr = parse_expr(cx, NULL);
 
 		if (!is_scalar(new->expr->type))
-			ferr("result of "A_BOLD"'if'"A_RESET" condition must be scalar", cx->lex, tk);
+			ferr("result of "A_BOLD"'if'"A_RESET" condition must be scalar", tk);
 
 		new->child = parse_compound(cx);
 
@@ -252,7 +279,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		new->expr = parse_expr(cx, NULL);
 
 		if (!is_scalar(new->expr->type))
-			ferr("result of "A_BOLD"'while'"A_RESET" condition must be scalar", cx->lex, tk);
+			ferr("result of "A_BOLD"'while'"A_RESET" condition must be scalar", tk);
 		new->child = parse_compound(cx);
 		return new;
 	}
@@ -267,7 +294,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		tk_t* tk = peek(cx, 0);
 		if (!is_int_any_sign(it_type))
-			ferr("for loop iterator must be an integer", cx->lex, *tk);
+			ferr("for loop iterator must be an integer", *tk);
 
 		tk_t ident_tk = *consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
 
@@ -290,7 +317,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		tk = peek(cx, 0);
 		new->expr = parse_expr(cx, NULL);
 		if (!type_convert_implicit(cx, it_type, &new->expr))
-			ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%s'"A_RESET, cx->lex, *tk,
+			ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%s'"A_RESET, *tk,
 					type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, it_type));
 
 		new->sym = sym;
@@ -311,7 +338,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		if (tk.stype == TK_IDENTIFIER) { // TODO: This approach does not allow a line to start with a cast
 			sym_t* sym = symtab_find(cx->symtab, tk.str);
 			if (!sym)
-				ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, cx->lex, tk, tk.str);
+				ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, tk, tk.str);
 
 			if (sym->stype == SYM_TYPE)
 				return parse_let(cx, parse_type(cx));
@@ -327,6 +354,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 	}
 
 outside_func:
-	ferr(A_BOLD"'%S'"A_RESET" must be inside a function body", cx->lex, tk, tk.str);
+	ferr(A_BOLD"'%S'"A_RESET" must be inside a function body", tk, tk.str);
 }
 

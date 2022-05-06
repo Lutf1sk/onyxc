@@ -77,7 +77,7 @@ void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, e
 	switch (stype) {
 	case EXPR_LOGIC_AND: case EXPR_LOGIC_OR:
 		if (!is_scalar((*left)->type) || !is_scalar((*right)->type))
-			ferr("operands to logical operator must be scalar", cx->lex, *tk);
+			ferr("operands to logical operator must be scalar", *tk);
 		return;
 
 	case EXPR_BIT_SHIFT_LEFT: case EXPR_BIT_SHIFT_RIGHT:
@@ -129,16 +129,16 @@ void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, e
 	case EXPR_BIT_OR:
 	case EXPR_BIT_XOR:
 		if (!is_int_any_sign((*left)->type) || !is_int_any_sign((*right)->type))
-			ferr("bitwise operator must have integer operands", cx->lex, *tk);
+			ferr("bitwise operator must have integer operands", *tk);
 		if (!type_eq((*left)->type, (*right)->type))
-			ferr("bitwise operator must have operands of same type", cx->lex, *tk);
+			ferr("bitwise operator must have operands of same type", *tk);
 		return;
 	}
 
 	return;
 
 implicit_err:
-	ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, cx->lex, *tk,
+	ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 			type_to_reserved_str(cx->arena, from), type_to_reserved_str(cx->arena, to));
 }
 

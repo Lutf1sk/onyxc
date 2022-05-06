@@ -1,107 +1,13 @@
-u64 PATH_MAX :: 4096,
-	FILE_MAX :: 255;
-
-u64 a;
-let b = &a;
-
-let read :: i64(i64 fd, u8[] data) {
-	return syscall(0, fd, data.data, data.count);
-}
-
-let write :: i64(i64 fd, u8[] data) {
-	return syscall(1, fd, data.data, data.count);
-}
-
-let open :: i64(u8[] path, u64 flags, u64 mode) {
-	if path.count >= PATH_MAX {
-		return -1;
-	}
-
-	u8[PATH_MAX] path_nt;
-
-	for u8 i..path.count {
-		path_nt[i] = path[i];
-	}
-	path_nt[path.count] = 0;
-	return syscall(2, path_nt.data, flags, mode);
-}
-
-let close :: i64(i64 fd) {
-	return syscall(3, fd);
-}
-
-let print :: i64(u8[] str) {
-	return write(1, str);
-}
-
-u64 O_RDONLY	:: 0x00,
-	O_WRONLY	:: 0x01,
-	O_RDWR		:: 0x02,
-	O_CREAT		:: 0x40,
-	O_TRUNC		:: 0x200,
-	O_APPEND	:: 0x400,
-
-	S_IRUSR 	:: 0x100,
-	S_IWUSR 	:: 0x80,
-	S_IXUSR 	:: 0x40;
-
-let print_i64 :: i64(i64 n) {
-	if (n < 0) {
-		print("-");
-		n = -n;
-	}
-
-	u8[32] str;
-	u8* end = str.data + u8*:(str.count), it = end - u8*:1;
-
-	while n >= 10 {
-		*it-- = n % 10 + '0';
-		n /= 10;
-	}
-	*it = n + '0';
-
-	u8[] view;
-	view.data = it;
-	view.count = u64:(end - it);
-	print(view);
-	return view.count;
-}
-
-// u8[16] hex_conv_tab = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
-
-u8[16] ctab :: "0123456789ABCDEF";
-
-u8[] hex_conv_tab :: ctab;
-
-let print_h64 :: i64(u64 n) {
-// 	u8[16] hex_conv_tab :: ctab;
-
-	u8[32] str;
-	u8* end = str.data + u8*:(str.count), it = end - u8*:1;
-
-	while n > 0x0F {
-		*it-- = hex_conv_tab[n & 0x0F];
-		n >>= 4;
-	}
-	*it = hex_conv_tab[n];
-
-	u8[] view;
-	view.data = it;
-	view.count = u64:(end - it);
-	print(view);
-	return view.count;
-}
+import "io.nyx";
 
 let main :: u64() {
-	i64 fd = open("test", O_WRONLY|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
-	if fd < 0 {
+	i64 fd;
+	if &fd->file_openw("test") {
 		print("Failed to open file\n");
+		return 0;
 	}
-	write(fd, "Skjut mig\n");
-	close(fd);
-
-	print_i64(PATH_MAX);
-	print("\n");
+	&fd->file_write("Skjut mig\n");
+	&fd->file_close();
 
 	for u32 i..0x10 {
 		print_i64(i);

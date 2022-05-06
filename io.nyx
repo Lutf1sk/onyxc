@@ -1,0 +1,60 @@
+import "unix.nyx";
+
+let file_openw :: u8(i64* fdp, u8[] path) {
+	*fdp = open(path, O_WRONLY|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
+	return *fdp < 0;
+}
+
+let file_close :: void(i64* fdp) {
+	close(*fdp);
+}
+
+let file_write :: void(i64* fdp, u8[] data) {
+	write(*fdp, data);
+}
+
+let print :: i64(u8[] str) {
+	return write(1, str);
+}
+
+let print_i64 :: i64(i64 n) {
+	if (n < 0) {
+		print("-");
+		n = -n;
+	}
+
+	u8[32] str;
+	u8* end = str.data + u8*:(str.count), it = end - u8*:1;
+
+	while n >= 10 {
+		*it-- = n % 10 + '0';
+		n /= 10;
+	}
+	*it = n + '0';
+
+	u8[] view;
+	view.data = it;
+	view.count = u64:(end - it);
+	print(view);
+	return view.count;
+}
+
+let print_h64 :: i64(u64 n) {
+ 	u8[16] hex_conv_tab :: "0123456789ABCDEF";
+
+	u8[32] str;
+	u8* end = str.data + u8*:(str.count), it = end - u8*:1;
+
+	while n > 0x0F {
+		*it-- = hex_conv_tab[n & 0x0F];
+		n >>= 4;
+	}
+	*it = hex_conv_tab[n];
+
+	u8[] view;
+	view.data = it;
+	view.count = u64:(end - it);
+	print(view);
+	return view.count;
+}
+

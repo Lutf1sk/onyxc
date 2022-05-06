@@ -2,6 +2,7 @@
 #include "tk.h"
 #include "expr_ast.h"
 #include "stmt_ast.h"
+#include "lex.h"
 
 operator_t operators[TK_MAX];
 operator_t sfx_operators[TK_MAX];
@@ -9,14 +10,18 @@ operator_t pfx_operators[TK_MAX];
 
 static
 stmt_t* parse_cached(parse_ctx_t* cx) {
-	cx->it = 0;
+	cx->lex->it = 0;
 
 	stmt_t* root = NULL;
 	stmt_t** current = &root;
-	while (cx->it < cx->count) {
+	while (cx->lex->it < cx->lex->count) {
 		stmt_t* new = parse_stmt(cx);
 		if (!new)
 			continue;
+
+		while (new->next)
+			new = new->next;
+
 		*current = new;
 		current = &new->next;
 	}

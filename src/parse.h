@@ -7,12 +7,6 @@
 #include "fwd.h"
 
 typedef struct parse_ctx {
-	tk_t* data;
-	usz count;
-	usz it;
-
-	char* path;
-
 	type_t* curr_func_type;
 	symtab_t* symtab;
 	lt_arena_t* arena;
