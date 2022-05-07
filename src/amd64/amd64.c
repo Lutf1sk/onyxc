@@ -133,9 +133,9 @@ void amd64_gen(amd64_ctx_t* cx) {
 
 		memset(cx->reg_map, 0, rmap_size);
 
-		lt_printf("Assembling cs'%uq\n", i);
+		cx->curr_func = new_mcode_seg(cx, cs->type, cs->name);
 
-		cx->curr_func = new_mcode_seg(cx, cs->type);
+		lt_printf("Assembling CS %uq -> M-CS %uq\n", i, cx->curr_func);
 
 		for (usz j = 0; j < cs->size; ++j)
 			convert_icode(cx, cs, j);
