@@ -147,10 +147,11 @@ void icode_exec(exec_ctx_t* cx) {
 		case IR_GETARG:
 			usz arg_size = ip->size;
 			memcpy((void*)uval(cx, ISZ_64, ip->dst), (void*)(cx->bp - 16 - arg_size - arg_stack), arg_size);
-			arg_stack += arg_size;
+			arg_stack += /*lt_align_fwd(*/arg_size/*, 8)*/;
 			break;
 
 		case IR_SETARG:
+// 			cx->sp = (u8*)lt_align_bwd((usz)cx->sp, 8);
 			if (ip->size > ISZ_64)
 				push(cx, ip->size, (void*)uval(cx, ISZ_64, ip->dst));
 			else

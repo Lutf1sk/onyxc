@@ -1,7 +1,5 @@
 import "io.nyx";
 
-def asdf :: struct { u64 a, b, c; }
-
 let main :: u64() {
 	i64 fd;
 	if &fd->file_openw("test") {
@@ -10,8 +8,6 @@ let main :: u64() {
 	}
 	&fd->file_write("Skjut mig\n");
 	&fd->file_close();
-
-	asdf a, b;
 
 	for u32 i..0x10 {
 		print_i64(i);
