@@ -119,6 +119,9 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 		else if (!type)
 			ferr("variable with implicit type must be initialized", *ident_tk);
 
+		if (type->stype == TP_VOID)
+			ferr("variable cannot be of type "A_BOLD"'void'"A_RESET, *ident_tk);
+
 		sym->expr = new->expr;
 		sym->type = type;
 		new->type = type;
@@ -334,20 +337,27 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 	default:
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		type_t* type = NULL;
 
-		if (tk.stype == TK_IDENTIFIER) { // TODO: This approach does not allow a line to start with a cast
+		if (tk.stype == TK_IDENTIFIER) {
 			sym_t* sym = symtab_find(cx->symtab, tk.str);
 			if (!sym)
 				ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, tk, tk.str);
 
-			if (sym->stype == SYM_TYPE)
-				return parse_let(cx, parse_type(cx));
+			if (sym->stype == SYM_TYPE) {
+				type = parse_type(cx);
+				tk_stype_t ntk = peek(cx, 0)->stype;
+				if (ntk == TK_IDENTIFIER)
+					return parse_let(cx, type);
+				else if (ntk == TK_COLON)
+					consume(cx);
+			}
 		}
 
 		if (!cx->curr_func_type)
 			goto outside_func;
 		*new = STMT(STMT_EXPR);
-		new->expr = parse_expr(cx, NULL);
+		new->expr = parse_expr(cx, type);
 
 		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after expression"));
 		return new;

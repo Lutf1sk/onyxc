@@ -16,6 +16,10 @@ let main :: u64() {
 		print("\n");
 	}
 
+	void() {
+		print("asdf\n");
+	}();
+
 	return 0;
 }
 

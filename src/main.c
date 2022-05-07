@@ -242,18 +242,21 @@ int main(int argc, char** argv) {
 			amd64_gen(&x64);
 
 			// Print machine code
-// 			for (usz i = 0; i < x64.seg_count; ++i) {
-// 				amd64_instr_t* mcode = x64.seg[i].data;
-// 				usz mcode_count = x64.seg[i].size;
-// 
-// 				lt_printf("CS %uq:\n", i);
-// 				for (usz i = 0; i < mcode_count; ++i) {
-// 					amd64_instr_t mc = mcode[i];
-// 					lt_printc('\t');
-// 					amd64_print_instr(mc);
-// 					lt_printc('\n');
-// 				}
-// 			}
+			for (usz i = 0; i < x64.seg_count; ++i) {
+				if (x64.seg[i].stype != SEG_MCODE)
+					continue;
+
+				amd64_instr_t* mcode = x64.seg[i].data;
+				usz mcode_count = x64.seg[i].size;
+
+				lt_printf("M-CS %uq '%S':\n", i, x64.seg[i].name);
+				for (usz i = 0; i < mcode_count; ++i) {
+					amd64_instr_t mc = mcode[i];
+					lt_printc('\t');
+					amd64_print_instr(mc);
+					lt_printc('\n');
+				}
+			}
 		}	break;
 
 		case TRG_X86: {
