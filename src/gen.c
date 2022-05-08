@@ -191,7 +191,7 @@ u32 ival_gen_comp(gen_ctx_t* cx, type_t* type, ival_t v, u32 reg) {
 	if (v.stype != IVAL_COM) {
 		usz size = type_bytes(type);
 		gen_assign(cx, size, REF(reg), v);
-		reg = reg_add_immi(cx, reg, size);
+		return reg_add_immi(cx, reg, size);
 	}
 
 	if (type->stype == TP_STRUCT) {
@@ -374,23 +374,25 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 	if (sym->flags & SYMFL_CONST)
 		return;
 
-	if (sym->flags & SYMFL_GLOBAL) {
-
-	}
-	else {
+	if (!(sym->flags & SYMFL_GLOBAL)) {
 		usz size = type_bytes(sym->type);
 		usz align = type_align(sym->type);
-		ival_t val = REF(alloc_reg(cx));
-		emit(cx, ICODE3(IR_SRESV, ISZ_64, val.reg, size, align));
 
 		if (expr) {
-			if (size > ISZ_64)
-				gen_assign(cx, size, val, icode_gen_expr(cx, expr));
-			else if (expr)
-				emit(cx, ICODE2(IR_STOR, size, ival_reg(cx, size, icode_gen_expr(cx, expr)), val.reg));
-		}
+			ival_t val = icode_gen_expr(cx, expr);
+			u32 reg = alloc_reg(cx);
+			sym->val = REF(reg);
+			emit(cx, ICODE3(IR_SRESV, ISZ_64, reg, size, align));
 
-		sym->val = val;
+			if (val.stype == IVAL_COM)
+				val = gen_static_compound(cx, sym->type, &val);
+
+			gen_assign(cx, size, sym->val, val);
+		}
+		else {
+			sym->val = REF(alloc_reg(cx));
+			emit(cx, ICODE3(IR_SRESV, ISZ_64, sym->val.reg, size, align));
+		}
 	}
 }
 
@@ -782,7 +784,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			ival_t ival = icode_gen_expr(cx, it);
 			if (size > ISZ_64) {
 				if (ival.stype == IVAL_COM)
-					ival = gen_stack_compound(cx, it->type, &ival);
+					ival = gen_static_compound(cx, it->type, &ival);
 				arg_regs[i] = ival_ptr(cx, ival);
 			}
 			else
@@ -884,6 +886,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	// Assigned binary
 	case EXPR_ASSIGN: {
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
+		if (a1.stype == IVAL_COM)
+			a1 = gen_static_compound(cx, expr->child_1->type, &a1);
+		if (a2.stype == IVAL_COM)
+			a2 = gen_static_compound(cx, expr->child_2->type, &a2);
 		check_lval(cx, expr->tk, a1);
 		return gen_assign(cx, type_bytes(expr->child_1->type), a1, a2);
 	}

@@ -5,12 +5,12 @@ let file_openw :: u8(i64* fdp, u8[] path) {
 	return *fdp < 0;
 }
 
-let file_close :: void(i64* fdp) {
-	close(*fdp);
+let file_close :: void(i64 fd) {
+	close(fd);
 }
 
-let file_write :: void(i64* fdp, u8[] data) {
-	write(*fdp, data);
+let file_write :: void(i64 fd, u8[] data) {
+	write(fd, data);
 }
 
 let print :: i64(u8[] str) {
@@ -40,7 +40,7 @@ let print_i64 :: i64(i64 n) {
 }
 
 let print_h64 :: i64(u64 n) {
- 	u8[16] hex_conv_tab :: "0123456789ABCDEF";
+	u8[16] hex_conv_tab :: "0123456789ABCDEF";
 
 	u8[32] str;
 	u8* end = str.data + u8*:(str.count), it = end - u8*:1;

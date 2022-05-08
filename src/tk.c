@@ -20,6 +20,7 @@ u8 hex_char(u8 c) {
 		return (c - 'a' + 10);
 	if (c >= '0' && c <= '9')
 		return (c - '0');
+	LT_ASSERT_NOT_REACHED();
 	return 0; // TODO: Error checking
 }
 

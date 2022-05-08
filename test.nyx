@@ -6,8 +6,8 @@ let main :: u64() {
 		print("Failed to open file\n");
 		return 0;
 	}
-	&fd->file_write("Skjut mig\n");
-	&fd->file_close();
+	fd->file_write("Skjut mig\n");
+	fd->file_close();
 
 	for u32 i..0x10 {
 		print_i64(i);
@@ -16,10 +16,7 @@ let main :: u64() {
 		print("\n");
 	}
 
-	void() {
-		print("asdf\n");
-	}();
-
+	void(){ print("asdf\n"); }();
 	return 0;
 }
 
