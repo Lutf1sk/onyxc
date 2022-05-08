@@ -123,6 +123,9 @@ void icode_exec(exec_ctx_t* cx) {
 		case IR_SRESV: {
 			u64 size = ip->regs[0];
 			u64 align = ip->regs[1];
+			if (!size)
+				break;
+			LT_ASSERT(align);
 			usz padding = lt_pad((usz)cx->sp, align);
 			cx->regs[cx->reg_offs + ip->dst] = (u64)cx->sp + padding;
 			cx->sp += padding + size;

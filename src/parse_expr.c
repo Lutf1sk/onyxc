@@ -368,6 +368,8 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			if (operand->type->stype != TP_PTR && operand->type->stype != TP_ARRAY && operand->type->stype != TP_ARRAY_VIEW)
 				ferr("subscripted type "A_BOLD"'%S'"A_RESET" is neither an array nor a pointer",
 						*tk, type_to_reserved_str(cx->arena, operand->type));
+			if (operand->type->base->stype == TP_VOID)
+				ferr("cannot dereference a void pointer", *tk);
 
 			expr_t* subscript = lt_arena_reserve(cx->arena, sizeof(expr_t));
 			*subscript = EXPR(EXPR_SUBSCRIPT, operand->type->base, tk);
@@ -461,6 +463,8 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 			if (child->type->stype != TP_PTR)
 				ferr("dereferenced type "A_BOLD"'%S'"A_RESET" is not a pointer", *tk,
 						type_to_reserved_str(cx->arena, child->type));
+			if (child->type->base->stype == TP_VOID)
+				ferr("cannot dereference a void pointer", *tk);
 			new->type = child->type->base;
 			break;
 

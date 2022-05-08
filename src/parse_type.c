@@ -88,6 +88,9 @@ type_t* parse_type(parse_ctx_t* cx) {
 			if (peek(cx, 0)->stype == TK_RIGHT_BRACKET)
 				*new = TYPE(TP_ARRAY_VIEW, base);
 			else {
+				if (base->stype == TP_VOID)
+					ferr("fixed-size array cannot be of type "A_BOLD"'void'"A_RESET, tk);
+
 				tk_t* tk = peek(cx, 0);
 				expr_t* expr = parse_expr(cx, NULL);
 				if (!is_int_any_sign(expr->type))

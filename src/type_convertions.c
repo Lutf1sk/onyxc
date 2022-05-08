@@ -76,6 +76,11 @@ void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, e
 
 	// TODO: promote types to higher precision when possible
 
+	if ((*left)->type->stype == TP_VOID)
+		ferr("void type in expression", *tk);
+	if ((*right)->type->stype == TP_VOID)
+		ferr("void type in expression", *tk);
+
 	switch (stype) {
 	case EXPR_LOGIC_AND: case EXPR_LOGIC_OR:
 		if (!is_number((*left)->type) || !is_number((*right)->type))
