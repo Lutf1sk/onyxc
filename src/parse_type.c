@@ -27,7 +27,11 @@ type_t* parse_type(parse_ctx_t* cx) {
 		consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET" after "A_BOLD"'struct'"A_RESET));
 
 		while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
+			tk_t* tk = peek(cx, 0);
 			type_t* new = parse_type(cx);
+
+			if (new->stype == TP_VOID)
+				ferr("struct member cannot be of type "A_BOLD"'void'"A_RESET, *tk);
 
 			for (;;) {
 				lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"))->str;
