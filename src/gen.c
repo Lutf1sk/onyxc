@@ -173,7 +173,7 @@ ival_t gen_assign(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	}
 	else {
 		u32 src = ival_reg(cx, size, a2);
-		emit(cx, ICODE2(IR_STOR, size, src, r1));
+		emit(cx, ICODE2(IR_STOR, size, r1, src));
 		return REG(src);
 	}
 }
@@ -421,7 +421,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		cx->seg[cx->curr_func].name = CLSTR("@LAMDA");
 
-		usz enter = emit(cx, ICODE0(IR_ENTER, ISZ_64));
+		emit(cx, ICODE0(IR_ENTER, ISZ_64));
 		sym_t** args = expr->type->child_syms;
 		isz arg_count = expr->type->child_count;
 		usz stack_size = 0;
@@ -437,8 +437,6 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		// TODO: Insert a ret only when not all code paths return
 		emit(cx, ICODE0(IR_RET, 0));
-
-		FUNC_INSTR(enter).dst = cx->seg[cx->curr_func].regs;
 
 		cx->curr_func = old_func;
 		return SEG(new_func);
@@ -694,7 +692,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 dst = alloc_reg(cx), val = ref_reg(cx, size, ptr);
 
 		emit(cx, ICODE2(IR_INC, size, dst, val));
-		emit(cx, ICODE2(IR_STOR, size, dst, ptr));
+		emit(cx, ICODE2(IR_STOR, size, ptr, dst));
 		return REG(dst);
 	}
 
@@ -707,7 +705,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 dst = alloc_reg(cx), val = ref_reg(cx, size, ptr);
 
 		emit(cx, ICODE2(IR_DEC, size, dst, val));
-		emit(cx, ICODE2(IR_STOR, size, dst, ptr));
+		emit(cx, ICODE2(IR_STOR, size, ptr, dst));
 		return REG(dst);
 	}
 
@@ -720,7 +718,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 tmp = alloc_reg(cx), val = ref_reg(cx, size, ptr);
 
 		emit(cx, ICODE2(IR_INC, size, tmp, val));
-		emit(cx, ICODE2(IR_STOR, size, tmp, ptr));
+		emit(cx, ICODE2(IR_STOR, size, ptr, tmp));
 		return REG(val);
 	}
 
@@ -733,7 +731,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 tmp = alloc_reg(cx), val = ref_reg(cx, size, ptr);
 
 		emit(cx, ICODE2(IR_DEC, size, tmp, val));
-		emit(cx, ICODE2(IR_STOR, size, tmp, ptr));
+		emit(cx, ICODE2(IR_STOR, size, ptr, tmp));
 		return REG(val);
 	}
 
@@ -780,15 +778,18 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		expr_t* it = expr->child_2;
 		for (usz i = 0; it; ++i, it = it->next) {
 			usz size = type_bytes(it->type);
+			u32 reg;
 			arg_sizes[i] = size;
 			ival_t ival = icode_gen_expr(cx, it);
 			if (size > ISZ_64) {
 				if (ival.stype == IVAL_COM)
 					ival = gen_static_compound(cx, it->type, &ival);
-				arg_regs[i] = ival_ptr(cx, ival);
+				reg = ival_ptr(cx, ival);
 			}
 			else
-				arg_regs[i] = ival_reg(cx, size, ival);
+				reg = ival_reg(cx, size, ival);
+			arg_regs[i] = reg;
+// 			emit(cx, ICODE1(IR_SETARG, size, reg));
 		}
 
 		u32 func_addr = ival_reg(cx, ISZ_64, icode_gen_expr(cx, expr->child_1));
@@ -1208,7 +1209,7 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 
 		u32 new_it = alloc_reg(cx);
 		emit(cx, ICODE2(IR_INC, it_size, new_it, it_reg));
-		emit(cx, ICODE2(IR_STOR, it_size, new_it, stmt->sym->val.reg));
+		emit(cx, ICODE2(IR_STOR, it_size, stmt->sym->val.reg, new_it));
 
 		trg = alloc_reg(cx);
 		emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = eval_ip - CURR_IP()));

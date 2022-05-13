@@ -98,11 +98,11 @@ void icode_exec(exec_ctx_t* cx) {
 		switch (ip->op) {
 		case IR_INT: cx->regs[cx->reg_offs + ip->dst] = ip->uint_val; break;
 		case IR_FLOAT: cx->regs[cx->reg_offs + ip->dst] = ip->uint_val; break;
-		case IR_SEG: cx->regs[cx->reg_offs + ip->dst] = (u64)cx->seg[ip->uint_val].data; break; 
+		case IR_SEG: cx->regs[cx->reg_offs + ip->dst] = (u64)cx->seg[ip->uint_val].data; break;
 		case IR_IPO: cx->regs[cx->reg_offs + ip->dst] = (u64)(ip + ip->int_val); break;
 
 		case IR_LOAD: cx->regs[cx->reg_offs + ip->dst] = load(ip->size, uval(cx, ISZ_64, ip->regs[0])); break;
-		case IR_STOR: store(ip->size, uval(cx, ISZ_64, ip->regs[0]), uval(cx, ip->size, ip->dst)); break;
+		case IR_STOR: store(ip->size, uval(cx, ISZ_64, ip->dst), uval(cx, ip->size, ip->regs[0])); break;
 
 		case IR_NEG: cx->regs[cx->reg_offs + ip->dst] = -uval(cx, ip->size, ip->regs[0]); break;
 

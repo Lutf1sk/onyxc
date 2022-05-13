@@ -30,13 +30,18 @@
 #define X64_SYSCALL 19
 
 #define X64_IR_ENTER 20
-#define X64_IR_LEAVE 21
+#define X64_IR_RET 21
 
 #define X64_DIV 22
 #define X64_IDIV 23
 #define X64_CQO 24
 #define X64_MUL 25
 #define X64_IMUL 26
+
+#define X64_MOVSB 27
+#define X64_MOVSW 28
+
+#define X64_INT 29
 
 #define VMOD_REG 0b00
 #define VMOD_MRM 0b01
@@ -48,6 +53,7 @@
 #define VARG_64	3
 
 #define VARG_OP_EXT 0b01
+#define VARG_REX_W	0b10
 
 #define VARG(n, x) (x << ((n) * 2 + 2))
 #define VARG_GET(x, n) (((x) >> ((n) * 2 + 2)) & 0b11)

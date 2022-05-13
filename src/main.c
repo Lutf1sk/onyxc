@@ -19,6 +19,8 @@
 #include "target.h"
 #include "amd64/amd64.h"
 
+#include "textattrib.h"
+
 void type_print(lt_arena_t* arena, type_t* type) {
 	char* str_data = lt_arena_reserve(arena, 0);
 	lstr_t str = LSTR(str_data, type_to_str(str_data, type));
@@ -94,9 +96,13 @@ int main(int argc, char** argv) {
 		lt_ferr(CLSTR("memory allocation failed\n"));
 	usz in_file_count = 0;
 
+	lstr_t out_path = CLSTR("a.out");
 	b8 run_mode = 0;
 	lt_arg_bool(CLSTR("run"), &run_mode);
 	lt_arg_bool(CLSTR("r"), &run_mode);
+
+	lt_arg_str(CLSTR("out"), &out_path);
+	lt_arg_str(CLSTR("o"), &out_path);
 
 	lt_arg_parse(argc, argv);
 
@@ -106,6 +112,7 @@ int main(int argc, char** argv) {
 	}
 
  	u32 target = TRG_AMD64;
+ 	u32 format = FMT_ELF64;
 
 	if (!in_file_count)
 		lt_ferrf("No input file provided\n");
@@ -141,6 +148,9 @@ int main(int argc, char** argv) {
 
 			{ PRIMITIVE_INITIALIZER(f32) },
 			{ PRIMITIVE_INITIALIZER(f64) },
+
+			{ CLSTR("isz"), { SYM_TYPE, 0, CLSTR("isz"), &i64_def, NULL } },
+			{ CLSTR("usz"), { SYM_TYPE, 0, CLSTR("usz"), &u64_def, NULL } },
 		};
 
 		for (usz i = 0; i < sizeof(primitives) / sizeof(*primitives); ++i)
@@ -213,18 +223,19 @@ int main(int argc, char** argv) {
 					lt_printc('\n');
 					continue;
 				}
-				lt_printf("r%iq ", ic.dst);
+				lt_printf(A_BOLD"r%iq "A_RESET, ic.dst);
 				switch (ic.op) {
 				case IR_INT: lt_printf("0x%hq\n", ic.uint_val); break;
 				case IR_FLOAT: lt_printf("FLOAT\n"); break;
 				case IR_SRESV: lt_printf("%ud %ud\n", ic.regs[0], ic.regs[1]); break;
 				case IR_IPO: lt_printf("%iq\n", ic.int_val); break;
 				case IR_SEG: lt_printf("%ud\n", ic.regs[0]); break;
-				case IR_ENTER: lt_printf("%ud\n", ic.dst); break;
+				case IR_CALL: lt_printf("r%iq %iq\n", ic.regs[0], ic.regs[1]); break;
+				case IR_SYSCALL: lt_printf("%ud\n", ic.regs[0]); break;
 				default:
 					for (usz i = 0; i < 2; ++i)
 						if (ic.regs[i])
-							lt_printf("r%iq ", ic.regs[i]);
+							lt_printf("r%ud ", ic.regs[i]);
 					lt_printc('\n');
 					break;
 				}
@@ -246,9 +257,12 @@ int main(int argc, char** argv) {
 				if (x64.seg[i].stype != SEG_MCODE)
 					continue;
 
-// 				lt_printf("M-CS %uq '%S':\n", i, x64.seg[i].name);
-// 				amd64_print_seg(&x64, i);
+				lt_printf("M-CS %uq '%S':\n", i, x64.seg[i].name);
+				amd64_print_seg(&x64, i);
 			}
+
+			if (format == FMT_ELF64)
+				amd64_write_elf64(&x64, out_path.str);
 		}	break;
 
 		case TRG_X86: {

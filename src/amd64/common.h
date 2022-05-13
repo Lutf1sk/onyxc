@@ -53,6 +53,14 @@ struct amd64_mval {
 	u32 disp;
 } amd64_mval_t;
 
+typedef
+struct amd64_instr {
+	u8 prefix[4];
+	u8 op, var;
+	u8 mod, reg_rm;
+	u32 imm, disp;
+} amd64_instr_t;
+
 #define IREG_CONST
 
 usz emit(amd64_ctx_t* cx, amd64_instr_t instr);

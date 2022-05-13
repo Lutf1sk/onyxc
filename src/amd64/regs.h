@@ -22,12 +22,16 @@
 #define REG_14	0b1110
 #define REG_15	0b1111
 
-#define REG_REX 0b1000
+#define REG_REX_BIT 0b1000
 
 extern lstr_t reg_names[][4];
 
+#define REG_ALLOCATABLE		1
+#define REG_CALLER_OWNED	2
+extern u8 reg_flags[];
+
 u8 reg_alloc(amd64_ctx_t* cx);
-void reg_free(amd64_ctx_t* cx, u8 reg);
+b8 reg_free(amd64_ctx_t* cx, u8 reg);
 void zero_reg(amd64_ctx_t* cx, u8 reg);
 
 #endif

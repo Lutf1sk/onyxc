@@ -23,9 +23,29 @@ lstr_t reg_names[AMD64_REG_COUNT][4] = {
 	{ CLSTR("r15b"),	CLSTR("r15w"),	CLSTR("r15d"),	CLSTR("r15") },
 };
 
+u8 reg_flags[AMD64_REG_COUNT] = {
+	0, // A
+	0, // C
+	0, // D
+	REG_ALLOCATABLE | REG_CALLER_OWNED, // B
+	REG_CALLER_OWNED, // SP
+	REG_CALLER_OWNED, // BP
+	REG_ALLOCATABLE, // SI
+	REG_ALLOCATABLE, // DI
+
+	REG_ALLOCATABLE, // R8
+	REG_ALLOCATABLE, // R9
+	REG_ALLOCATABLE, // R10
+	REG_ALLOCATABLE, // R11
+	REG_ALLOCATABLE | REG_CALLER_OWNED, // R12
+	REG_ALLOCATABLE | REG_CALLER_OWNED, // R13
+	REG_ALLOCATABLE | REG_CALLER_OWNED, // R14
+	REG_ALLOCATABLE | REG_CALLER_OWNED, // R15
+};
+
 u8 reg_alloc(amd64_ctx_t* cx) {
 	for (usz i = 0; i < AMD64_REG_COUNT; ++i) {
-		if (!cx->reg_allocated[i]) {
+		if ((reg_flags[i] & REG_ALLOCATABLE) && !cx->reg_allocated[i]) {
 			cx->reg_allocated[i] = 1;
 			return i;
 		}
@@ -34,10 +54,10 @@ u8 reg_alloc(amd64_ctx_t* cx) {
 	return REG_A;
 }
 
-void reg_free(amd64_ctx_t* cx, u8 reg) {
-	LT_ASSERT(reg < AMD64_REG_COUNT);
-	LT_ASSERT(cx->reg_allocated[reg]);
+b8 reg_free(amd64_ctx_t* cx, u8 reg) {
+	b8 prev = cx->reg_allocated[reg];
 	cx->reg_allocated[reg] = 0;
+	return prev;
 }
 
 void zero_reg(amd64_ctx_t* cx, u8 reg) {
