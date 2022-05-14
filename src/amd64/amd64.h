@@ -12,10 +12,13 @@
 
 typedef
 struct amd64_ireg {
-	u32 flags;
-	u32 mreg;
-	usz first_use;
-	usz last_use;
+	u8 type;
+	u8 mreg;
+	u32 disp;
+	union {
+		u32 imm;
+		u32 seg;
+	};
 } amd64_ireg_t;
 
 typedef
@@ -34,12 +37,13 @@ struct amd64_ctx {
 	seg_ent_t* seg;
 	usz seg_count;
 
-	u8 reg_allocated[AMD64_REG_COUNT];
+	u32 reg_allocated[AMD64_REG_COUNT];
 
 	usz stack_val_count;
 	usz stack_val_it;
 	amd64_stack_val_t* stack_layout;
 
+	usz* reg_lifetimes;
 	amd64_ireg_t* reg_map;
 
 	usz arg_num;

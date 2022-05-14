@@ -1,4 +1,10 @@
 
+u64 SYS_READ	:: 0,
+	SYS_WRITE	:: 1,
+	SYS_OPEN	:: 2,
+	SYS_CLOSE	:: 3,
+	SYS_EXIT	:: 60;
+
 u64 PATH_MAX :: 4096,
 	FILE_MAX :: 255;
 
@@ -15,11 +21,11 @@ u64 O_RDONLY	:: 0x00,
 
 
 let read :: i64(i64 fd, u8[] data) {
-	return syscall(0, fd, data.data, data.count);
+	return syscall(SYS_READ, fd, data.data, data.count);
 }
 
 let write :: i64(i64 fd, u8[] data) {
-	return syscall(1, fd, data.data, data.count);
+	return syscall(SYS_WRITE, fd, data.data, data.count);
 }
 
 let open :: i64(u8[] path, u64 flags, u64 mode) {
@@ -33,10 +39,14 @@ let open :: i64(u8[] path, u64 flags, u64 mode) {
 		path_nt[i] = path[i];
 	}
 	path_nt[path.count] = 0;
-	return syscall(2, path_nt.data, flags, mode);
+	return syscall(SYS_OPEN, path_nt.data, flags, mode);
 }
 
 let close :: i64(i64 fd) {
-	return syscall(3, fd);
+	return syscall(SYS_CLOSE, fd);
+}
+
+let exit :: void(i64 code) {
+	syscall(SYS_EXIT, code);
 }
 

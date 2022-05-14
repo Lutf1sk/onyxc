@@ -8,6 +8,7 @@
 
 #include <lt/align.h>
 #include <lt/io.h>
+#include <lt/str.h>
 
 static
 void fill_fh(lt_elf64_fh_t* fh) {
@@ -44,14 +45,13 @@ void fill_fh(lt_elf64_fh_t* fh) {
 	fh->sh_strtab_index = 0;
 }
 
-#define ENTRY_POINT 0x70000000
+#define LOAD_ADDR 0x70000000
 #define ALIGN_BYTES 4096
 static u8 align_buf[ALIGN_BYTES];
 
 void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	lt_elf64_fh_t fh;
 	fill_fh(&fh);
-	fh.entry = ENTRY_POINT;
 	fh.ph_count = 1;
 	fh.ph_offset = sizeof(fh);
 
@@ -64,6 +64,9 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 		if (cx->seg[i].stype == SEG_MCODE) {
 			amd64_instr_t* instrs = cx->seg[i].data;
 			usz instr_count = cx->seg[i].size;
+
+			if (lt_lstr_eq(cx->seg[i].name, CLSTR("main")))
+				fh.entry = LOAD_ADDR + bin_size;
 
 			for (usz i = 0; i < instr_count; ++i) {
 				u8 instr[16], *it = instr;
@@ -153,11 +156,14 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 		}
 	}
 
+	if (!fh.entry)
+		lt_ferrf("No 'main' function found\n");
+
 	lt_elf64_ph_t ph;
 	ph.type = LT_ELF_PH_TYPE_LOAD;
 	ph.flags = LT_ELF_PH_X | LT_ELF_PH_R | LT_ELF_PH_W;
 	ph.offset = ALIGN_BYTES; // !!
-	ph.vaddr = ENTRY_POINT;
+	ph.vaddr = LOAD_ADDR;
 	ph.paddr = 0;
 	ph.file_size = bin_size;
 	ph.mem_size = bin_size;

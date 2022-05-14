@@ -1,8 +1,11 @@
-let main :: isz() {
-// 	let asdf = "asdf";
+import "unix.nyx";
 
-	syscall(60, 69);
+let func :: isz() {
+	syscall(SYS_EXIT, 5);
 }
 
-// import "unix.nyx";
+let main :: isz() {
+	syscall(SYS_EXIT, 1);
+	return func();
+}
 

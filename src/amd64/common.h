@@ -36,22 +36,16 @@
 #define SIB_S4 2
 #define SIB_S8 3
 
-#define MVAL_INVAL 0
-#define MVAL_REG 1
-#define MVAL_LBL 2
-#define MVAL_DREG 3
-#define MVAL_DREG_DSP 4
-#define MVAL_DLBL 5
-#define MVAL_IMM 6
-#define MVAL_DIMM 7
+#define IREG_REG	0
+#define IREG_SEG	1
+#define IREG_IMM	2
+#define IREG_REF	16
 
-typedef
-struct amd64_mval {
-	u8 stype;
-	u8 reg;
-	u16 flags;
-	u32 disp;
-} amd64_mval_t;
+#define IREG_INIT(type, ...) { (type), __VA_ARGS__ }
+#define IREG(type, ...) ((amd64_ireg_t)IREG_INIT(type, __VA_ARGS__))
+#define XREG(reg) IREG(IREG_REG, .mreg = (reg))
+#define XIMMI(val) IREG(IREG_IMM, .imm = (val))
+#define XSEG(i) IREG(IREG_SEG, .seg = (i))
 
 typedef
 struct amd64_instr {

@@ -43,14 +43,14 @@ u8 reg_flags[AMD64_REG_COUNT] = {
 	REG_ALLOCATABLE | REG_CALLER_OWNED, // R15
 };
 
-u8 reg_alloc(amd64_ctx_t* cx) {
+u8 reg_alloc(amd64_ctx_t* cx, u32 ireg) {
 	for (usz i = 0; i < AMD64_REG_COUNT; ++i) {
 		if ((reg_flags[i] & REG_ALLOCATABLE) && !cx->reg_allocated[i]) {
-			cx->reg_allocated[i] = 1;
+			cx->reg_allocated[i] = ireg;
 			return i;
 		}
 	}
-	LT_ASSERT_NOT_REACHED();
+// 	LT_ASSERT_NOT_REACHED();
 	return REG_A;
 }
 
