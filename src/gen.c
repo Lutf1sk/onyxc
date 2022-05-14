@@ -226,18 +226,36 @@ static \
 ival_t gen_##name(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) { \
 	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) \
 		return IMMI(a1.uint_val op a2.uint_val); \
- \
+	\
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2); \
- \
+	\
 	u32 dst = alloc_reg(cx); \
 	emit(cx, ICODE3(instr, size, dst, r1, r2)); \
 	return REG(dst); \
+}
+
+OP_GEN(and, IR_AND, &)
+OP_GEN(or, IR_OR, |)
+OP_GEN(xor, IR_XOR, ^)
+
+static
+ival_t gen_negate(gen_ctx_t* cx, usz size, ival_t a) {
+	if (a.stype == IVAL_IMM)
+		return IMMI(-a.uint_val);
+	u32 r = ival_reg(cx, size, a), dst = alloc_reg(cx);
+	emit(cx, ICODE2(IR_NEG, size, dst, r));
+	return REG(dst);
 }
 
 static
 ival_t gen_add(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
 		return IMMI(a1.uint_val + a2.uint_val);
+
+	if (a1.stype == IVAL_IMM && a1.uint_val == 0)
+		return a2;
+	if (a2.stype == IVAL_IMM && a2.uint_val == 0)
+		return a1;
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
@@ -251,6 +269,11 @@ ival_t gen_sub(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
 		return IMMI(a1.uint_val - a2.uint_val);
 
+	if (a1.stype == IVAL_IMM && a1.uint_val == 0)
+		return gen_negate(cx, size, a2);
+	if (a2.stype == IVAL_IMM && a2.uint_val == 0)
+		return a1;
+
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
 	u32 dst = alloc_reg(cx);
@@ -258,10 +281,41 @@ ival_t gen_sub(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	return REG(dst);
 }
 
+#define OP_GEN_SHIFT(name, instr, op, sign) \
+static \
+ival_t gen_##name(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) { \
+	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) \
+		return IMMI(a1.sign##int_val op a2.sign##int_val); \
+ \
+	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, ISZ_8, a2); \
+ \
+	u32 dst = alloc_reg(cx); \
+	emit(cx, ICODE3(instr, size, dst, r1, r2)); \
+	return REG(dst); \
+}
+
+OP_GEN_SHIFT(ishl, IR_ISHL, <<, )
+OP_GEN_SHIFT(ushl, IR_USHL, <<, u)
+OP_GEN_SHIFT(ishr, IR_ISHR, >>, )
+OP_GEN_SHIFT(ushr, IR_USHR, >>, u)
+
 static
 ival_t gen_imul(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
 		return IMMI(a1.int_val * a2.int_val);
+
+	if (a1.stype == IVAL_IMM) {
+		switch (a1.uint_val) {
+		case 0: return IMMI(0);
+		case 1: return a2;
+		}
+	}
+	if (a2.stype == IVAL_IMM) {
+		switch (a2.uint_val) {
+		case 0: return IMMI(0);
+		case 1: return a1;
+		}
+	}
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
@@ -275,6 +329,19 @@ ival_t gen_umul(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
 		return IMMI(a1.uint_val * a2.uint_val);
 
+	if (a1.stype == IVAL_IMM) {
+		switch (a1.uint_val) {
+		case 0: return IMMI(0);
+		case 1: return a2;
+		}
+	}
+	if (a2.stype == IVAL_IMM) {
+		switch (a2.uint_val) {
+		case 0: return IMMI(0);
+		case 1: return a1;
+		}
+	}
+
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
 	u32 dst = alloc_reg(cx);
@@ -287,6 +354,19 @@ ival_t gen_idiv(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
 		return IMMI(a1.int_val / a2.int_val);
 
+	if (a1.stype == IVAL_IMM) {
+		switch (a1.uint_val) {
+//		case 0:
+		case 1: return a2;
+		}
+	}
+	if (a2.stype == IVAL_IMM) {
+		switch (a2.uint_val) {
+// 		case 0:
+		case 1: return a1;
+		}
+	}
+
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
 	u32 dst = alloc_reg(cx);
@@ -298,6 +378,19 @@ static
 ival_t gen_udiv(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
 		return IMMI(a1.uint_val / a2.uint_val);
+
+	if (a1.stype == IVAL_IMM) {
+		switch (a1.uint_val) {
+//		case 0:
+		case 1: return a2;
+		}
+	}
+	if (a2.stype == IVAL_IMM) {
+		switch (a2.uint_val) {
+// 		case 0:
+		case 1: return a1;
+		}
+	}
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
@@ -329,28 +422,6 @@ ival_t gen_urem(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 	emit(cx, ICODE3(IR_UREM, size, dst, r1, r2));
 	return REG(dst);
 }
-
-OP_GEN(and, IR_AND, &)
-OP_GEN(or, IR_OR, |)
-OP_GEN(xor, IR_XOR, ^)
-
-#define OP_GEN_SHIFT(name, instr, op, sign) \
-static \
-ival_t gen_##name(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) { \
-	if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) \
-		return IMMI(a1.sign##int_val op a2.sign##int_val); \
- \
-	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, ISZ_8, a2); \
- \
-	u32 dst = alloc_reg(cx); \
-	emit(cx, ICODE3(instr, size, dst, r1, r2)); \
-	return REG(dst); \
-}
-
-OP_GEN_SHIFT(ishl, IR_ISHL, <<, )
-OP_GEN_SHIFT(ushl, IR_USHL, <<, u)
-OP_GEN_SHIFT(ishr, IR_ISHR, >>, )
-OP_GEN_SHIFT(ushr, IR_USHR, >>, u)
 
 static
 ival_t gen_static_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
@@ -673,15 +744,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	// Unary
-	case EXPR_NEGATE: {
-		ival_t a = icode_gen_expr(cx, expr->child_1);
-		if (a.stype == IVAL_IMM)
-			return IMMI(-a.uint_val);
-		usz size = type_bytes(expr->type);
-		u32 r = ival_reg(cx, size, a), dst = alloc_reg(cx);
-		emit(cx, ICODE2(IR_NEG, size, dst, r));
-		return REG(dst);
-	}
+	case EXPR_NEGATE: return gen_negate(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1));
 
 	case EXPR_PFX_INCREMENT: {
 		ival_t a = icode_gen_expr(cx, expr->child_1);
