@@ -1146,13 +1146,18 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	// Misc.
 	case EXPR_SYSCALL: {
+		u32* arg_regs = lt_arena_reserve(cx->arena, 8 * sizeof(u32));
+
 		expr_t* it = expr->child_1;
 		usz argc = 0;
 		while (it) {
-			emit(cx, ICODE1(IR_SETARG, ISZ_64, ival_reg(cx, ISZ_64, icode_gen_expr(cx, it))));
+			arg_regs[argc++] = ival_reg(cx, ISZ_64, icode_gen_expr(cx, it));
 			it = it->next;
-			++argc;
 		}
+
+		for (usz i = 0; i < argc; ++i)
+			emit(cx, ICODE1(IR_SETARG, ISZ_64, arg_regs[i]));
+
 		u32 dst = alloc_reg(cx);
 		emit(cx, ICODE2(IR_SYSCALL, ISZ_64, dst, argc));
 		return REG(dst);
