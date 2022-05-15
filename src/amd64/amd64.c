@@ -357,7 +357,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	x64_mov(cx, XREG(REG_A), *reg0); \
 	amd64_ireg_t arg = *reg1; \
 	if (arg.type == IREG_IMM || arg.type == IREG_SEG) { \
-		arg = XREG(REG_D); \
+		arg = XREG(REG_C); \
 		x64_mov(cx, arg, *reg1); \
 	} \
 	emit_instr(cx, X64_CQO, 0, NULL); \
