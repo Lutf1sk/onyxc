@@ -103,32 +103,37 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				for (usz i = ext; var_op[i] && i < sizeof(op->var_ops[mi->var]); ++i)
 					*it++ = var_op[i];
 
+				b8 modrm = 0;
 				b8 imm = 0;
 				u8 imm_size = 0;
 				u8 arg_count = var->args & 0b11;
 				for (usz i = 0; i < arg_count; ++i) {
-					if (VARG_GET(var->args, i) == VMOD_IMM) {
+					u8 varg = VARG_GET(var->args, i);
+					if (varg == VMOD_IMM) {
 						imm_size = VARG_GET(var->sizes, i);
 						imm = 1;
-						break;
 					}
+					else if (varg == VMOD_MRM)
+						modrm = 1;
 				}
 
-				if (ext)
-					reg = var_op[0];
-				*it++ = MODRM(mi->mod, reg, rm);
+				if (modrm) {
+					if (ext)
+						reg = var_op[0];
+					*it++ = MODRM(mi->mod, reg, rm);
 
-				if (mi->mod != MOD_REG) {
-					if (rm == REG_SP)
-						*it++ = SIB(0, 0, REG_SP);
-					LT_ASSERT(rm != REG_BP);
+					if (mi->mod != MOD_REG) {
+						if (rm == REG_SP)
+							*it++ = SIB(0, 0, REG_SP);
+						LT_ASSERT(rm != REG_BP);
 
-					switch (mi->mod) {
-					case MOD_DSP8: *it++ = mi->disp; break;
-					case MOD_DSP32:
-						memcpy(it, &mi->disp, 4);
-						it += 4;
-						break;
+						switch (mi->mod) {
+						case MOD_DSP8: *it++ = mi->disp; break;
+						case MOD_DSP32:
+							memcpy(it, &mi->disp, 4);
+							it += 4;
+							break;
+						}
 					}
 				}
 
