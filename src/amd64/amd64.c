@@ -120,7 +120,23 @@ void ireg_end(amd64_ctx_t* cx, u32 reg, usz i) {
 }
 
 static
+b8 ireg_eq(amd64_ireg_t* v1, amd64_ireg_t* v2) {
+	if (v1->type != v2->type || v1->disp != v2->disp)
+		return 0;
+
+	switch (v1->type & ~IREG_REF) {
+	case IREG_REG: return v1->mreg == v2->mreg;
+	case IREG_IMM: return v1->imm == v2->imm;
+	default:
+		return 0;
+	}
+}
+
+static
 void x64_mov(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2) {
+	if (ireg_eq(&v1, &v2))
+		return;
+
 	amd64_ireg_t args[2] = {v1, v2};
 	emit_instr(cx, X64_MOV, 2, args);
 }
@@ -244,7 +260,9 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		cx->stack_layout[cx->stack_val_it++] = (amd64_stack_val_t){ stack_offs, ir->regs[0], ir->regs[1] };
 
 		write_var2(&mi, X64_LEA, VARG_64, VMOD_REG, VARG_64, VMOD_MRM);
-		if (stack_offs <= 0xFF)
+		if (!stack_offs)
+			mi.mod = MOD_DREG;
+		else if (stack_offs <= 0xFF)
 			mi.mod = MOD_DSP8;
 		else
 			mi.mod = MOD_DSP32;
@@ -255,16 +273,37 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		ireg_end(cx, ir->dst, i);
 	}	break;
 
-	case IR_LOAD: // !!
+	case IR_LOAD: {
 		*dst = XREG(reg_alloc(cx, ir->dst));
-		ireg_end(cx, ir->dst, i);
-		ireg_end(cx, ir->regs[0], i);
-		break;
 
-	case IR_STOR: // !!
+		amd64_ireg_t tmp_src = *reg0;
+		LT_ASSERT((!(reg0->type & IREG_REF)));
+		if (reg0->type == IREG_IMM) {
+			x64_mov(cx, XREG(REG_D), *reg0);
+			tmp_src = XREG(REG_D);
+		}
+		tmp_src.type |= IREG_REF;
+
+		x64_mov(cx, *dst, tmp_src);
+
 		ireg_end(cx, ir->dst, i);
 		ireg_end(cx, ir->regs[0], i);
-		break;
+	}	break;
+
+	case IR_STOR: {
+		amd64_ireg_t tmp_dst = *dst;
+		LT_ASSERT((!(dst->type & IREG_REF)));
+		if (dst->type == IREG_IMM) {
+			x64_mov(cx, XREG(REG_D), *dst);
+			tmp_dst = XREG(REG_D);
+		}
+		tmp_dst.type |= IREG_REF;
+
+		x64_mov(cx, tmp_dst, *reg0);
+
+		ireg_end(cx, ir->dst, i);
+		ireg_end(cx, ir->regs[0], i);
+	}	break;
 
 	case IR_TOU16:
 	case IR_TOU32:

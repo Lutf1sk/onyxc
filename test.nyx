@@ -1,3 +1,5 @@
+u8[8192] stack;
+
 import "unix.nyx";
 
 let func :: isz() {
@@ -5,7 +7,12 @@ let func :: isz() {
 }
 
 let main :: isz() {
-	syscall(SYS_EXIT, 1);
-	return func();
+	isz a;
+	isz b;
+
+	let ptr = &a;
+	*ptr = 5;
+
+	syscall(SYS_EXIT, *ptr);
 }
 

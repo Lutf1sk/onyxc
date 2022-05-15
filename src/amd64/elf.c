@@ -62,6 +62,8 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 
 	for (usz i = 0; i < cx->seg_count; ++i) {
 		if (cx->seg[i].stype == SEG_MCODE) {
+			lt_printf("%S: 0x%hz\n", cx->seg[i].name, LOAD_ADDR + bin_size);
+
 			amd64_instr_t* instrs = cx->seg[i].data;
 			usz instr_count = cx->seg[i].size;
 
@@ -116,6 +118,20 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 					reg = var_op[0];
 				*it++ = MODRM(mi->mod, reg, rm);
 
+				if (mi->mod != MOD_REG) {
+					if (rm == REG_SP)
+						*it++ = SIB(0, 0, REG_SP);
+					LT_ASSERT(rm != REG_BP);
+
+					switch (mi->mod) {
+					case MOD_DSP8: *it++ = mi->disp; break;
+					case MOD_DSP32:
+						memcpy(it, &mi->disp, 4);
+						it += 4;
+						break;
+					}
+				}
+
 				if (imm) {
 					u8 imm_bytes = 1 << imm_size;
 					memcpy(it, &mi->imm, imm_bytes); // TODO: Possible out-of-bounds read, since mi->imm is a u32
@@ -140,6 +156,8 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 
 		}
 		else if (cx->seg[i].stype == SEG_DATA) {
+			lt_printf("%S: 0x%hz\n", cx->seg[i].name, LOAD_ADDR + bin_size);
+
 			u8* seg_start = bin_data + bin_size;
 			usz new_bin_size = bin_size + lt_align_fwd(cx->seg[i].size, 16);
 
