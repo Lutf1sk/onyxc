@@ -1,13 +1,25 @@
-import "unix.nyx";
+import "io.nyx";
 
-// let func :: isz() {
-// 	syscall(SYS_EXIT, 5);
-// }
+let func :: isz() {
+	syscall(SYS_EXIT, 5);
+// 	let a = "ASDF";
+}
 
 let main :: isz() {
-	isz a = 5;
-	a /= 2;
+	timespec ts;
+	u64 start_ns, end_ns;
 
-	syscall(SYS_EXIT, a);
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	start_ns = ts.tv_sec*1000000000 + ts.tv_nsec;
+
+	for usz i..10000000 {}
+
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	end_ns = ts.tv_sec*1000000000 + ts.tv_nsec;
+
+	print_i64((end_ns - start_ns) / 1000000);
+	print("ms\n");
+
+	func();
 }
 

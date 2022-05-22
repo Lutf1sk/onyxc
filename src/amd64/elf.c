@@ -86,34 +86,33 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 
 				amd64_op_t* op = &ops[mi->op];
 				amd64_var_t* var = &op->vars[mi->var];
-				u8* var_op = op->var_ops[mi->var];
+				u8* var_op = var->instr;
 
 				u8 reg = mi->reg_rm & 0b111;
 				u8 rm = (mi->reg_rm >> 4) & 0b111;
 
-				u8 rex_w = !!(var->sizes & VARG_REX_W);
+				u8 rex_w = !!(var->flags & VFLAG_REX_W);
 				u8 rex_r = !!(mi->reg_rm & REG_REX_BIT);
 				u8 rex_b = !!(mi->reg_rm & (REG_REX_BIT << 4));
 
 				if (rex_w || rex_r || rex_b)
 					*it++ = REX(rex_w, rex_r, 0, rex_b);
 
-				u8 ext = !!(var->sizes & VARG_OP_EXT);
+				u8 ext = !!(var->flags & VFLAG_OP_EXT);
 
-				for (usz i = ext; var_op[i] && i < sizeof(op->var_ops[mi->var]); ++i)
+				for (usz i = ext; var_op[i] && i < sizeof(var->instr); ++i)
 					*it++ = var_op[i];
 
 				b8 modrm = 0;
 				b8 imm = 0;
 				u8 imm_size = 0;
-				u8 arg_count = var->args & 0b11;
-				for (usz i = 0; i < arg_count; ++i) {
-					u8 varg = VARG_GET(var->args, i);
-					if (varg == VMOD_IMM) {
-						imm_size = VARG_GET(var->sizes, i);
+				for (usz i = 0; i < var->arg_count; ++i) {
+					u8 varg = var->args[i] & VARG_TYPE_MASK;
+					if (varg == VARG_IMM) {
+						imm_size = var->args[i] & VARG_SIZE_MASK;
 						imm = 1;
 					}
-					else if (varg == VMOD_MRM)
+					else if (varg == VARG_MRM)
 						modrm = 1;
 				}
 

@@ -31,54 +31,6 @@ call_conv_t cconv_linux_syscall = {
 };
 
 static
-void write_var2(amd64_instr_t* mi, u8 op_i, u8 arg1_size, u8 arg1_type, u8 arg2_size, u8 arg2_type) {
-	amd64_op_t* op = &ops[op_i];
-
-	for (usz i = 0; i < op->var_count; ++i) {
-		amd64_var_t* var = &op->vars[i];
-		usz arg_count = var->args & 0b11;
-
-		if (arg_count != 2)
-			continue;
-
-		u8 size1 = VARG_GET(var->sizes, 0), size2 = VARG_GET(var->sizes, 1);
-		u8 arg1 = VARG_GET(var->args, 0), arg2 = VARG_GET(var->args, 1);
-
-		if (size1 == arg1_size && size2 == arg2_size && arg1 == arg1_type && arg2 == arg2_type) {
-			mi->op = op_i;
-			mi->var = i;
-			return;
-		}
-	}
-
-	LT_ASSERT_NOT_REACHED();
-}
-
-static
-void write_var1(amd64_instr_t* mi, u8 op_i, u8 arg_size, u8 arg_type) {
-	amd64_op_t* op = &ops[op_i];
-
-	for (usz i = 0; i < op->var_count; ++i) {
-		amd64_var_t* var = &op->vars[i];
-		usz arg_count = var->args & 0b11;
-
-		if (arg_count != 1)
-			continue;
-
-		u8 size = VARG_GET(var->sizes, 0);
-		u8 arg = VARG_GET(var->args, 0);
-
-		if (size == arg_size && arg == arg_type) {
-			mi->op = op_i;
-			mi->var = i;
-			return;
-		}
-	}
-
-	LT_ASSERT_NOT_REACHED();
-}
-
-static
 void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	icode_t* ir = &((icode_t*)seg->data)[i];
 
@@ -166,7 +118,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 	for (usz i = 0; i < op->var_count; ++i) {
 		amd64_var_t* var = &op->vars[i];
 
-		if ((var->args & 0b11) != arg_count)
+		if (var->arg_count != arg_count)
 			continue;
 
 		memset(&mi, 0, sizeof(mi));
@@ -175,30 +127,35 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 			amd64_ireg_t* ireg = &args[i];
 
 			u8 type = ireg->type;
-			u8 varg = VARG_GET(var->args, i);
+			u8 varg = var->args[i] & VARG_TYPE_MASK;
 
 			switch (type) {
 			case IREG_REG:
 				LT_ASSERT(ireg->disp == 0);
-				if (varg == VMOD_MRM) {
+				if (varg == VARG_MRM) {
 					mi.mod = MOD_REG;
 					mi.reg_rm |= ireg->mreg << 4;
 				}
-				else if (varg == VMOD_REG)
+				else if (varg == VARG_REG)
 					mi.reg_rm |= ireg->mreg;
 				else
 					goto next_var;
 				break;
 
 			case IREG_IMM:
+				if (varg != VARG_IMM)
+					goto next_var;
+				mi.imm = ireg->imm;
+				break;
+
 			case IREG_SEG:
-				if (varg != VMOD_IMM)
+				if (varg != VARG_IMM)
 					goto next_var;
 				mi.imm = ireg->imm;
 				break;
 
 			case IREG_REG | IREG_REF:
-				if (varg != VMOD_MRM)
+				if (varg != VARG_MRM)
 					goto next_var;
 				mi.reg_rm |= ireg->mreg << 4;
 
@@ -214,8 +171,13 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 				break;
 
 			case IREG_IMM | IREG_REF:
+				if (varg != VARG_MRM)
+					goto next_var;
+				break;
+
 			case IREG_SEG | IREG_REF:
-				LT_ASSERT_NOT_REACHED();
+				if (varg != VARG_MRM)
+					goto next_var;
 				break;
 			}
 		}
@@ -259,7 +221,8 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		}
 		cx->stack_layout[cx->stack_val_it++] = (amd64_stack_val_t){ stack_offs, ir->regs[0], ir->regs[1] };
 
-		write_var2(&mi, X64_LEA, VARG_64, VMOD_REG, VARG_64, VMOD_MRM);
+		mi.op = X64_LEA;
+		mi.var = 0; // !!
 		if (!stack_offs)
 			mi.mod = MOD_DREG;
 		else if (stack_offs <= 0xFF)
@@ -557,23 +520,22 @@ void amd64_print_instr(amd64_instr_t* instr) {
 		return;
 	}
 
-	usz arg_count = var->args & 0b11;
-
-	lt_printf("%ud %S ", arg_count, op->str);
+	lt_printf("%ud %S ", var->arg_count, op->str);
 
 	u8 reg = instr->reg_rm & 0b1111;
 	u8 rm = instr->reg_rm >> 4;
 
-	for (usz i = 0; i < arg_count; ++i) {
+	for (usz i = 0; i < var->arg_count; ++i) {
 		if (i)
 			lt_printls(CLSTR(", "));
 
-		u8 size = VARG_GET(var->sizes, i);
+		u8 arg = var->args[i];
+		u8 size = arg & VARG_SIZE_MASK;
 
-		switch (VARG_GET(var->args, i)) {
-		case VMOD_REG: lt_printf("%S", reg_names[reg][size]); break;
-		case VMOD_MRM: print_modrm(instr->mod, rm, size, instr->disp); break;
-		case VMOD_IMM: lt_printf("0x%hq", instr->imm); break;
+		switch (arg & VARG_TYPE_MASK) {
+		case VARG_REG: lt_printf("%S", reg_names[reg][size]); break;
+		case VARG_MRM: print_modrm(instr->mod, rm, size, instr->disp); break;
+		case VARG_IMM: lt_printf("0x%hq", instr->imm); break;
 		}
 	}
 }

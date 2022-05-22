@@ -43,34 +43,36 @@
 
 #define X64_INT 29
 
-#define VMOD_REG 0b00
-#define VMOD_MRM 0b01
-#define VMOD_IMM 0b10
+#define VARG_8		0b000000
+#define VARG_16		0b000001
+#define VARG_32		0b000010
+#define VARG_64		0b000011
+#define VARG_REG	0b000000
+#define VARG_MRM	0b000100
+#define VARG_IMM	0b001000
+#define VARG_IP_REL	0b010000
+#define VARG_NIP	0b100000
 
-#define VARG_8	0
-#define VARG_16	1
-#define VARG_32	2
-#define VARG_64	3
+#define VARG_SIZE_MASK 0b000011
+#define VARG_TYPE_MASK 0b001100
+#define VARG_FLAG_MASK 0b110000
 
-#define VARG_OP_EXT 0b01
-#define VARG_REX_W	0b10
-
-#define VARG(n, x) (x << ((n) * 2 + 2))
-#define VARG_GET(x, n) (((x) >> ((n) * 2 + 2)) & 0b11)
+#define VFLAG_OP_EXT	0b0100
+#define VFLAG_REX_W		0b1000
 
 typedef
 struct amd64_var {
-	u8 args;
-	u8 sizes;
+	u8 args[2];
+	u8 flags;
+	u8 arg_count;
+
+	u8 instr[8];
 } amd64_var_t;
 
 typedef
 struct amd64_op {
 	lstr_t str;
-
-	// Variations
 	amd64_var_t* vars;
-	u8 (*var_ops)[4];
 	u8 var_count;
 } amd64_op_t;
 

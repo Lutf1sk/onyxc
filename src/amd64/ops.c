@@ -1,211 +1,108 @@
 #include "ops.h"
 
+#define OP(name, count, ...) { CLSTR(name), (amd64_var_t[]){__VA_ARGS__}, count }
+#define VAR0(f, ...) { .arg_count = 0, .flags = (f), .instr = __VA_ARGS__ }
+#define VAR1(a1, f, ...) { .args = {(a1), 0}, .arg_count = 1, .flags = (f), .instr = __VA_ARGS__ }
+#define VAR2(a1, a2, f, ...) { .args = {(a1), (a2)}, .arg_count = 2, .flags = (f), .instr = __VA_ARGS__ }
+
 amd64_op_t ops[] = {
-	{ CLSTR("add"), (amd64_var_t[]) {
-		{ 2 | VARG(0, VMOD_REG) | VARG(1, VMOD_MRM), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_REG), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_32) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 0x01 },
-		{ 0x03 },
-		{ 0, 0x81 },
-	}, 3 },
+	OP("add", 3,
+		VAR2(VARG_REG|VARG_64, VARG_MRM|VARG_64, VFLAG_REX_W, { 0x01 }),
+		VAR2(VARG_MRM|VARG_64, VARG_REG|VARG_64, VFLAG_REX_W, { 0x03 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_32, VFLAG_REX_W|VFLAG_OP_EXT, { 0, 0x81 })),
 
-	{ CLSTR("sub"), (amd64_var_t[]) {
-		{ 2 | VARG(0, VMOD_REG) | VARG(1, VMOD_MRM), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_REG), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_32) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 0x29 },
-		{ 0x2B },
-		{ 5, 0x81 },
-	}, 3 },
+	OP("sub", 3,
+		VAR2(VARG_REG|VARG_64, VARG_MRM|VARG_64, VFLAG_REX_W, { 0x29 }),
+		VAR2(VARG_MRM|VARG_64, VARG_REG|VARG_64, VFLAG_REX_W, { 0x2B }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_32, VFLAG_REX_W|VFLAG_OP_EXT, { 5, 0x81 })),
 
-	{ CLSTR("and"), (amd64_var_t[]) {
-		{ 2 | VARG(0, VMOD_REG) | VARG(1, VMOD_MRM), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_REG), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_32) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 0x23 },
-		{ 0x21 },
-		{ 4, 0x81 },
-	}, 3 },
+	OP("and", 3,
+		VAR2(VARG_REG|VARG_64, VARG_MRM|VARG_64, VFLAG_REX_W, { 0x23 }),
+		VAR2(VARG_MRM|VARG_64, VARG_REG|VARG_64, VFLAG_REX_W, { 0x21 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_32, VFLAG_REX_W|VFLAG_OP_EXT, { 4, 0x81 })),
 
-	{ CLSTR("or"), (amd64_var_t[]) {
-		{ 2 | VARG(0, VMOD_REG) | VARG(1, VMOD_MRM), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_REG), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_32) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 0x0B },
-		{ 0x09 },
-		{ 1, 0x81 },
-	}, 3 },
+	OP("or", 3,
+		VAR2(VARG_REG|VARG_64, VARG_MRM|VARG_64, VFLAG_REX_W, { 0x0B }),
+		VAR2(VARG_MRM|VARG_64, VARG_REG|VARG_64, VFLAG_REX_W, { 0x09 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_32, VFLAG_REX_W|VFLAG_OP_EXT, { 1, 0x81 })),
 
-	{ CLSTR("xor"), (amd64_var_t[]) {
-		{ 2 | VARG(0, VMOD_REG) | VARG(1, VMOD_MRM), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_REG), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_32) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 0x33 },
-		{ 0x31 },
-		{ 6, 0x81 },
-	}, 3 },
+	OP("xor", 3,
+		VAR2(VARG_REG|VARG_64, VARG_MRM|VARG_64, VFLAG_REX_W, { 0x33 }),
+		VAR2(VARG_MRM|VARG_64, VARG_REG|VARG_64, VFLAG_REX_W, { 0x31 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_32, VFLAG_REX_W|VFLAG_OP_EXT, { 6, 0x81 })),
 
-	{ CLSTR("shl"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_8) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 4, 0xD3 },
-		{ 4, 0xC1 },
-	}, 2 },
+	OP("shl", 2,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 4, 0xD3 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_8, VFLAG_REX_W|VFLAG_OP_EXT, { 4, 0xC1 })),
 
-	{ CLSTR("shr"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_8) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 5, 0xD3 },
-		{ 5, 0xC1 },
-	}, 2 },
+	OP("shr", 2,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 5, 0xD3 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_8, VFLAG_REX_W|VFLAG_OP_EXT, { 5, 0xC1 })),
 
-	{ CLSTR("sal"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_8) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 4, 0xD3 },
-		{ 4, 0xC1 },
-	}, 2 },
+	OP("sal", 2,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 4, 0xD3 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_8, VFLAG_REX_W|VFLAG_OP_EXT, { 4, 0xC1 })),
 
-	{ CLSTR("sar"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_8) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 7, 0xD3 },
-		{ 7, 0xC1 },
-	}, 2 },
+	OP("sar", 2,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 7, 0xD3 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_8, VFLAG_REX_W|VFLAG_OP_EXT, { 7, 0xC1 })),
 
-	{ CLSTR("neg"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 3, 0xF7 },
-	}, 1 },
+	OP("neg", 1,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 3, 0xF7 })),
 
-	{ CLSTR("inc"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 0, 0xFF },
-	}, 1 },
+	OP("inc", 1,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 0, 0xFF })),
 
-	{ CLSTR("dec"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 1, 0xFF },
-	}, 1 },
+	OP("inc", 1,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 1, 0xFF })),
 
-	{ CLSTR("mov"), (amd64_var_t[]) {
-		{ 2 | VARG(0, VMOD_REG) | VARG(1, VMOD_MRM), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_REG), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-		{ 2 | VARG(0, VMOD_MRM) | VARG(1, VMOD_IMM), VARG(0, VARG_64) | VARG(1, VARG_32) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 0x8B },
-		{ 0x89 },
-		{ 0, 0xC7 },
-	}, 3 },
+	OP("mov", 3,
+		VAR2(VARG_REG|VARG_64, VARG_MRM|VARG_64, VFLAG_REX_W, { 0x8B }),
+		VAR2(VARG_MRM|VARG_64, VARG_REG|VARG_64, VFLAG_REX_W, { 0x89 }),
+		VAR2(VARG_MRM|VARG_64, VARG_IMM|VARG_32, VFLAG_REX_W|VFLAG_OP_EXT, { 0, 0xC7 })),
 
-	{ CLSTR("lea"), (amd64_var_t[]) {
-		{ 2 | VARG(0, VMOD_REG) | VARG(1, VMOD_MRM), VARG(0, VARG_64) | VARG(1, VARG_64) | VARG_REX_W },
-	}, (u8[][4]){
-		{ 0x8D },
-	}, 1 },
+	OP("lea", 1,
+		VAR2(VARG_REG|VARG_64, VARG_MRM|VARG_64, VFLAG_REX_W, { 0x8D })),
 
-	{ CLSTR("movzx") },
-	{ CLSTR("movsx") },
+	OP("movzx", 0),
+	OP("movsx", 0),
 
-	{ CLSTR("jmp"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_IMM), VARG(0, VARG_64) },
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT },
-	}, (u8[][4]){
-		{ 0xE9 },
-		{ 4, 0xFF },
-	}, 2 },
+	OP("jmp", 2,
+		VAR1(VARG_IMM|VARG_32, 0, { 0xE9 }),
+		VAR1(VARG_MRM|VARG_64, VFLAG_OP_EXT, { 4, 0xFF })),
 
-	{ CLSTR("call"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_IMM), VARG(0, VARG_64) },
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT },
-	}, (u8[][4]){
-		{ 0xE8 },
-		{ 2, 0xFF },
-	}, 2 },
+	OP("call", 2,
+		VAR1(VARG_IMM|VARG_32, 0, { 0xE8 }),
+		VAR1(VARG_MRM|VARG_64, VFLAG_OP_EXT, { 2, 0xFF })),
 
-	{ CLSTR("ret"), (amd64_var_t[]) {
-		{ 0, 0 },
-	}, (u8[][4]){
-		{ 0xCB },
-	}, 1 },
+	OP("ret", 1,
+		VAR0(0, { 0xC3 })),
 
-	{ CLSTR("syscall"), (amd64_var_t[]) {
-		{ 0, 0 },
-	}, (u8[][4]){
-		{ 0x0F, 0x05 },
-	}, 1 },
+	OP("syscall", 1,
+		VAR0(0, { 0x0F, 0x05 })),
 
-	{ CLSTR("ir_enter"), (amd64_var_t[]) {
-		{ 0, 0 },
-	}, (u8[][4]){
-		{ }
-	}, 0 },
+	OP("ir_enter", 0),
+	OP("ir_ret", 0),
 
-	{ CLSTR("ir_ret"), (amd64_var_t[]) {
-		{ 0, 0 },
-	}, (u8[][4]){
-		{ },
-	}, 0 },
+	OP("div", 1,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 6, 0xF7 })),
 
-	{ CLSTR("div"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 6, 0xF7 },
-	}, 1 },
+	OP("idiv", 1,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 7, 0xF7 })),
 
-	{ CLSTR("idiv"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 7, 0xF7 },
-	}, 1 },
+	OP("cqo", 1,
+		VAR0(VFLAG_REX_W, { 0x99 })),
 
-	{ CLSTR("cqo"), (amd64_var_t[]) {
-		{ 0, VARG_REX_W },
-	}, (u8[][4]){
-		{ 0x99 },
-	}, 1 },
+	OP("mul", 1,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 4, 0xF7 })),
 
-	{ CLSTR("mul"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 4, 0xF7 },
-	}, 1 },
+	OP("imul", 1,
+		VAR1(VARG_MRM|VARG_64, VFLAG_REX_W|VFLAG_OP_EXT, { 5, 0xF7 })),
 
-	{ CLSTR("imul"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_MRM), VARG(0, VARG_64) | VARG_OP_EXT | VARG_REX_W },
-	}, (u8[][4]){
-		{ 5, 0xF7 },
-	}, 1 },
+	OP("movsb", 0), // 0xA4
+	OP("movsw", 0), // 0xA5
 
-	{ CLSTR("movsb"), (amd64_var_t[]) {
-		{ 0 },
-	}, (u8[][4]){
-		{ 0xA4 },
-	}, 1 },
-
-	{ CLSTR("movsw"), (amd64_var_t[]) {
-		{ 0 },
-	}, (u8[][4]){
-		{ 0xA5 },
-	}, 1 },
-
-	{ CLSTR("int"), (amd64_var_t[]) {
-		{ 1 | VARG(0, VMOD_IMM), VARG(0, VARG_8) },
-	}, (u8[][4]){
-		{ 0xCD },
-	}, 1 },
+	OP("int", 1,
+		VAR1(VARG_IMM|VARG_8, 0, { 0xCD })),
 };
 

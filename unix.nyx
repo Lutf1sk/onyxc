@@ -1,9 +1,26 @@
 
-u64 SYS_READ	:: 0,
-	SYS_WRITE	:: 1,
-	SYS_OPEN	:: 2,
-	SYS_CLOSE	:: 3,
-	SYS_EXIT	:: 60;
+u64 SYS_READ			:: 0,
+	SYS_WRITE			:: 1,
+	SYS_OPEN			:: 2,
+	SYS_CLOSE			:: 3,
+	SYS_EXIT			:: 60,
+	SYS_TIME			:: 201,
+	SYS_CLOCK_GETTIME	:: 228;
+
+
+u64 CLOCK_REALTIME				:: 0,
+	CLOCK_MONOTONIC				:: 1,
+	CLOCK_PROCESS_CPUTIME_ID	:: 2,
+	CLOCK_THREAD_CPUTIME_ID		:: 3;
+
+def timespec :: struct {
+	u64 tv_sec;
+	u64 tv_nsec;
+}
+
+let clock_gettime :: i64(i32 clockid, timespec* ts) {
+	return syscall(SYS_CLOCK_GETTIME, clockid, ts);
+}
 
 u64 PATH_MAX :: 4096,
 	FILE_MAX :: 255;
@@ -18,7 +35,6 @@ u64 O_RDONLY	:: 0x00,
 	S_IRUSR 	:: 0x100,
 	S_IWUSR 	:: 0x80,
 	S_IXUSR 	:: 0x40;
-
 
 let read :: i64(i64 fd, u8[] data) {
 	return syscall(SYS_READ, fd, data.data, data.count);
