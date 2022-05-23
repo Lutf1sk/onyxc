@@ -5,9 +5,8 @@ let func :: isz(i32 code) {
 }
 
 let main :: isz() {
-	u64 func_addr = 0x700003CA;
-
-	(isz(i32): func_addr)(3);
+	let func_ptr :: isz(i32): 0x700003CA;
+	func_ptr(3);
 
 	timespec ts;
 	u64 start_ns, end_ns;

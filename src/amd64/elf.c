@@ -105,12 +105,14 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 
 				b8 modrm = 0;
 				b8 imm = 0;
+				u8 imm_flags = 0;
 				u8 imm_size = 0;
 				for (usz i = 0; i < var->arg_count; ++i) {
 					u8 varg = var->args[i] & VARG_TYPE_MASK;
 					if (varg == VARG_IMM) {
 						imm_size = var->args[i] & VARG_SIZE_MASK;
 						imm = 1;
+						imm_flags = var->args[i] & VARG_FLAG_MASK;
 					}
 					else if (varg == VARG_MRM)
 						modrm = 1;
@@ -137,8 +139,16 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				}
 
 				if (imm) {
+					u64 imm_val = mi->imm;
 					u8 imm_bytes = 1 << imm_size;
-					memcpy(it, &mi->imm, imm_bytes); // TODO: Possible out-of-bounds read, since mi->imm is a u32
+
+					if (imm_flags & VARG_NIP)
+						imm_val += it - instr + imm_bytes;
+
+					if (imm_flags & VARG_IP_REL)
+						imm_val -= (LOAD_ADDR + bin_size);
+
+					memcpy(it, &imm_val, imm_bytes); // TODO: Possible out-of-bounds read, since mi->imm is a u32
 					it += imm_bytes;
 				}
 

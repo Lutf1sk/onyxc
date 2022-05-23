@@ -68,11 +68,11 @@ amd64_op_t ops[] = {
 	OP("movsx", 0),
 
 	OP("jmp", 2,
-		VAR1(VARG_IMM|VARG_32, 0, { 0xE9 }),
+		VAR1(VARG_IMM|VARG_32|VARG_IP_REL, 0, { 0xE9 }),
 		VAR1(VARG_MRM|VARG_64, VFLAG_OP_EXT, { 4, 0xFF })),
 
 	OP("call", 2,
-		VAR1(VARG_IMM|VARG_32, 0, { 0xE8 }),
+		VAR1(VARG_IMM|VARG_32|VARG_IP_REL|VARG_NIP, 0, { 0xE8 }),
 		VAR1(VARG_MRM|VARG_64, VFLAG_OP_EXT, { 2, 0xFF })),
 
 	OP("ret", 1,
