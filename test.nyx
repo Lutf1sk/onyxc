@@ -1,11 +1,14 @@
 import "io.nyx";
 
-let func :: isz() {
-	syscall(SYS_EXIT, 5);
-// 	let a = "ASDF";
+let func :: isz(i32 code) {
+	syscall(SYS_EXIT, code);
 }
 
 let main :: isz() {
+	u64 func_addr = 0x700003CA;
+
+	(isz(i32): func_addr)(3);
+
 	timespec ts;
 	u64 start_ns, end_ns;
 
@@ -20,6 +23,6 @@ let main :: isz() {
 	print_i64((end_ns - start_ns) / 1000000);
 	print("ms\n");
 
-	func();
+	exit(69);
 }
 

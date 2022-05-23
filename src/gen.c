@@ -501,7 +501,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 			if (!sym /*|| !(sym->flags & SYMFL_ACCESSED)*/)
 				continue;
 			gen_sym_def(cx, sym, NULL);
-			emit(cx, ICODE1(IR_GETARG, type_bytes(sym->type), sym->val.reg));
+			emit(cx, ICODE2(IR_GETARG, type_bytes(sym->type), sym->val.reg, i));
 		}
 
 		icode_gen_stmt(cx, expr->stmt);
@@ -858,7 +858,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 func_addr = ival_reg(cx, ISZ_64, icode_gen_expr(cx, expr->child_1));
 
 		for (usz i = 0; i < arg_count; ++i)
-			emit(cx, ICODE1(IR_SETARG, arg_sizes[i], arg_regs[i]));
+			emit(cx, ICODE2(IR_SETARG, arg_sizes[i], arg_regs[i], i));
 
 		emit(cx, ICODE3(IR_CALL, ret_size, func_addr, ret_val.reg, REG_COUNT));
 		return ret_val;
@@ -1156,7 +1156,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		}
 
 		for (usz i = 0; i < argc; ++i)
-			emit(cx, ICODE1(IR_SETARG, ISZ_64, arg_regs[i]));
+			emit(cx, ICODE2(IR_SETARG, ISZ_64, arg_regs[i], i));
 
 		u32 dst = alloc_reg(cx);
 		emit(cx, ICODE2(IR_SYSCALL, ISZ_64, dst, argc));

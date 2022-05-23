@@ -46,7 +46,8 @@ struct amd64_ctx {
 	usz* reg_lifetimes;
 	amd64_ireg_t* reg_map;
 
-	usz arg_num;
+	usz arg_ir_indices[32];
+	usz arg_num, arg_index_max;
 } amd64_ctx_t;
 
 void amd64_gen(amd64_ctx_t* cx);

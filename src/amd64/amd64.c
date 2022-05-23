@@ -19,19 +19,22 @@ struct call_conv {
 } call_conv_t;
 
 static
-call_conv_t cconv_sysv = {
-	.reg_count = 6,
-	.regs = (u8[]){ REG_DI, REG_SI, REG_D, REG_C, REG_8, REG_9 },
-};
-
-static
-call_conv_t cconv_linux_syscall = {
-	.reg_count = 7,
-	.regs = (u8[]){ REG_A, REG_DI, REG_SI, REG_D, REG_10, REG_8, REG_9 },
+call_conv_t cconvs[] = {
+#define CCONV_SYSV 0
+	{
+		.reg_count = 6,
+		.regs = (u8[]){ REG_DI, REG_SI, REG_D, REG_C, REG_8, REG_9 },
+	},
+#define CCONV_LINUX_SYSCALL 1
+	{
+		.reg_count = 7,
+		.regs = (u8[]){ REG_A, REG_DI, REG_SI, REG_D, REG_10, REG_8, REG_9 },
+	},
 };
 
 static
 void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
+	icode_t* ir_arr = seg->data;
 	icode_t* ir = &((icode_t*)seg->data)[i];
 
 	#define UPD(r) (cx->reg_lifetimes[r] = i)
@@ -43,8 +46,32 @@ void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_IPO: UPD(ir->dst); break;
 	case IR_SEG: UPD(ir->dst); break;
 	case IR_ENTER: break;
-	case IR_CALL: UPD(ir->dst); UPD(ir->regs[0]); break;
-	case IR_SYSCALL: UPD(ir->dst); break;
+
+	case IR_CALL: UPD(ir->dst); UPD(ir->regs[0]);
+		for (usz i = 0; i < cx->arg_index_max; ++i)
+			ir_arr[cx->arg_ir_indices[i]].regs[1] = CCONV_SYSV;
+		break;
+
+	case IR_SYSCALL: UPD(ir->dst);
+		for (usz i = 0; i < cx->arg_index_max; ++i)
+			ir_arr[cx->arg_ir_indices[i]].regs[1] = CCONV_LINUX_SYSCALL;
+		break;
+
+	case IR_SETARG: {
+		u32 arg_index = ir->regs[0];
+		if (!arg_index)
+			cx->arg_index_max = 0;
+		else
+			cx->arg_index_max++;
+		UPD(ir->dst);
+		cx->arg_ir_indices[arg_index] = i;
+	}	break;
+
+	case IR_GETARG:
+		UPD(ir->dst);
+		cx->arg_ir_indices[ir->regs[0]] = i;
+		break;
+
 	default:
 		if (ir->dst)
 			UPD(ir->dst);
@@ -268,21 +295,21 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		ireg_end(cx, ir->regs[0], i);
 	}	break;
 
-	case IR_TOU16:
-	case IR_TOU32:
-	case IR_TOU64:
-		*dst = XREG(reg_alloc(cx, ir->dst));
-		ireg_end(cx, ir->dst, i);
-		ireg_end(cx, ir->regs[0], i);
-		break;
+// 	case IR_TOU16:
+// 	case IR_TOU32:
+// 	case IR_TOU64:
+// 		*dst = XREG(reg_alloc(cx, ir->dst));
+// 		ireg_end(cx, ir->dst, i);
+// 		ireg_end(cx, ir->regs[0], i);
+// 		break;
 
-	case IR_TOI16:
-	case IR_TOI32:
-	case IR_TOI64:
-		*dst = XREG(reg_alloc(cx, ir->dst));
-		ireg_end(cx, ir->dst, i);
-		ireg_end(cx, ir->regs[0], i);
-		break;
+// 	case IR_TOI16:
+// 	case IR_TOI32:
+// 	case IR_TOI64:
+// 		*dst = XREG(reg_alloc(cx, ir->dst));
+// 		ireg_end(cx, ir->dst, i);
+// 		ireg_end(cx, ir->regs[0], i);
+// 		break;
 
 #define GENERIC2(x) { \
 		*dst = XREG(init_new_reg(cx, ir->regs[0], i)); \
@@ -357,12 +384,16 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		emit(cx, mi);
 		break;
 
-	case IR_GETARG:
+	case IR_GETARG: {
+		amd64_ireg_t dst_tmp = *dst;
+		LT_ASSERT(!(dst->type & IREG_REF));
+		dst_tmp.type |= IREG_REF;
+		x64_mov(cx, dst_tmp, XREG(cconvs[CCONV_SYSV].regs[ir->regs[0]]));
 		ireg_end(cx, ir->dst, i);
-		break;
+	}	break;
 
-	case IR_SETARG: { // !!
-		u8 reg = cconv_linux_syscall.regs[cx->arg_num++];
+	case IR_SETARG: {
+		u8 reg = cconvs[ir->regs[1]].regs[cx->arg_num++];
 		x64_mov(cx, XREG(reg), *dst);
 		ireg_end(cx, ir->dst, i);
 	}	break;

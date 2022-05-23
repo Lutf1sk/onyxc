@@ -230,8 +230,10 @@ int main(int argc, char** argv) {
 				case IR_SRESV: lt_printf("%ud %ud\n", ic.regs[0], ic.regs[1]); break;
 				case IR_IPO: lt_printf("%iq\n", ic.int_val); break;
 				case IR_SEG: lt_printf("%ud\n", ic.regs[0]); break;
-				case IR_CALL: lt_printf("r%iq %iq\n", ic.regs[0], ic.regs[1]); break;
+				case IR_CALL: lt_printf("r%ud %ud\n", ic.regs[0], ic.regs[1]); break;
 				case IR_SYSCALL: lt_printf("%ud\n", ic.regs[0]); break;
+				case IR_SETARG: lt_printf("%ud\n", ic.regs[0]); break;
+				case IR_GETARG: lt_printf("%ud\n", ic.regs[0]); break;
 				default:
 					for (usz i = 0; i < 2; ++i)
 						if (ic.regs[i])
