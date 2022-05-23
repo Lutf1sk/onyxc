@@ -178,6 +178,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 			case IREG_SEG:
 				if (varg != VARG_IMM)
 					goto next_var;
+				mi.flags[i] = MI_SEG;
 				mi.imm = ireg->imm;
 				break;
 
@@ -205,6 +206,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 			case IREG_SEG | IREG_REF:
 				if (varg != VARG_MRM)
 					goto next_var;
+				mi.flags[i] = MI_SEG;
 				break;
 			}
 		}
@@ -232,7 +234,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 
 	switch (ir->op) {
 	case IR_INT: *dst = XIMMI(ir->uint_val); break;
-	case IR_SEG: *dst = XSEG(ir->uint_val | 0x10000000); break;
+	case IR_SEG: *dst = XSEG(ir->uint_val); break;
 	case IR_IPO: // !!
 		*dst = XREG(reg_alloc(cx, ir->dst));
 		ireg_end(cx, ir->dst, i);
@@ -499,7 +501,7 @@ void amd64_gen(amd64_ctx_t* cx) {
 
 		memset(cx->reg_allocated, 0, sizeof(cx->reg_allocated));
 
-		cx->curr_func = new_mcode_seg(cx, cs->type, cs->name);
+		cx->curr_func = new_mcode_seg(cx, cs->type, cs->name, i);
 		cx->stack_val_count = 0;
 		cx->stack_val_it = 0;
 		cx->arg_num = 0;

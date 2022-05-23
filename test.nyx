@@ -1,12 +1,7 @@
 import "io.nyx";
 
-let func :: isz(i32 code) {
-	syscall(SYS_EXIT, code);
-}
-
 let main :: isz() {
-	let func_ptr :: isz(i32): 0x700003CA;
-	func_ptr(3);
+	exit(69);
 
 	timespec ts;
 	u64 start_ns, end_ns;
@@ -21,7 +16,5 @@ let main :: isz() {
 
 	print_i64((end_ns - start_ns) / 1000000);
 	print("ms\n");
-
-	exit(69);
 }
 

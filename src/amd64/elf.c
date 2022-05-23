@@ -63,6 +63,9 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	for (usz i = 0; i < cx->seg_count; ++i) {
 		if (cx->seg[i].stype == SEG_MCODE) {
 			lt_printf("%S: 0x%hz\n", cx->seg[i].name, LOAD_ADDR + bin_size);
+			cx->seg[i].load_at = LOAD_ADDR + bin_size;
+			u32 seg_origin = cx->seg[i].origin;
+			cx->seg[seg_origin].load_at = LOAD_ADDR + bin_size;
 
 			amd64_instr_t* instrs = cx->seg[i].data;
 			usz instr_count = cx->seg[i].size;
@@ -107,12 +110,14 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				b8 imm = 0;
 				u8 imm_flags = 0;
 				u8 imm_size = 0;
+				u8 imm_mi_flags = 0;
 				for (usz i = 0; i < var->arg_count; ++i) {
 					u8 varg = var->args[i] & VARG_TYPE_MASK;
 					if (varg == VARG_IMM) {
 						imm_size = var->args[i] & VARG_SIZE_MASK;
 						imm = 1;
 						imm_flags = var->args[i] & VARG_FLAG_MASK;
+						imm_mi_flags = mi->flags[i];
 					}
 					else if (varg == VARG_MRM)
 						modrm = 1;
@@ -142,13 +147,16 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 					u64 imm_val = mi->imm;
 					u8 imm_bytes = 1 << imm_size;
 
+					if (imm_mi_flags & MI_SEG) {
+						imm_val = cx->seg[imm_val].load_at;
+						LT_ASSERT(imm_val);
+					}
 					if (imm_flags & VARG_NIP)
 						imm_val += it - instr + imm_bytes;
-
 					if (imm_flags & VARG_IP_REL)
 						imm_val -= (LOAD_ADDR + bin_size);
 
-					memcpy(it, &imm_val, imm_bytes); // TODO: Possible out-of-bounds read, since mi->imm is a u32
+					memcpy(it, &imm_val, imm_bytes);
 					it += imm_bytes;
 				}
 
@@ -171,6 +179,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 		}
 		else if (cx->seg[i].stype == SEG_DATA) {
 			lt_printf("%S: 0x%hz\n", cx->seg[i].name, LOAD_ADDR + bin_size);
+			cx->seg[i].load_at = LOAD_ADDR + bin_size;
 
 			u8* seg_start = bin_data + bin_size;
 			usz new_bin_size = bin_size + lt_align_fwd(cx->seg[i].size, 16);

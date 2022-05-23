@@ -73,7 +73,7 @@
 #define XIMMI(val) IREG(IREG_IMM, .imm = (val))
 #define XSEG(i) IREG(IREG_SEG, .seg = (i))
 
-#define MI_SEGMENT 1
+#define MI_SEG 1
 
 typedef
 struct amd64_instr {
@@ -88,6 +88,6 @@ struct amd64_instr {
 
 usz emit(amd64_ctx_t* cx, amd64_instr_t instr);
 
-usz new_mcode_seg(amd64_ctx_t* cx, type_t* type, lstr_t name);
+usz new_mcode_seg(amd64_ctx_t* cx, type_t* type, lstr_t name, u32 origin);
 
 #endif
