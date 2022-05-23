@@ -7,6 +7,30 @@
 #define AMD64_BLOCK_SIZE 512
 #define AMD64_BLOCK_MASK (AMD64_BLOCK_SIZE-1)
 
+void ireg_copy(amd64_ctx_t* cx, u32 dst, u32 src) {
+	amd64_ireg_t* dst_ireg = &cx->reg_map[dst];
+	amd64_ireg_t* src_ireg = &cx->reg_map[src];
+
+	if ((src_ireg->type & ~IREG_REF) != IREG_REG) {
+		*dst_ireg = *src_ireg;
+		return;
+	}
+
+	if (cx->reg_lifetimes[dst] > cx->reg_lifetimes[src])
+		cx->reg_lifetimes[src] = 0;
+	else
+		cx->reg_lifetimes[dst] = 0;
+	*dst_ireg = *src_ireg;
+}
+
+b8 ireg_reg_pure(amd64_ireg_t* ireg) {
+	return ireg->type == IREG_REG && !ireg->disp;
+}
+
+b8 ireg_reg_displaced(amd64_ireg_t* ireg) {
+	return ireg->type == IREG_REG && ireg->disp;
+}
+
 usz emit(amd64_ctx_t* cx, amd64_instr_t instr) {
 	LT_ASSERT(cx->curr_func != -1);
 

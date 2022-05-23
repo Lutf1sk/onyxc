@@ -45,6 +45,35 @@ void fill_fh(lt_elf64_fh_t* fh) {
 	fh->sh_strtab_index = 0;
 }
 
+typedef
+struct elf_ctx {
+	usz bin_size, bin_asize;
+	u8* bin_data;
+} elf_ctx_t;
+
+static
+usz make_space(elf_ctx_t* cx, usz size, usz align) {
+	if (!align)
+		align = 1;
+
+	usz offs = lt_align_fwd(cx->bin_size, align);
+	cx->bin_size = offs + size;
+	while (cx->bin_size > cx->bin_asize) {
+		cx->bin_asize <<= 1;
+		cx->bin_data = realloc(cx->bin_data, cx->bin_asize);
+		LT_ASSERT(cx->bin_data);
+	}
+	return offs;
+}
+
+static
+usz write(elf_ctx_t* cx, void* mem, usz size, usz align) {
+	usz offs = make_space(cx, size, align);
+	void* addr = cx->bin_data + offs;
+	memcpy(addr, mem, size);
+	return offs;
+}
+
 #define LOAD_ADDR 0x70000000
 #define ALIGN_BYTES 4096
 static u8 align_buf[ALIGN_BYTES];
@@ -55,23 +84,26 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	fh.ph_count = 1;
 	fh.ph_offset = sizeof(fh);
 
-	usz bin_size = 0;
-	usz bin_asize = 1024;
-	u8* bin_data = malloc(bin_asize);
-	LT_ASSERT(bin_data);
+	elf_ctx_t elf_cx;
+	elf_cx.bin_size = 0;
+	elf_cx.bin_asize = 1024;
+	elf_cx.bin_data = malloc(elf_cx.bin_asize);
+	LT_ASSERT(elf_cx.bin_data);
 
 	for (usz i = 0; i < cx->seg_count; ++i) {
-		if (cx->seg[i].stype == SEG_MCODE) {
-			lt_printf("%S: 0x%hz\n", cx->seg[i].name, LOAD_ADDR + bin_size);
-			cx->seg[i].load_at = LOAD_ADDR + bin_size;
-			u32 seg_origin = cx->seg[i].origin;
-			cx->seg[seg_origin].load_at = LOAD_ADDR + bin_size;
+		seg_ent_t* seg = &cx->seg[i];
+		usz load_addr = LOAD_ADDR + make_space(&elf_cx, 0, 16);
 
-			amd64_instr_t* instrs = cx->seg[i].data;
-			usz instr_count = cx->seg[i].size;
+		if (seg->stype == SEG_MCODE) {
+			lt_printf("%S: 0x%hz\n", seg->name, load_addr);
+			seg->load_at = load_addr;
+			cx->seg[seg->origin].load_at = load_addr;
 
-			if (lt_lstr_eq(cx->seg[i].name, CLSTR("main")))
-				fh.entry = LOAD_ADDR + bin_size;
+			amd64_instr_t* instrs = seg->data;
+			usz instr_count = seg->size;
+
+			if (lt_lstr_eq(seg->name, CLSTR("main")))
+				fh.entry = load_addr;
 
 			for (usz i = 0; i < instr_count; ++i) {
 				u8 instr[16], *it = instr;
@@ -80,12 +112,24 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				for (usz i = 0; mi->prefix[i] && i < sizeof(mi->prefix); ++i)
 					*it++ = mi->prefix[i];
 
-				if (mi->op == X64_IR_ENTER)
-					continue;
-				if (mi->op == X64_IR_RET) {
-					*it++ = 0xCB;
-					goto write_instr;
-				}
+// 				if (mi->op == X64_IR_ENTER) {
+// 					u8 frame_creat[] = {
+// 						REX(1,0,0,0), 0x81, MODRM(MOD_REG,5,REG_SP), 0,0,0,0, // sub rsp, 0
+// 					};
+// 					*(u32*)&frame_creat[3] = seg->frame_size;
+// 					write(&elf_cx, frame_creat, sizeof(frame_creat), 0);
+// 					continue;
+// 				}
+// 				if (mi->op == X64_IR_RET) {
+// 					u8 frame_destr[] = {
+// 						REX(1,0,0,0), 0x81, MODRM(MOD_REG,0,REG_SP), 0,0,0,0, // add rsp, 0
+// 						0xCB, // ret
+// 					};
+// 					*(u32*)&frame_destr[3] = seg->frame_size;
+// 					lt_printf("frame_size %ud\n", seg->frame_size);
+// 					write(&elf_cx, frame_destr, sizeof(frame_destr), 0);
+// 					continue;
+// 				}
 
 				amd64_op_t* op = &ops[mi->op];
 				amd64_var_t* var = &op->vars[mi->var];
@@ -130,7 +174,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 
 					if (mi->mod != MOD_REG) {
 						if (rm == REG_SP)
-							*it++ = SIB(0, 0, REG_SP);
+							*it++ = SIB(SIB_S1, REG_SP, REG_SP);
 						LT_ASSERT(rm != REG_BP);
 
 						switch (mi->mod) {
@@ -151,49 +195,28 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 						imm_val = cx->seg[imm_val].load_at;
 						LT_ASSERT(imm_val);
 					}
-					if (imm_flags & VARG_NIP)
-						imm_val += it - instr + imm_bytes;
-					if (imm_flags & VARG_IP_REL)
-						imm_val -= (LOAD_ADDR + bin_size);
+
+					if (imm_flags & VARG_IP_REL) {
+						imm_val -= LOAD_ADDR + elf_cx.bin_size;
+						if (imm_flags & VARG_NIP)
+							imm_val -= (it - instr) + imm_bytes;
+					}
 
 					memcpy(it, &imm_val, imm_bytes);
 					it += imm_bytes;
 				}
 
-			write_instr:
-				usz written = it - instr;
-				LT_ASSERT(written);
-
-				usz new_bin_size = bin_size + written;
-				while (bin_asize > new_bin_size) {
-					bin_asize >>= 1;
-					bin_data = realloc(bin_data, new_bin_size);
-					LT_ASSERT(bin_data);
-				}
-				memcpy(bin_data + bin_size, instr, written);
-				bin_size += written;
+				write(&elf_cx, instr, it - instr, 0);
 			}
-
 			// TODO: Backpatching...
-
 		}
-		else if (cx->seg[i].stype == SEG_DATA) {
-			lt_printf("%S: 0x%hz\n", cx->seg[i].name, LOAD_ADDR + bin_size);
-			cx->seg[i].load_at = LOAD_ADDR + bin_size;
+		else if (seg->stype == SEG_DATA) {
+			lt_printf("%S: 0x%hz\n", seg->name, load_addr);
+			seg->load_at = load_addr;
 
-			u8* seg_start = bin_data + bin_size;
-			usz new_bin_size = bin_size + lt_align_fwd(cx->seg[i].size, 16);
-
-			while (bin_asize > new_bin_size) {
-				bin_asize >>= 1;
-				bin_data = realloc(bin_data, new_bin_size);
-				LT_ASSERT(bin_data);
-			}
+			write(&elf_cx, seg->data, seg->size, 16);
 
 			// TODO: Backpatching...
-
-			memcpy(seg_start, cx->seg[i].data, cx->seg[i].size);
-			bin_size = new_bin_size;
 		}
 	}
 
@@ -206,8 +229,8 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	ph.offset = ALIGN_BYTES; // !!
 	ph.vaddr = LOAD_ADDR;
 	ph.paddr = 0;
-	ph.file_size = bin_size;
-	ph.mem_size = bin_size;
+	ph.file_size = elf_cx.bin_size;
+	ph.mem_size = elf_cx.bin_size;
 	ph.alignment = ALIGN_BYTES;
 
 	lt_file_t* f = lt_file_open(cx->arena, path, LT_FILE_W, LT_FILE_PERMIT_X);
@@ -217,9 +240,9 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	lt_file_write(f, &fh, sizeof(fh));
 	lt_file_write(f, &ph, sizeof(ph));
 	lt_file_write(f, align_buf, ALIGN_BYTES - (sizeof(fh) + sizeof(ph))); // !!
-	lt_file_write(f, bin_data, bin_size);
+	lt_file_write(f, elf_cx.bin_data, elf_cx.bin_size);
 
-	free(bin_data);
+	free(elf_cx.bin_data);
 
 	lt_file_close(f);
 }

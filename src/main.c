@@ -259,7 +259,7 @@ int main(int argc, char** argv) {
 				if (x64.seg[i].stype != SEG_MCODE)
 					continue;
 
-				lt_printf("M-CS %uq '%S':\n", i, x64.seg[i].name);
+				lt_printf("\nM-CS %uq '%S':\n", i, x64.seg[i].name);
 				amd64_print_seg(&x64, i);
 			}
 

@@ -24,9 +24,9 @@ lstr_t reg_names[AMD64_REG_COUNT][4] = {
 };
 
 u8 reg_flags[AMD64_REG_COUNT] = {
-	0, // A
-	0, // C
-	0, // D
+	REG_SCRATCH, // A
+	REG_SCRATCH, // C
+	REG_SCRATCH, // D
 	REG_ALLOCATABLE | REG_CALLER_OWNED, // B
 	REG_CALLER_OWNED, // SP
 	REG_CALLER_OWNED, // BP
@@ -50,6 +50,19 @@ u8 reg_alloc(amd64_ctx_t* cx, u32 ireg) {
 			return i;
 		}
 	}
+// 	LT_ASSERT_NOT_REACHED();
+	return REG_A;
+}
+
+u8 reg_scratch(amd64_ctx_t* cx, u32 offs) {
+	for (usz i = 0; i < AMD64_REG_COUNT; ++i) {
+		if (reg_flags[i] & REG_SCRATCH) {
+			if (offs--)
+				continue;
+			return i;
+		}
+	}
+
 	LT_ASSERT_NOT_REACHED();
 	return REG_A;
 }

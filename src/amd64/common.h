@@ -84,7 +84,20 @@ struct amd64_instr {
 	u32 imm, disp;
 } amd64_instr_t;
 
-#define IREG_CONST
+static LT_INLINE
+usz max(usz a, usz b) {
+	return a > b ? a : b;
+}
+
+static LT_INLINE
+usz min(usz a, usz b) {
+	return a < b ? a : b;
+}
+
+void ireg_copy(amd64_ctx_t* cx, u32 dst, u32 src);
+
+b8 ireg_reg_pure(amd64_ireg_t* ireg);
+b8 ireg_reg_displaced(amd64_ireg_t* ireg);
 
 usz emit(amd64_ctx_t* cx, amd64_instr_t instr);
 

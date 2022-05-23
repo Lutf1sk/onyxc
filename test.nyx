@@ -1,20 +1,19 @@
 import "io.nyx";
 
 let main :: isz() {
-	exit(69);
-
 	timespec ts;
 	u64 start_ns, end_ns;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	start_ns = ts.tv_sec*1000000000 + ts.tv_nsec;
 
-	for usz i..10000000 {}
+// 	for usz i..10000000 {}
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	end_ns = ts.tv_sec*1000000000 + ts.tv_nsec;
 
-	print_i64((end_ns - start_ns) / 1000000);
+// 	print_i64((end_ns - start_ns) / 1000000);
 	print("ms\n");
+	exit(69);
 }
 
