@@ -308,6 +308,10 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 	next_var:
 	}
 
+	lt_printf("Invalid operands to '%S' ", op->str);
+	for (usz i = 0; i < arg_count; ++i)
+		lt_printf("type:%ud ", args[i].type);
+	lt_printc('\n');
 	LT_ASSERT_NOT_REACHED();
 }
 
@@ -325,7 +329,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_INT: *dst = XIMMI(ir->uint_val); break;
 	case IR_SEG: *dst = XSEG(ir->uint_val); break;
 	case IR_IPO: // !!
-		*dst = XREG(reg_alloc(cx, ir->dst));
+		*dst = XIMMI(0xABC);
 		break;
 
 	case IR_SRESV:
@@ -504,23 +508,69 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		cx->arg_num = 0;
 		break;
 
-	case IR_CSETG: case IR_CSETGE: case IR_CSETL: case IR_CSETLE:
-	case IR_CSETA: case IR_CSETAE: case IR_CSETB: case IR_CSETBE:
-	case IR_CSETE: case IR_CSETNE:
+#define GENERIC4(x) { \
+	*dst = XREG(reg_alloc(cx, ir->dst)); \
+	zero_reg(cx, dst->mreg); \
+	amd64_ireg_t args[2] = { *reg0, *reg1 }; \
+	emit_instr(cx, X64_CMP, 2, args); \
+	emit_instr(cx, (x), 1, dst); \
+}
+
+	case IR_CSETG: GENERIC4(X64_SETG); break;
+	case IR_CSETGE: GENERIC4(X64_SETGE); break;
+	case IR_CSETL: GENERIC4(X64_SETL); break;
+	case IR_CSETLE: GENERIC4(X64_SETLE); break;
+	case IR_CSETA: GENERIC4(X64_SETA); break;
+	case IR_CSETAE: GENERIC4(X64_SETAE); break;
+	case IR_CSETB: GENERIC4(X64_SETB); break;
+	case IR_CSETBE: GENERIC4(X64_SETBE); break;
+	case IR_CSETE: GENERIC4(X64_SETE); break;
+	case IR_CSETNE: GENERIC4(X64_SETNE); break;
+
+	case IR_CSETZ: {
 		*dst = XREG(reg_alloc(cx, ir->dst));
-		break;
+		zero_reg(cx, dst->mreg);
+		amd64_ireg_t args[2] = { *reg0, *reg0 };
+		emit_instr(cx, X64_TEST, 2, args);
+		emit_instr(cx, X64_SETZ, 1, dst);
+	}	break;
 
-	case IR_CSETZ: case IR_CSETNZ:
+	case IR_CSETNZ: {
 		*dst = XREG(reg_alloc(cx, ir->dst));
-		break;
+		zero_reg(cx, dst->mreg);
+		amd64_ireg_t args[2] = { *reg0, *reg0 };
+		emit_instr(cx, X64_TEST, 2, args);
+		emit_instr(cx, X64_SETNZ, 1, dst);
+	}	break;
 
-	case IR_CJMPG: case IR_CJMPGE: case IR_CJMPL: case IR_CJMPLE:
-	case IR_CJMPA: case IR_CJMPAE: case IR_CJMPB: case IR_CJMPBE:
-	case IR_CJMPE: case IR_CJMPNE:
-		break;
+#define GENERIC5(x) { \
+	amd64_ireg_t args[2] = { *reg0, *reg1 }; \
+	emit_instr(cx, X64_CMP, 2, args); \
+	emit_instr(cx, (x), 1, dst); \
+}
 
-	case IR_CJMPZ: case IR_CJMPNZ:
-		break;
+	case IR_CJMPG: GENERIC5(X64_JG); break;
+	case IR_CJMPGE: GENERIC5(X64_JGE); break;
+	case IR_CJMPL: GENERIC5(X64_JL); break;
+	case IR_CJMPLE: GENERIC5(X64_JLE); break;
+	case IR_CJMPA: GENERIC5(X64_JA); break;
+	case IR_CJMPAE: GENERIC5(X64_JAE); break;
+	case IR_CJMPB: GENERIC5(X64_JB); break;
+	case IR_CJMPBE: GENERIC5(X64_JBE); break;
+	case IR_CJMPE: GENERIC5(X64_JE); break;
+	case IR_CJMPNE: GENERIC5(X64_JNE); break;
+
+	case IR_CJMPZ: {
+		amd64_ireg_t args[2] = { *reg0, *reg0 };
+		emit_instr(cx, X64_TEST, 2, args);
+		emit_instr(cx, X64_JZ, 1, dst);
+	}	break;
+
+	case IR_CJMPNZ: {
+		amd64_ireg_t args[2] = { *reg0, *reg0 };
+		emit_instr(cx, X64_TEST, 2, args);
+		emit_instr(cx, X64_JNZ, 1, dst);
+	}	break;
 
 	case IR_JMP: {
 		emit_instr(cx, X64_JMP, 1, dst);

@@ -43,6 +43,35 @@
 
 #define X64_INT 29
 
+#define X64_SETA	30
+#define X64_SETAE	31
+#define X64_SETB	32
+#define X64_SETBE	33
+#define X64_SETE	34
+#define X64_SETG	35
+#define X64_SETGE	36
+#define X64_SETL	37
+#define X64_SETLE	38
+#define X64_SETNE	39
+#define X64_SETNZ	40
+#define X64_SETZ	41
+
+#define X64_JA	42
+#define X64_JAE	43
+#define X64_JB	44
+#define X64_JBE	45
+#define X64_JE	46
+#define X64_JG	47
+#define X64_JGE	48
+#define X64_JL	49
+#define X64_JLE	50
+#define X64_JNE	51
+#define X64_JNZ	52
+#define X64_JZ	53
+
+#define X64_CMP 54
+#define X64_TEST 55
+
 #define VARG_8		0b000000
 #define VARG_16		0b000001
 #define VARG_32		0b000010
