@@ -25,5 +25,6 @@ typedef struct exec_ctx exec_ctx_t;
 typedef struct amd64_ctx amd64_ctx_t;
 typedef struct amd64_instr amd64_instr_t;
 typedef struct amd64_ireg amd64_ireg_t;
+typedef struct amd64_lbl amd64_lbl_t;
 
 #endif

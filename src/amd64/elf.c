@@ -2,6 +2,7 @@
 #include "common.h"
 #include "ops.h"
 #include "regs.h"
+#include "lbl.h"
 
 #include "../elf.h"
 #include "../segment.h"
@@ -49,6 +50,7 @@ typedef
 struct elf_ctx {
 	usz bin_size, bin_asize;
 	u8* bin_data;
+	lt_arena_t* arena;
 } elf_ctx_t;
 
 static
@@ -78,6 +80,20 @@ usz write(elf_ctx_t* cx, void* mem, usz size, usz align) {
 #define ALIGN_BYTES 4096
 static u8 align_buf[ALIGN_BYTES];
 
+static
+b8 elf_resolve_lbls(elf_ctx_t* cx, amd64_lbl_t* lbl, u32 i) {
+	if (!lbl || lbl->i != i)
+		return 0;
+
+	lbl->m_i = cx->bin_size;
+	for (usz i = 0; i < lbl->ref_count; ++i) {
+		u32* ptr = (u32*)(cx->bin_data + lbl->refs[i]);
+		*ptr += lbl->m_i;
+	}
+
+	return 1;
+}
+
 void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	lt_elf64_fh_t fh;
 	fill_fh(&fh);
@@ -88,6 +104,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	elf_cx.bin_size = 0;
 	elf_cx.bin_asize = 1024;
 	elf_cx.bin_data = malloc(elf_cx.bin_asize);
+	elf_cx.arena = cx->arena;
 	LT_ASSERT(elf_cx.bin_data);
 
 	for (usz i = 0; i < cx->seg_count; ++i) {
@@ -99,6 +116,11 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 			seg->load_at = load_addr;
 			cx->seg[seg->origin].load_at = load_addr;
 
+			cx->lbl = NULL;
+			for (amd64_lbl_t* it = seg->lbl; it; it = it->next)
+				new_lbl(cx, it->m_i);
+			cx->lbl_it = cx->lbl;
+
 			amd64_instr_t* instrs = seg->data;
 			usz instr_count = seg->size;
 
@@ -106,30 +128,16 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				fh.entry = load_addr;
 
 			for (usz i = 0; i < instr_count; ++i) {
+				if (elf_resolve_lbls(&elf_cx, cx->lbl_it, i)) {
+					lt_printf("Resolved %uz refs to %uz\n", cx->lbl_it->ref_count, i);
+					cx->lbl_it = cx->lbl_it->next;
+				}
+
 				u8 instr[16], *it = instr;
 
 				amd64_instr_t* mi = &instrs[i];
 				for (usz i = 0; mi->prefix[i] && i < sizeof(mi->prefix); ++i)
 					*it++ = mi->prefix[i];
-
-// 				if (mi->op == X64_IR_ENTER) {
-// 					u8 frame_creat[] = {
-// 						REX(1,0,0,0), 0x81, MODRM(MOD_REG,5,REG_SP), 0,0,0,0, // sub rsp, 0
-// 					};
-// 					*(u32*)&frame_creat[3] = seg->frame_size;
-// 					write(&elf_cx, frame_creat, sizeof(frame_creat), 0);
-// 					continue;
-// 				}
-// 				if (mi->op == X64_IR_RET) {
-// 					u8 frame_destr[] = {
-// 						REX(1,0,0,0), 0x81, MODRM(MOD_REG,0,REG_SP), 0,0,0,0, // add rsp, 0
-// 						0xCB, // ret
-// 					};
-// 					*(u32*)&frame_destr[3] = seg->frame_size;
-// 					lt_printf("frame_size %ud\n", seg->frame_size);
-// 					write(&elf_cx, frame_destr, sizeof(frame_destr), 0);
-// 					continue;
-// 				}
 
 				amd64_op_t* op = &ops[mi->op];
 				amd64_var_t* var = &op->vars[mi->var];
@@ -191,16 +199,25 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 					u64 imm_val = mi->imm;
 					u8 imm_bytes = 1 << imm_size;
 
+					if (imm_mi_flags & MI_LBL) {
+						amd64_lbl_t* lbl = find_lbl(cx, mi->imm);
+						if (lbl->m_i)
+							imm_val = LOAD_ADDR + lbl->m_i;
+						else {
+							if (!lbl->ref_count)
+								lbl->refs = lt_arena_reserve(cx->arena, sizeof(u32) * 16); // !! Terrible, horrible stuff. Fix this
+							imm_val = LOAD_ADDR;
+							lbl->refs[lbl->ref_count++] = elf_cx.bin_size + (it - instr);
+						}
+					}
+
 					if (imm_mi_flags & MI_SEG) {
 						imm_val = cx->seg[imm_val].load_at;
 						LT_ASSERT(imm_val);
 					}
 
-					if (imm_flags & VARG_IP_REL) {
-						imm_val -= LOAD_ADDR + elf_cx.bin_size;
-						if (imm_flags & VARG_NIP)
-							imm_val -= (it - instr) + imm_bytes;
-					}
+					if (imm_flags & VARG_REL)
+						imm_val -= LOAD_ADDR + elf_cx.bin_size + (it - instr) + imm_bytes;
 
 					memcpy(it, &imm_val, imm_bytes);
 					it += imm_bytes;

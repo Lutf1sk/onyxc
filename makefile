@@ -22,7 +22,8 @@ OBJS = \
 	src/amd64/ops.o \
 	src/amd64/regs.o \
 	src/amd64/common.o \
-	src/amd64/elf.o
+	src/amd64/elf.o \
+	src/amd64/lbl.o
 
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 

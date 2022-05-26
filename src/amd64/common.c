@@ -1,5 +1,6 @@
 #include "common.h"
 #include "amd64.h"
+#include "lbl.h"
 
 #include "../interm.h"
 #include "../segment.h"
@@ -31,15 +32,18 @@ b8 ireg_reg_displaced(amd64_ireg_t* ireg) {
 	return ireg->type == IREG_REG && ireg->disp;
 }
 
-usz emit(amd64_ctx_t* cx, amd64_instr_t instr) {
+usz emit(amd64_ctx_t* cx, amd64_instr_t mi) {
 	LT_ASSERT(cx->curr_func != -1);
 
 	seg_ent_t* ent = &cx->seg[cx->curr_func];
-
 	if (!(ent->size & AMD64_BLOCK_MASK))
 		ent->data = realloc(ent->data, (ent->size + AMD64_BLOCK_SIZE) * sizeof(amd64_instr_t));
 
-	((amd64_instr_t*)ent->data)[ent->size] = instr;
+	((amd64_instr_t*)ent->data)[ent->size] = mi;
+
+	if ((mi.flags[0] & MI_LBL) || (mi.flags[1] & MI_LBL))
+		add_lbl_ref(cx, find_lbl(cx, mi.imm), ent->size);
+
 	return ent->size++;
 }
 

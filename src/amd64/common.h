@@ -65,6 +65,7 @@
 #define IREG_REG 0
 #define IREG_SEG 1
 #define IREG_IMM 2
+#define IREG_LBL 3
 #define IREG_REF 4
 
 #define IREG_INIT(type, ...) { (type), __VA_ARGS__ }
@@ -72,8 +73,10 @@
 #define XREG(reg) IREG(IREG_REG, .mreg = (reg))
 #define XIMMI(val) IREG(IREG_IMM, .imm = (val))
 #define XSEG(i) IREG(IREG_SEG, .seg = (i))
+#define XLBL(i) IREG(IREG_LBL, .lbl = (i))
 
 #define MI_SEG 1
+#define MI_LBL 2
 
 typedef
 struct amd64_instr {

@@ -18,8 +18,18 @@ struct amd64_ireg {
 	union {
 		u32 imm;
 		u32 seg;
+		u32 lbl;
 	};
 } amd64_ireg_t;
+
+typedef
+struct amd64_lbl {
+	u32 i;
+	u32 m_i;
+	usz ref_count;
+	u32* refs;
+	struct amd64_lbl* next;
+} amd64_lbl_t;
 
 typedef
 struct amd64_ctx {
@@ -37,6 +47,8 @@ struct amd64_ctx {
 
 	usz* reg_lifetimes;
 	amd64_ireg_t* reg_map;
+
+	amd64_lbl_t* lbl, *lbl_it;
 
 	usz arg_ir_indices[32];
 	usz arg_num, arg_index_max;

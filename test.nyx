@@ -7,7 +7,7 @@ let main :: isz() {
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	start_ns = ts.tv_sec*1000000000 + ts.tv_nsec;
 
-	for usz i..10000000 {}
+	for usz i..5 { print("asdf\n"); }
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	end_ns = ts.tv_sec*1000000000 + ts.tv_nsec;

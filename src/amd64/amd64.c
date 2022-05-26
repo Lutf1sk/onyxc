@@ -9,6 +9,7 @@
 #include "ops.h"
 #include "regs.h"
 #include "common.h"
+#include "lbl.h"
 
 static void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args);
 
@@ -75,8 +76,15 @@ void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	switch (ir->op) {
 	case IR_INT: UPD(ir->dst); break;
 	case IR_FLOAT: UPD(ir->dst); break;
-	case IR_SRESV: sresv(cx, ir->regs[0], ir->regs[1]); UPD(ir->dst); break;
-	case IR_IPO: UPD(ir->dst); break;
+
+	case IR_SRESV: UPD(ir->dst);
+		sresv(cx, ir->regs[0], ir->regs[1]);
+		break;
+
+	case IR_IPO: UPD(ir->dst);
+		new_lbl(cx, (isz)i + ir->int_val);
+		break;
+
 	case IR_SEG: UPD(ir->dst); break;
 	case IR_ENTER: break;
 
@@ -229,6 +237,11 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 			x64_mov(cx, XREG(tmpreg), args[1]);
 			args[1] = XREG(tmpreg);
 		}
+		if (args[0].type == IREG_IMM || args[0].type == IREG_SEG || args[0].type == IREG_LBL) {
+			u32 tmpreg = reg_scratch(cx, 1);
+			x64_mov(cx, XREG(tmpreg), args[0]);
+			args[0] = XREG(tmpreg);
+		}
 	}
 
 	for (usz i = 0; i < op->var_count; ++i) {
@@ -271,6 +284,13 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 				mi.imm = ireg->imm;
 				break;
 
+			case IREG_LBL:
+				if (varg != VARG_IMM)
+					goto next_var;
+				mi.flags[i] = MI_LBL;
+				mi.imm = ireg->imm;
+				break;
+
 			case IREG_REG | IREG_REF:
 				if (varg != VARG_MRM)
 					goto next_var;
@@ -296,6 +316,9 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args) {
 				if (varg != VARG_MRM)
 					goto next_var;
 				mi.flags[i] = MI_SEG;
+				LT_ASSERT_NOT_REACHED();
+
+			case IREG_LBL | IREG_REF:
 				LT_ASSERT_NOT_REACHED();
 			}
 		}
@@ -325,12 +348,12 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	amd64_ireg_t* reg0 = &cx->reg_map[ir->regs[0]];
 	amd64_ireg_t* reg1 = &cx->reg_map[ir->regs[1]];
 
+	resolve_lbls(cx, i);
+
 	switch (ir->op) {
 	case IR_INT: *dst = XIMMI(ir->uint_val); break;
 	case IR_SEG: *dst = XSEG(ir->uint_val); break;
-	case IR_IPO: // !!
-		*dst = XIMMI(0xABC);
-		break;
+	case IR_IPO: *dst = XLBL((isz)i + ir->int_val); break;
 
 	case IR_SRESV:
 		*dst = XREG(REG_SP);
@@ -639,11 +662,16 @@ void amd64_gen(amd64_ctx_t* cx) {
 		cx->curr_func = new_mcode_seg(cx, cs->type, cs->name, i);
 		cx->stack_top = 0;
 		cx->arg_num = 0;
+		cx->lbl = NULL;
+
+		seg_ent_t* ms = &cx->seg[cx->curr_func];
 
 		lt_printf("Assembling CS %uq -> M-CS %uq\n", i, cx->curr_func);
 
 		for (usz i = 0; i < cs->size; ++i)
 			prepass_icode(cx, cs, i);
+
+		cx->lbl_it = cx->lbl;
 
 		cx->frame_size = sresv(cx, 0, 16);
 		cx->stack_top = 0;
@@ -654,6 +682,8 @@ void amd64_gen(amd64_ctx_t* cx) {
 		for (usz i = 0 ; i < AMD64_REG_COUNT; ++i)
 			if (cx->reg_allocated[i])
 				lt_printf("Leaked register %S (r%ud)\n", reg_names[i][VARG_64], cx->reg_allocated[i]);
+
+		ms->lbl = cx->lbl;
 	}
 }
 
@@ -673,7 +703,7 @@ void amd64_print_seg(amd64_ctx_t* cx, usz i) {
 	usz mcode_count = cx->seg[i].size;
 
 	for (usz i = 0; i < mcode_count; ++i) {
-		lt_printc('\t');
+		lt_printf("\t(%uz)\t", i);
 		amd64_print_instr(cx, &mcode[i]);
 		lt_printc('\n');
 	}
@@ -706,6 +736,8 @@ void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr) {
 		case VARG_IMM:
 			if (instr->flags[i] & MI_SEG)
 				lt_printf("<%S>", cx->seg[instr->imm].name);
+			else if (instr->flags[i] & MI_LBL)
+				lt_printf("(%id)", instr->imm);
 			else
 				lt_printf("0x%hq", instr->imm);
 			break;
