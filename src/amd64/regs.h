@@ -35,6 +35,5 @@ u8 reg_alloc(amd64_ctx_t* cx, u32 ireg);
 u8 reg_scratch(amd64_ctx_t* cx, u32 offs);
 
 b8 reg_free(amd64_ctx_t* cx, u8 reg);
-void zero_reg(amd64_ctx_t* cx, u8 reg);
 
 #endif

@@ -24,19 +24,19 @@ lstr_t reg_names[AMD64_REG_COUNT][4] = {
 };
 
 u8 reg_flags[AMD64_REG_COUNT] = {
-	REG_SCRATCH, // A
-	REG_SCRATCH, // C
-	REG_SCRATCH, // D
+	0, // A
+	0, // C
+	0, // D
 	REG_ALLOCATABLE | REG_CALLER_OWNED, // B
 	REG_CALLER_OWNED, // SP
-	REG_CALLER_OWNED, // BP
-	REG_ALLOCATABLE, // SI
-	REG_ALLOCATABLE, // DI
+	REG_ALLOCATABLE | REG_CALLER_OWNED, // BP
+	0, // SI
+	0, // DI
 
-	REG_ALLOCATABLE, // R8
-	REG_ALLOCATABLE, // R9
-	REG_ALLOCATABLE, // R10
-	REG_ALLOCATABLE, // R11
+	0, // R8
+	0, // R9
+	REG_SCRATCH, // R10
+	REG_SCRATCH, // R11
 	REG_ALLOCATABLE | REG_CALLER_OWNED, // R12
 	REG_ALLOCATABLE | REG_CALLER_OWNED, // R13
 	REG_ALLOCATABLE | REG_CALLER_OWNED, // R14
@@ -50,7 +50,7 @@ u8 reg_alloc(amd64_ctx_t* cx, u32 ireg) {
 			return i;
 		}
 	}
-// 	LT_ASSERT_NOT_REACHED();
+	LT_ASSERT_NOT_REACHED();
 	return REG_A;
 }
 
@@ -72,14 +72,4 @@ b8 reg_free(amd64_ctx_t* cx, u8 reg) {
 	cx->reg_allocated[reg] = 0;
 	return prev;
 }
-
-void zero_reg(amd64_ctx_t* cx, u8 reg) {
-	amd64_instr_t instr;
-	instr.op = X64_XOR;
-	instr.var = 0;
-	instr.reg_rm = reg | (reg << 4);
-	instr.mod = MOD_REG;
-	emit(cx, instr);
-}
-
 

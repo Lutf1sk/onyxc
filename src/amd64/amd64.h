@@ -13,7 +13,9 @@
 typedef
 struct amd64_ireg {
 	u8 type;
+	u8 size;
 	u8 mreg;
+	u8 pad;
 	u32 disp;
 	union {
 		u32 imm;

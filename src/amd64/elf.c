@@ -128,10 +128,8 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				fh.entry = load_addr;
 
 			for (usz i = 0; i < instr_count; ++i) {
-				if (elf_resolve_lbls(&elf_cx, cx->lbl_it, i)) {
-					lt_printf("Resolved %uz refs to %uz\n", cx->lbl_it->ref_count, i);
+				if (elf_resolve_lbls(&elf_cx, cx->lbl_it, i))
 					cx->lbl_it = cx->lbl_it->next;
-				}
 
 				u8 instr[16], *it = instr;
 
@@ -183,7 +181,11 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 					if (mi->mod != MOD_REG) {
 						if (rm == REG_SP)
 							*it++ = SIB(SIB_S1, REG_SP, REG_SP);
-						LT_ASSERT(rm != REG_BP);
+
+						if (rm == REG_BP && mi->mod == MOD_DREG) {
+							mi->mod = MOD_DSP8;
+							mi->disp = 0;
+						}
 
 						switch (mi->mod) {
 						case MOD_DSP8: *it++ = mi->disp; break;

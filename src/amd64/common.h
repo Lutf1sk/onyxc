@@ -68,12 +68,12 @@
 #define IREG_LBL 3
 #define IREG_REF 4
 
-#define IREG_INIT(type, ...) { (type), __VA_ARGS__ }
-#define IREG(type, ...) ((amd64_ireg_t)IREG_INIT(type, __VA_ARGS__))
-#define XREG(reg) IREG(IREG_REG, .mreg = (reg))
-#define XIMMI(val) IREG(IREG_IMM, .imm = (val))
-#define XSEG(i) IREG(IREG_SEG, .seg = (i))
-#define XLBL(i) IREG(IREG_LBL, .lbl = (i))
+#define IREG_INIT(type, size, ...) { (type), (size), __VA_ARGS__ }
+#define IREG(type, size, ...) ((amd64_ireg_t)IREG_INIT(type, size, __VA_ARGS__))
+#define XREG(reg, size) IREG(IREG_REG, size, .mreg = (reg))
+#define XIMMI(val) IREG(IREG_IMM, 0, .imm = (val))
+#define XSEG(i) IREG(IREG_SEG, ISZ_64, .seg = (i))
+#define XLBL(i) IREG(IREG_LBL, ISZ_64, .lbl = (i))
 
 #define MI_SEG 1
 #define MI_LBL 2

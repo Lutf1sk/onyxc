@@ -72,6 +72,9 @@
 #define X64_CMP 54
 #define X64_TEST 55
 
+#define X64_PUSH 56
+#define X64_POP 57
+
 #define VARG_8		0b000000
 #define VARG_16		0b000001
 #define VARG_32		0b000010
@@ -80,10 +83,11 @@
 #define VARG_MRM	0b000100
 #define VARG_IMM	0b001000
 #define VARG_REL	0b010000
+#define VARG_DST	0b100000
 
 #define VARG_SIZE_MASK 0b000011
 #define VARG_TYPE_MASK 0b001100
-#define VARG_FLAG_MASK 0b010000
+#define VARG_FLAG_MASK 0b110000
 
 #define VFLAG_OP_EXT	0b0100
 #define VFLAG_REX_W		0b1000
