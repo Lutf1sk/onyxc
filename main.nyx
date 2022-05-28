@@ -9,6 +9,8 @@ let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
 	return 1;
 }
 
+u8[] a = "It's working!\n";
+
 let main :: u64() {
 	isz fd;
 	if &fd->file_openr("a.out") {
@@ -23,7 +25,7 @@ let main :: u64() {
 	fd->read(elf_data[0..st.st_size]);
 
 	if !elf_verify_magic(ELF64_FileHeader*:elf_data) {
-		print("ELF Magic invalid\n");
+		print("ELF magic invalid\n");
 	}
 
 	print_i64(12345);
@@ -32,6 +34,12 @@ let main :: u64() {
 	print("\n");
 
 	fd->close();
+
+	void(){
+		print("ASDF\n");
+	}();
+
+	print(a);
 
 	mfree(elf_data);
 	exit(0);

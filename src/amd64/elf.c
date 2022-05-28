@@ -76,10 +76,6 @@ usz write(elf_ctx_t* cx, void* mem, usz size, usz align) {
 	return offs;
 }
 
-#define LOAD_ADDR 0x70000000
-#define ALIGN_BYTES 4096
-static u8 align_buf[ALIGN_BYTES];
-
 static
 b8 elf_resolve_lbls(elf_ctx_t* cx, amd64_lbl_t* lbl, u32 i) {
 	if (!lbl || lbl->i != i)
@@ -87,12 +83,20 @@ b8 elf_resolve_lbls(elf_ctx_t* cx, amd64_lbl_t* lbl, u32 i) {
 
 	lbl->m_i = cx->bin_size;
 	for (usz i = 0; i < lbl->ref_count; ++i) {
-		u32* ptr = (u32*)(cx->bin_data + lbl->refs[i]);
-		*ptr += lbl->m_i;
+		void* ptr = cx->bin_data + lbl->refs[i];
+
+		u64 val;
+		memcpy(&val, ptr, sizeof(u32));
+		val += lbl->m_i;
+		memcpy(ptr, &val, sizeof(u32));
 	}
 
 	return 1;
 }
+
+#define LOAD_ADDR 0x70000000
+#define ALIGN_BYTES 4096
+static u8 align_buf[ALIGN_BYTES];
 
 void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	lt_elf64_fh_t fh;
@@ -106,6 +110,8 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	elf_cx.bin_data = malloc(elf_cx.bin_asize);
 	elf_cx.arena = cx->arena;
 	LT_ASSERT(elf_cx.bin_data);
+
+	fwd_ref_t* refs = NULL;
 
 	for (usz i = 0; i < cx->seg_count; ++i) {
 		seg_ent_t* seg = &cx->seg[i];
@@ -223,7 +229,15 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 
 					if (imm_mi_flags & MI_SEG) {
 						imm_val = cx->seg[imm_val].load_at;
-						LT_ASSERT(imm_val);
+						if (!imm_val) {
+							fwd_ref_t* new_ref = lt_arena_reserve(cx->arena, sizeof(fwd_ref_t));
+							new_ref->offs = elf_cx.bin_size + (it - instr);
+							new_ref->seg = mi->imm;
+							new_ref->next = refs;
+							new_ref->size = imm_bytes;
+
+							refs = new_ref;
+						}
 					}
 
 					if (imm_flags & VARG_REL)
@@ -235,16 +249,37 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 
 				write(&elf_cx, instr, it - instr, 0);
 			}
-			// TODO: Backpatching...
 		}
 		else if (seg->stype == SEG_DATA) {
 			lt_printf("%S: 0x%hz\n", seg->name, load_addr);
 			seg->load_at = load_addr;
 
-			write(&elf_cx, seg->data, seg->size, 16);
+			usz seg_offs = write(&elf_cx, seg->data, seg->size, 16);
 
-			// TODO: Backpatching...
+			fwd_ref_t* it = seg->ref;
+			if (it) {
+				for (;;) {
+					it->offs += seg_offs;
+					if (!it->next) {
+						it->next = refs;
+						break;
+					}
+					it = it->next;
+				}
+
+				refs = seg->ref;
+			}
 		}
+	}
+
+	fwd_ref_t* it = refs;
+	while (it) {
+		u64 val = 0;
+		memcpy(&val, elf_cx.bin_data + it->offs, it->size);
+		val += cx->seg[it->seg].load_at;
+		memcpy(elf_cx.bin_data + it->offs, &val, it->size);
+
+		it = it->next;
 	}
 
 	if (!fh.entry)

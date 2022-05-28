@@ -137,11 +137,12 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 			usz size = type_bytes(sym->type);
 			void* data = lt_arena_reserve(cx->arena, size);
 			memset(data, 0, size);
-			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx->gen_cx, SEG_ENT(SEG_DATA, sym->name, size, data)));
+			u32 seg_i = new_data_seg(cx->gen_cx, SEG_ENT(SEG_DATA, sym->name, size, data));
+			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = seg_i);
 
 			if (sym->expr) {
 				ival_t v = gen_const_expr(cx->gen_cx, sym->expr);
-				ival_write_comp(cx->gen_cx, sym->expr->type, v, data);
+				ival_write_comp(cx->gen_cx, &cx->gen_cx->seg[seg_i], sym->expr->type, v, data);
 			}
 		}
 

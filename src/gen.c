@@ -127,10 +127,29 @@ void* ival_data(gen_ctx_t* cx, ival_t* v) {
 	return 0;
 }
 
-u8* ival_write_comp(gen_ctx_t* cx, type_t* type, ival_t v, u8* out) {
+u8* ival_write_comp(gen_ctx_t* cx, seg_ent_t* seg, type_t* type, ival_t v, u8* out) {
 	if (v.stype != IVAL_COM) {
-		void* ptr = ival_data(cx, &v);
+		void* ptr = NULL;
 		usz size = type_bytes(type);
+
+		switch (v.stype) {
+		case IVAL_IMM: ptr = &v.uint_val; break;
+		case IVAL_SEG | IVAL_REF: ptr = cx->seg[v.uint_val].data; break;
+
+		case IVAL_SEG: {
+			fwd_ref_t* new_ref = lt_arena_reserve(cx->arena, sizeof(fwd_ref_t));
+			new_ref->offs = (usz)out - (usz)seg->data;
+			new_ref->seg = v.uint_val;
+			new_ref->size = size;
+			new_ref->next = seg->ref;
+
+			seg->ref = new_ref;
+			memset(out, 0, size);
+		}	return out + size;
+
+		default: LT_ASSERT_NOT_REACHED(); break;
+		}
+
 		memcpy(out, ptr, size);
 		return out + size;
 	}
@@ -141,20 +160,28 @@ u8* ival_write_comp(gen_ctx_t* cx, type_t* type, ival_t v, u8* out) {
 		for (usz i = 0; i < v.child_count; ++i) {
 			type_t* memb_type = types[i];
 			ival_t memb_v = v.children[i];
-			out = ival_write_comp(cx, memb_type, memb_v, out);
+			out = ival_write_comp(cx, seg, memb_type, memb_v, out);
 		}
 		return out;
 	}
 	else if (type->stype == TP_ARRAY_VIEW) {
-		*(u64*)out = (u64)cx->seg[v.children[0].uint_val].data; // !!
+		fwd_ref_t* new_ref = lt_arena_reserve(cx->arena, sizeof(fwd_ref_t));
+		new_ref->offs = (usz)out - (usz)seg->data;
+		new_ref->seg = v.children[0].uint_val;
+		new_ref->size = ISZ_64;
+		new_ref->next = seg->ref;
+
+		seg->ref = new_ref;
+		*(u64*)out = 0;
 		out += sizeof(u64);
+
 		*(u64*)out = v.children[1].uint_val;
 		return out + sizeof(u64);
 	}
 	else if (type->stype == TP_ARRAY) {
 		usz child_count = v.child_count;
 		for (usz i = 0; i < child_count; ++i)
-			out = ival_write_comp(cx, type->base, v.children[i], out);
+			out = ival_write_comp(cx, seg, type->base, v.children[i], out);
 		return out;
 	}
 
@@ -428,8 +455,10 @@ ival_t gen_static_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
 	usz size = type_bytes(type);
 	void* data = lt_arena_reserve(cx->arena, size);
 	memset(data, 0, size);
-	ival_write_comp(cx, type, *v, data);
-	return IVAL(IVAL_SEG | IVAL_REF, .uint_val = new_data_seg(cx, SEG_ENT(SEG_DATA, CLSTR("@STATCOM"), size, data)));
+
+	u32 seg_i = new_data_seg(cx, SEG_ENT(SEG_DATA, CLSTR("@STATCOM"), size, data));
+	ival_write_comp(cx, &cx->seg[seg_i], type, *v, data);
+	return IVAL(IVAL_SEG | IVAL_REF, .uint_val = seg_i);
 }
 
 static
