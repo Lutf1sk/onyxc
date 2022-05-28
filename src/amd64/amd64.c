@@ -402,6 +402,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		amd64_ireg_t args[2] = { *reg0, *reg0 };
 		emit_instr(cx, X64_TEST, 2, args);
 		emit_instr(cx, X64_SETZ, 1, dst);
+		dst->size = ir->size;
 	}	break;
 
 	case IR_CSETNZ: {
@@ -410,6 +411,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		amd64_ireg_t args[2] = { *reg0, *reg0 };
 		emit_instr(cx, X64_TEST, 2, args);
 		emit_instr(cx, X64_SETNZ, 1, dst);
+		dst->size = ir->size;
 	}	break;
 
 #define GENERIC5(x) { \

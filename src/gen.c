@@ -1217,13 +1217,14 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 
 	case STMT_WHILE: {
 		usz start = CURR_IP();
+		usz size = type_bytes(stmt->expr->type);
 
 		ival_t cond_v = icode_gen_expr(cx, stmt->expr);
-		u32 cond_reg = ival_reg(cx, ISZ_8, cond_v);
+		u32 cond_reg = ival_reg(cx, size, cond_v);
 		u32 trg = alloc_reg(cx);
 		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
 
-		emit(cx, ICODE2(IR_CJMPZ, ISZ_8, trg, cond_reg));
+		emit(cx, ICODE2(IR_CJMPZ, size, trg, cond_reg));
 
 		icode_gen_stmt(cx, stmt->child);
 
@@ -1237,12 +1238,14 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	}	break;
 
 	case STMT_IF: {
+		usz size = type_bytes(stmt->expr->type);
+
 		ival_t cond_v = icode_gen_expr(cx, stmt->expr);
-		u32 cond_reg = ival_reg(cx, ISZ_8, cond_v);
+		u32 cond_reg = ival_reg(cx, size, cond_v);
 		u32 trg = alloc_reg(cx);
 		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
 
-		emit(cx, ICODE2(IR_CJMPZ, ISZ_8, trg, cond_reg));
+		emit(cx, ICODE2(IR_CJMPZ, size, trg, cond_reg));
 		icode_gen_stmt(cx, stmt->child);
 
 		if (stmt->child_2) {
