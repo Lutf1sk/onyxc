@@ -720,12 +720,13 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_CONVERT: {
 		usz to = type_bytes(expr->type), from = type_bytes(expr->child_1->type);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (to <= from || a1.stype == IVAL_IMM)
+		if (a1.stype == IVAL_IMM)
 			return a1;
 
 		u32 op = IR_INVAL;
 		if (is_int(expr->type) && is_int(expr->child_1->type)) {
 			switch (to) {
+			case ISZ_8: op = IR_TOI8; break;
 			case ISZ_16: op = IR_TOI16; break;
 			case ISZ_32: op = IR_TOI32; break;
 			case ISZ_64: op = IR_TOI64; break;
@@ -733,6 +734,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		}
 		else {
 			switch (to) {
+			case ISZ_8: op = IR_TOU8; break;
 			case ISZ_16: op = IR_TOU16; break;
 			case ISZ_32: op = IR_TOU32; break;
 			case ISZ_64: op = IR_TOU64; break;

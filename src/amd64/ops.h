@@ -110,4 +110,11 @@ struct amd64_op {
 
 extern amd64_op_t ops[];
 
+void zero_reg(amd64_ctx_t* cx, u8 mreg);
+
+void x64_mov(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2);
+void x64_movzx(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2);
+void x64_movsx(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2);
+void x64_lea(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2);
+
 #endif

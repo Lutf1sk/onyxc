@@ -11,8 +11,6 @@
 #include "common.h"
 #include "lbl.h"
 
-static void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args);
-
 typedef
 struct call_conv {
 	usz reg_count;
@@ -126,69 +124,26 @@ void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 }
 
 static LT_INLINE
-b8 ireg_last_use(amd64_ctx_t* cx, u8 mreg, u32 reg, usz i) {
-	return (reg_flags[mreg] & REG_ALLOCATABLE) && cx->reg_lifetimes[reg] == i;
+b8 ireg_movable(amd64_ctx_t* cx, u32 reg, usz i) {
+	amd64_ireg_t* ireg = &cx->reg_map[reg];
+	return (reg_flags[ireg->mreg] & REG_ALLOCATABLE) && cx->reg_lifetimes[reg] == i;
+}
+
+static LT_INLINE
+u8 mreg_move(amd64_ctx_t* cx, u32 reg) {
+	amd64_ireg_t* ireg = &cx->reg_map[reg];
+	LT_ASSERT(cx->reg_lifetimes[reg]);
+	LT_ASSERT(ireg_reg_any(ireg));
+	cx->reg_lifetimes[reg] = 0;
+	return ireg->mreg;
 }
 
 static
 void ireg_end(amd64_ctx_t* cx, u32 reg, usz i) {
 	amd64_ireg_t* ireg = &cx->reg_map[reg];
 
-	if ((ireg->type & ~IREG_REF) == IVAL_REG && ireg_last_use(cx, ireg->mreg, reg, i) && !reg_free(cx, ireg->mreg))
+	if (ireg_reg_any(ireg) && ireg_movable(cx, reg, i) && !reg_free(cx, ireg->mreg))
 		lt_printf("Invalid free of %S (r%ud) at %uz\n", reg_names[ireg->mreg][VARG_64], reg, i);
-}
-
-static
-b8 ireg_eq(amd64_ireg_t* v1, amd64_ireg_t* v2) {
-	if (v1->type != v2->type || v1->disp != v2->disp)
-		return 0;
-
-	switch (v1->type & ~IREG_REF) {
-	case IREG_REG: return v1->mreg == v2->mreg;
-	case IREG_IMM: return v1->imm == v2->imm;
-	default:
-		return 0;
-	}
-}
-
-static void x64_mov(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2);
-static void x64_lea(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2);
-
-static
-void zero_reg(amd64_ctx_t* cx, u8 mreg) {
-	amd64_ireg_t args[2] = { XREG(mreg, ISZ_64), XREG(mreg, ISZ_64) };
-	emit_instr(cx, X64_XOR, 2, args);
-}
-
-static
-void x64_mov(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2) {
-	LT_ASSERT(!ireg_reg_displaced(&v1));
-
-	if (ireg_eq(&v1, &v2))
-		return;
-
-	if (v1.type == IREG_REG && v2.type == IREG_IMM && !(v2.imm + v2.disp)) {
-		zero_reg(cx, v1.mreg);
-		return;
-	}
-
-	if (ireg_reg_pure(&v1) && ireg_reg_displaced(&v2)) {
-		v2.type |= IREG_REF;
-		x64_lea(cx, v1, v2);
-		return;
-	}
-
-	amd64_ireg_t args[2] = {v1, v2};
-	emit_instr(cx, X64_MOV, 2, args);
-}
-
-static
-void x64_lea(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2) {
-	LT_ASSERT(v2.type & IREG_REF);
-	LT_ASSERT(ireg_reg_pure(&v1));
-
-	amd64_ireg_t args[2] = {v1, v2};
-	emit_instr(cx, X64_LEA, 2, args);
 }
 
 static
@@ -215,150 +170,15 @@ static
 u32 init_new_reg(amd64_ctx_t* cx, u32 reg, usz i) {
 	amd64_ireg_t* ireg = &cx->reg_map[reg];
 
-	if ((ireg->type & ~IREG_REF) == IREG_REG && ireg->mreg != REG_SP && ireg_last_use(cx, ireg->mreg, reg, i)) {
+	if (ireg_reg_any(ireg) && ireg_movable(cx, reg, i)) {
 		if (ireg->type & IREG_REF)
 			x64_mov(cx, XREG(ireg->mreg, ireg->size), *ireg);
-		return ireg->mreg;
+		return mreg_move(cx, reg);
 	}
 
 	u32 mreg = reg_alloc(cx, reg);
 	x64_mov(cx, XREG(mreg, ireg->size), *ireg);
 	return mreg;
-}
-
-static
-void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
-	LT_ASSERT(arg_count <= 2);
-
-	amd64_ireg_t args[2];
-	memcpy(args, args_, sizeof(amd64_ireg_t) * arg_count);
-
-	amd64_instr_t mi;
-	amd64_op_t* op = &ops[op_i];
-
-	if (arg_count >= 2) {
-		if (ireg_reg_displaced(&args[1])) {
-			u32 tmpreg = reg_scratch(cx, 1);
-			amd64_ireg_t tmpireg = XREG(tmpreg, args[1].size);
-			if (args[1].size > 1) {
-				args[1].type |= IREG_REF;
-				x64_lea(cx, tmpireg, args[1]);
-			}
-			else {
-				u32 disp = args[1].disp;
-				args[1].disp = 0;
-				x64_mov(cx, tmpireg, args[1]);
-				amd64_ireg_t add_args[2] = { tmpireg, XIMMI(disp) };
-				emit_instr(cx, X64_ADD, 2, add_args);
-			}
-			args[1] = tmpireg;
-		}
-		if ((args[0].type & IREG_REF) && (args[1].type & IREG_REF)) {
-			u32 tmpreg = reg_scratch(cx, 1);
-			x64_mov(cx, XREG(tmpreg, args[1].size), args[1]);
-			args[1] = XREG(tmpreg, args[1].size);
-		}
-	}
-
-	for (usz i = 0; i < op->var_count; ++i) {
-		amd64_var_t* var = &op->vars[i];
-
-		if (var->arg_count != arg_count)
-			continue;
-
-		memset(&mi, 0, sizeof(mi));
-
-		for (usz i = 0; i < arg_count; ++i) {
-			amd64_ireg_t* ireg = &args[i];
-
-			u8 type = ireg->type;
-			u8 varg = var->args[i] & VARG_TYPE_MASK;
-			u8 vbytes = 1 << (var->args[i] & VARG_SIZE_MASK);
-
-			if (varg != VARG_IMM && vbytes != ireg->size)
-				goto next_var;
-
-			switch (type) {
-			case IREG_REG:
-				if (varg == VARG_MRM) {
-					mi.mod = MOD_REG;
-					mi.reg_rm |= ireg->mreg << 4;
-				}
-				else if (varg == VARG_REG)
-					mi.reg_rm |= ireg->mreg;
-				else
-					goto next_var;
-				break;
-
-			case IREG_IMM:
-				LT_ASSERT(!ireg->disp);
-				if (varg != VARG_IMM)
-					goto next_var;
-				mi.imm = ireg->imm;
-				break;
-
-			case IREG_SEG:
-				LT_ASSERT(!ireg->disp);
-				if (varg != VARG_IMM)
-					goto next_var;
-				mi.flags[i] = MI_SEG;
-				mi.imm = ireg->imm;
-				break;
-
-			case IREG_LBL:
-				LT_ASSERT(!ireg->disp);
-				if (varg != VARG_IMM)
-					goto next_var;
-				mi.flags[i] = MI_LBL;
-				mi.imm = ireg->imm;
-				break;
-
-			case IREG_REG | IREG_REF:
-				if (varg != VARG_MRM)
-					goto next_var;
-				mi.reg_rm |= ireg->mreg << 4;
-
-				if (ireg->disp) {
-					if (ireg->disp <= 0xFF)
-						mi.mod = MOD_DSP8;
-					else
-						mi.mod = MOD_DSP32;
-					mi.disp = ireg->disp;
-				}
-				else
-					mi.mod = MOD_DREG;
-				break;
-
-			case IREG_IMM | IREG_REF:
-				LT_ASSERT(!ireg->disp);
-				if (varg != VARG_MRM)
-					goto next_var;
-
-			case IREG_SEG | IREG_REF:
-				if (varg != VARG_MRM)
-					goto next_var;
-				mi.flags[i] = MI_SEG;
-				LT_ASSERT_NOT_REACHED();
-
-			case IREG_LBL | IREG_REF:
-				LT_ASSERT_NOT_REACHED();
-			}
-		}
-
-		mi.op = op_i;
-		mi.var = i;
-		emit(cx, mi);
-		return;
-
-	next_var:
-	}
-
-	lt_printf("Invalid operands to '%S' ", op->str);
-	for (usz i = 0; i < arg_count; ++i)
-		lt_printf("(type:%ud,size:%ud)", args[i].type, args[i].size);
-	lt_printc('\n');
-	*(u8*)0 = 0;
-	LT_ASSERT_NOT_REACHED();
 }
 
 static
@@ -420,51 +240,49 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		x64_mov(cx, tmp_dst, src);
 	}	break;
 
-// 	case IR_TOU16:
-// 	case IR_TOU32:
-// 	case IR_TOU64:
-// 		*dst = XREG(reg_alloc(cx, ir->dst));
-// 		break;
+	case IR_TOU8: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_8), *reg0); break;
+	case IR_TOU16: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_16), *reg0); break;
+	case IR_TOU32: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_32), *reg0); break;
+	case IR_TOU64: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_64), *reg0); break;
 
-// 	case IR_TOI16:
-// 	case IR_TOI32:
-// 	case IR_TOI64:
-// 		*dst = XREG(reg_alloc(cx, ir->dst));
-// 		break;
+	case IR_TOI8: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_8), *reg0); break;
+	case IR_TOI16: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_16), *reg0); break;
+	case IR_TOI32: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_32), *reg0); break;
+	case IR_TOI64: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_64), *reg0); break;
 
 #define GENERIC2(x) { \
-		*dst = XREG(init_new_reg(cx, ir->regs[0], i), ir->size); \
-		\
-		amd64_ireg_t args[2] = {*dst, *reg1}; \
-		emit_instr(cx, (x), 2, args); \
+	*dst = XREG(init_new_reg(cx, ir->regs[0], i), ir->size); \
+	\
+	amd64_ireg_t args[2] = {*dst, *reg1}; \
+	emit_instr(cx, (x), 2, args); \
 }
 
 	case IR_ADD:
-		if (reg0->type == IREG_IMM && !(reg1->type & IREG_REF)) {
-			ireg_copy(cx, ir->dst, ir->regs[1]);
-			dst->disp += reg0->imm;
-			break;
-		}
-		if (!(reg0->type & IREG_REF) && reg1->type == IREG_IMM) {
-			ireg_copy(cx, ir->dst, ir->regs[0]);
-			dst->disp += reg1->imm;
-			break;
-		}
+// 		if (reg0->type == IREG_IMM && !(reg1->type & IREG_REF) && ireg_movable(cx, ir->regs[1], i)) {
+// 			ireg_copy(cx, ir->dst, ir->regs[1]);
+// 			dst->disp += reg0->imm;
+// 			break;
+// 		}
+// 		if (!(reg0->type & IREG_REF) && reg1->type == IREG_IMM && ireg_movable(cx, ir->regs[0], i)) {
+// 			ireg_copy(cx, ir->dst, ir->regs[0]);
+// 			dst->disp += reg1->imm;
+// 			break;
+// 		}
 
 		GENERIC2(X64_ADD);
 		break;
 
 	case IR_SUB:
-		if (reg0->type == IREG_IMM && !(reg1->type & IREG_REF)) {
-			ireg_copy(cx, ir->dst, ir->regs[1]);
-			dst->disp -= reg0->imm;
-			break;
-		}
-		if (!(reg0->type & IREG_REF) && reg1->type == IREG_IMM) {
-			ireg_copy(cx, ir->dst, ir->regs[0]);
-			dst->disp -= reg1->imm;
-			break;
-		}
+// 		if (reg0->type == IREG_IMM && !(reg1->type & IREG_REF) && ireg_movable(cx, ir->regs[1], i)) {
+// 			ireg_copy(cx, ir->dst, ir->regs[1]);
+// 			dst->disp -= reg0->imm;
+// 			break;
+// 		}
+// 		if (!(reg0->type & IREG_REF) && reg1->type == IREG_IMM && ireg_movable(cx, ir->regs[0], i)) {
+// 			ireg_copy(cx, ir->dst, ir->regs[0]);
+// 			dst->disp -= reg1->imm;
+// 			break;
+// 		}
 
 		GENERIC2(X64_SUB);
 		break;
@@ -517,6 +335,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_DEC: GENERIC1(X64_DEC); break;
 
 	case IR_ENTER:
+		reg_push_caller_owned(cx);
 		if (cx->frame_size) {
 			amd64_ireg_t args[2] = { XREG(REG_SP, ISZ_64), XIMMI(cx->frame_size) };
 			emit_instr(cx, X64_SUB, 2, args);
@@ -537,7 +356,9 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	}	break;
 
 	case IR_SETARG: {
-		u8 reg = cconvs[ir->regs[1]].regs[cx->arg_num++];
+		call_conv_t* cconv = &cconvs[ir->regs[1]];
+		LT_ASSERT(cx->arg_num < cconv->reg_count);
+		u8 reg = cconv->regs[cx->arg_num++];
 		u8 size = ir->size;
 		if (size > ISZ_64)
 			size = ISZ_64;
@@ -549,10 +370,8 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		mi.var = 0;
 		emit(cx, mi);
 
-		if (!ireg_last_use(cx, dst->mreg, ir->dst, i)) {
-			*dst = XREG(reg_alloc(cx, ir->dst), ISZ_64);
-			x64_mov(cx, *dst, XREG(REG_A, ISZ_64));
-		}
+		*dst = XREG(reg_alloc(cx, ir->dst), ISZ_64);
+		x64_mov(cx, *dst, XREG(REG_A, ISZ_64));
 
 		cx->arg_num = 0;
 		break;
@@ -563,6 +382,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	amd64_ireg_t args[2] = { *reg0, *reg1 }; \
 	emit_instr(cx, X64_CMP, 2, args); \
 	emit_instr(cx, (x), 1, dst); \
+	dst->size = ir->size; \
 }
 
 	case IR_CSETG: GENERIC4(X64_SETG); break;
@@ -648,6 +468,8 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 			emit_instr(cx, X64_ADD, 2, args);
 		}
 
+		reg_pop_caller_owned(cx);
+
 		mi.op = X64_RET;
 		emit(cx, mi);
 		break;
@@ -717,7 +539,6 @@ void amd64_gen(amd64_ctx_t* cx) {
 static
 void print_modrm(u8 mod, u8 rm, u8 size, u32 disp) {
 	switch (mod) {
-		// TODO: Handle SIB and RIP-relative addressing modes
 		case MOD_DREG: lt_printf("[%S]", reg_names[rm][VARG_64]); break;
 		case MOD_DSP8: lt_printf("[%S + %id]", reg_names[rm][VARG_64], disp); break;
 		case MOD_DSP32: lt_printf("[%S + %id]", reg_names[rm][VARG_64], disp); break;

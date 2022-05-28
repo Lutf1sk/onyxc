@@ -144,48 +144,56 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				u8 reg = mi->reg_rm & 0b111;
 				u8 rm = (mi->reg_rm >> 4) & 0b111;
 
-				u8 rex_w = !!(var->flags & VFLAG_REX_W);
-				u8 rex_r = !!(mi->reg_rm & REG_REX_BIT);
-				u8 rex_b = !!(mi->reg_rm & (REG_REX_BIT << 4));
-
-				if (rex_w || rex_r || rex_b)
-					*it++ = REX(rex_w, rex_r, 0, rex_b);
-
-				u8 ext = !!(var->flags & VFLAG_OP_EXT);
-
-				for (usz i = ext; var_op[i] && i < sizeof(var->instr); ++i)
-					*it++ = var_op[i];
-
 				b8 modrm = 0;
 				b8 imm = 0;
 				u8 imm_flags = 0;
 				u8 imm_size = 0;
 				u8 imm_mi_flags = 0;
+				b8 rex = 0;
 				for (usz i = 0; i < var->arg_count; ++i) {
 					u8 varg = var->args[i] & VARG_TYPE_MASK;
+					u8 vsize = var->args[i] & VARG_SIZE_MASK;
 					if (varg == VARG_IMM) {
 						imm_size = var->args[i] & VARG_SIZE_MASK;
 						imm = 1;
 						imm_flags = var->args[i] & VARG_FLAG_MASK;
 						imm_mi_flags = mi->flags[i];
 					}
-					else if (varg == VARG_MRM)
+					else if (varg == VARG_MRM) {
 						modrm = 1;
+						if ((rm & 0b100) && vsize == VARG_8)
+							rex = 1;
+					}
+					else if (varg == VARG_REG) {
+						if ((reg & 0b100) && vsize == VARG_8)
+							rex = 1;
+					}
 				}
+
+				u8 rex_w = !!(var->flags & VFLAG_REX_W);
+				u8 rex_r = !!(mi->reg_rm & REG_REX_BIT);
+				u8 rex_b = !!(mi->reg_rm & (REG_REX_BIT << 4));
+				if (rex_w || rex_r || rex_b || rex) {
+					*it++ = REX(rex_w, rex_r, 0, rex_b);
+				}
+
+				u8 ext = !!(var->flags & VFLAG_OP_EXT);
+				for (usz i = ext; var_op[i] && i < sizeof(var->instr); ++i)
+					*it++ = var_op[i];
 
 				if (modrm) {
 					if (ext)
 						reg = var_op[0];
+
+					if (rm == REG_BP && mi->mod == MOD_DREG) {
+						mi->mod = MOD_DSP8;
+						mi->disp = 0;
+					}
 					*it++ = MODRM(mi->mod, reg, rm);
 
 					if (mi->mod != MOD_REG) {
 						if (rm == REG_SP)
 							*it++ = SIB(SIB_S1, REG_SP, REG_SP);
-
-						if (rm == REG_BP && mi->mod == MOD_DREG) {
-							mi->mod = MOD_DSP8;
-							mi->disp = 0;
-						}
 
 						switch (mi->mod) {
 						case MOD_DSP8: *it++ = mi->disp; break;

@@ -54,7 +54,7 @@ $(LT_PATH):
 	make -C lt/
 
 run: all
-	./$(OUT) test.nyx
+	./$(OUT) main.nyx
 
 prof: all
 	valgrind --dump-instr=yes --tool=callgrind ./$(OUT) test.nyx

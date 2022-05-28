@@ -1,12 +1,11 @@
-import "io.nyx";
+import "io.nyx", "elf.nyx";
 
 let main :: u64() {
-	i64 fd;
-	if &fd->file_openw("test") {
-		print("Failed to open file\n");
+	isz fd;
+	if &fd->file_openr("a.out") {
+		print("Failed to open 'a.out'\n");
 		exit(1);
 	}
-	fd->file_write("Skjut mig\n");
 	fd->file_close();
 
 	for u32 i..0x10 {
@@ -16,12 +15,11 @@ let main :: u64() {
 		print("\n");
 	}
 
-	void(){
-		print("asdf\n");
-		let a = "ASDFASDFASDF";
-	}();
+// 	void(){
+// 		print("asdf\n");
+// 		let a = "ASDFASDFASDF";
+// 	}();
 
 	exit(0);
 }
-
 

@@ -73,3 +73,27 @@ b8 reg_free(amd64_ctx_t* cx, u8 reg) {
 	return prev;
 }
 
+void reg_push64(amd64_ctx_t* cx, u8 reg) {
+	amd64_ireg_t arg = XREG(reg, 8);
+	emit_instr(cx, X64_PUSH, 1, &arg);
+}
+
+void reg_pop64(amd64_ctx_t* cx, u8 reg) {
+	amd64_ireg_t arg = XREG(reg, 8);
+	emit_instr(cx, X64_POP, 1, &arg);
+}
+
+void reg_push_caller_owned(amd64_ctx_t* cx) {
+	for (usz i = 0; i < AMD64_REG_COUNT; ++i) {
+		if ((reg_flags[i] & REG_ALLOCATABLE))
+			reg_push64(cx, i);
+	}
+}
+
+void reg_pop_caller_owned(amd64_ctx_t* cx) {
+	for (usz i = AMD64_REG_COUNT-1; i; --i) {
+		if ((reg_flags[i] & REG_ALLOCATABLE))
+			reg_pop64(cx, i);
+	}
+}
+

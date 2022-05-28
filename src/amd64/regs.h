@@ -36,4 +36,10 @@ u8 reg_scratch(amd64_ctx_t* cx, u32 offs);
 
 b8 reg_free(amd64_ctx_t* cx, u8 reg);
 
+void reg_push64(amd64_ctx_t* cx, u8 reg);
+void reg_pop64(amd64_ctx_t* cx, u8 reg);
+
+void reg_push_caller_owned(amd64_ctx_t* cx);
+void reg_pop_caller_owned(amd64_ctx_t* cx);
+
 #endif

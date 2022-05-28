@@ -1,19 +1,51 @@
 import "unix.nyx";
 
-let file_openw :: u8(i64* fdp, u8[] path) {
-	*fdp = open(path, O_WRONLY|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
+let cstr :: u8*(u8[] path, u8[] out) {
+	if path.count >= out.count {
+		return null;
+	}
+
+	for usz i..path.count {
+		out[i] = path[i];
+	}
+	out[path.count] = 0;
+	return out.data;
+}
+let cstrlen :: usz(u8* str) {
+	u8* it = str;
+	while *it {
+		++it;
+	}
+	return usz:(it - str);
+}
+
+let file_openw :: u8(isz* fdp, u8[] path) {
+	u8[PATH_MAX] path_nt;
+	cstr(path, path_nt);
+	*fdp = open(path_nt.data, O_WRONLY|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
 	return *fdp < 0;
 }
 
-let file_close :: void(i64 fd) {
+let file_openr :: u8(isz* fdp, u8[] path) {
+	u8[PATH_MAX] path_nt;
+	cstr(path, path_nt);
+	*fdp = open(path_nt.data, O_RDONLY, 0);
+	return *fdp < 0;
+}
+
+let file_close :: void(isz fd) {
 	close(fd);
 }
 
-let file_write :: void(i64 fd, u8[] data) {
+let file_write :: void(isz fd, u8[] data) {
 	write(fd, data);
 }
 
-let print :: i64(u8[] str) {
+let file_read :: usz(isz fd, u8[] data) {
+	return read(fd, data);
+}
+
+let print :: isz(u8[] str) {
 	return write(1, str);
 }
 
@@ -36,13 +68,14 @@ let print_i64 :: i64(i64 n) {
 	view.data = it;
 	view.count = u64:(end - it);
 	print(view);
+
 	return view.count;
 }
 
 let print_h64 :: i64(u64 n) {
 	u8[16] hex_conv_tab :: "0123456789ABCDEF";
 
-	u8[32] str;
+	u8[16] str;
 	u8* end = str.data + u8*:(str.count), it = end - u8*:1;
 
 	while n > 0x0F {
@@ -56,5 +89,22 @@ let print_h64 :: i64(u64 n) {
 	view.count = u64:(end - it);
 	print(view);
 	return view.count;
+}
+
+// mem.nyx
+
+let malloc :: void*(usz size) {
+	if (size > u64:4096) {
+		return null;
+	}
+	isz addr = isz:mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	if (addr < 0) {
+		return null;
+	}
+	return void*:addr;
+}
+
+let mfree :: void(void* mem) {
+	munmap(usz:mem, 4096);
 }
 

@@ -5,13 +5,11 @@
 #include <lt/fwd.h>
 #include <lt/mem.h>
 
-#include <stdint.h>
-
 #include "fwd.h"
 
 #include "interm.h"
 
-#define SYMPOOL_SUBTAB UINT32_MAX
+#define SYMPOOL_SUBTAB ((u32)-1)
 
 typedef
 enum sym_stype {
@@ -53,8 +51,8 @@ struct sympool {
 typedef
 struct symtab {
 	symtab_t* parent;
-	u32 counts[UINT8_MAX];
-	sympool_t pools[UINT8_MAX];
+	u32 counts[256];
+	sympool_t pools[256];
 } symtab_t;
 
 sym_t* symtab_find(symtab_t* tab, lstr_t name);

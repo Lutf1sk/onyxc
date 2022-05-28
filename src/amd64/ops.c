@@ -1,4 +1,9 @@
+#include <lt/io.h>
+
 #include "ops.h"
+#include "amd64.h"
+#include "common.h"
+#include "regs.h"
 
 #define OP(name, count, ...) { CLSTR(name), (amd64_var_t[]){__VA_ARGS__}, count }
 #define VAR0(f, ...) { .arg_count = 0, .flags = (f), .instr = __VA_ARGS__ }
@@ -330,4 +335,65 @@ amd64_op_t ops[] = {
 		VAR1(VARG_MRM|VARG_16, VFLAG_OP_EXT, { 0, 0x66, 0x8F }),	// POP r/m16
 		VAR1(VARG_MRM|VARG_64, VFLAG_OP_EXT, { 0, 0x8F })),			// POP r/m64
 };
+
+void zero_reg(amd64_ctx_t* cx, u8 mreg) {
+	amd64_ireg_t args[2] = { XREG(mreg, 8), XREG(mreg, 8) };
+	emit_instr(cx, X64_XOR, 2, args);
+}
+
+void x64_mov(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2) {
+	LT_ASSERT(!ireg_reg_displaced(&v1));
+
+	if (ireg_eq(&v1, &v2))
+		return;
+
+	if (v1.type == IREG_REG && v2.type == IREG_IMM && !(v2.imm + v2.disp)) {
+		zero_reg(cx, v1.mreg);
+		return;
+	}
+
+	if (ireg_reg_pure(&v1) && ireg_reg_displaced(&v2)) {
+		v2.type |= IREG_REF;
+		x64_lea(cx, v1, v2);
+		return;
+	}
+
+	amd64_ireg_t args[2] = {v1, v2};
+	emit_instr(cx, X64_MOV, 2, args);
+}
+
+void x64_movzx(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2) {
+	if (v1.size <= v2.size) {
+		v2.size = v1.size;
+		x64_mov(cx, v1, v2);
+		return;
+	}
+
+	amd64_ireg_t args[2] = { v1, v2 };
+	emit_instr(cx, X64_MOVZX, 2, args);
+}
+
+void x64_movsx(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2) {
+	if (v1.size <= v2.size) {
+		v2.size = v1.size;
+		x64_mov(cx, v1, v2);
+		return;
+	}
+
+	amd64_ireg_t args[2] = { v1, v2 };
+	emit_instr(cx, X64_MOVSX, 2, args);
+}
+
+void x64_lea(amd64_ctx_t* cx, amd64_ireg_t v1, amd64_ireg_t v2) {
+	LT_ASSERT(v2.type & IREG_REF);
+	LT_ASSERT(ireg_reg_pure(&v1));
+
+	v2.size = 8;
+	if (v1.size < 2) {
+		v1.size = 2;
+	}
+
+	amd64_ireg_t args[2] = {v1, v2};
+	emit_instr(cx, X64_LEA, 2, args);
+}
 

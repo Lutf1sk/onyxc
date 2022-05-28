@@ -1,0 +1,92 @@
+
+// ----- File Header
+
+u8	ELFCLASS_32	:: 1,
+	ELFCLASS_64	:: 2;
+
+u8	ELFABI_SYSV	:: 0,
+	ELFABI_GNU	:: 3;
+
+u8	ELFENC_LSB	:: 1,
+	ELFENC_MSB	:: 2;
+
+u16	ELFOBJ_REL	:: 1,
+	ELFOBJ_EXEC	:: 2,
+	ELFOBJ_DYN	:: 3,
+	ELFOBJ_CORE	:: 4;
+
+u16	ELFARCH_I386	:: 3,
+	ELFARCH_AMD64	:: 62;
+
+def ELF64_FileHeader :: struct {
+	u8[4] magic;
+	u8 class;
+	u8 enc;
+	u8 header_ver;
+	u8 osabi;
+	u8 osabi_ver;
+	u8[7] pad;
+
+	u16 objtype;
+	u16 arch;
+	u32 ver;
+
+	u64 entry;
+	u64 ph_offs;
+	u64 sh_offs;
+	u32 cpuflags;
+
+	u16 fh_size;
+	u16 ph_size;
+	u16 ph_count;
+	u16 sh_size;
+	u16 sh_count;
+
+	u16 strtab_index;
+}
+
+// ----- Program Header
+
+u32	ELFPH_NULL		:: 0,
+	ELFPH_LOAD		:: 1,
+	ELFPH_DYN		:: 2,
+	ELFPH_INTERP	:: 3,
+	ELFPH_NOTE		:: 4,
+	ELFPH_SHLIB		:: 5,
+	ELFPH_PHDR		:: 6,
+	ELFPH_TLS		:: 7;
+
+u32	ELFPH_X :: 1,
+	ELFPH_W :: 2,
+	ELFPH_R :: 4;
+
+def ELF64_ProgHeader :: struct {
+	u32 type;
+	u32 flags;
+
+	u64 offs;
+	u64 vaddr;
+	u64 paddr;
+	u64 file_size;
+	u64 mem_size;
+	u64 align;
+}
+
+// ----- Section Header
+
+def ELF64_SectHeader :: struct {
+	u32 strtab_name_offs;
+	u32 type;
+	u64 flags;
+
+	u64 addr;
+	u64 offs;
+	u64 size;
+
+	u32 link;
+	u32 info;
+
+	u64 addr_align;
+	u64 ent_size;
+}
+

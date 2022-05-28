@@ -1,11 +1,89 @@
 
-u64 SYS_READ			:: 0,
+usz SYS_READ			:: 0,
 	SYS_WRITE			:: 1,
 	SYS_OPEN			:: 2,
 	SYS_CLOSE			:: 3,
+	SYS_STAT			:: 4,
+	SYS_FSTAT			:: 5,
+	SYS_LSTAT			:: 6,
+	SYS_MMAP			:: 9,
+	SYS_MPROTECT		:: 10,
+	SYS_MUNMAP			:: 11,
+	SYS_BRK				:: 12,
 	SYS_EXIT			:: 60,
 	SYS_TIME			:: 201,
 	SYS_CLOCK_GETTIME	:: 228;
+
+// ----- File I/O
+
+usz PATH_MAX :: 4096,
+	FILE_MAX :: 256;
+
+i32 O_RDONLY	:: 0x00,
+	O_WRONLY	:: 0x01,
+	O_RDWR		:: 0x02,
+	O_CREAT		:: 0x40,
+	O_TRUNC		:: 0x200,
+	O_APPEND	:: 0x400,
+
+	S_IRUSR 	:: 0x100,
+	S_IWUSR 	:: 0x80,
+	S_IXUSR 	:: 0x40;
+
+let read :: isz(isz fd, u8[] data) {
+	return syscall(SYS_READ, fd, data.data, data.count);
+}
+
+let write :: isz(isz fd, u8[] data) {
+	return syscall(SYS_WRITE, fd, data.data, data.count);
+}
+
+let open :: isz(u8* path, i32 flags, i32 mode) {
+	return syscall(SYS_OPEN, path, flags, mode);
+}
+
+let close :: isz(isz fd) {
+	return syscall(SYS_CLOSE, fd);
+}
+
+let stat :: isz(u8* path) {
+
+}
+
+// ----- Memory Allocation
+
+usz	MAP_SHARED			:: 0x01,
+	MAP_PRIVATE			:: 0x02,
+	MAP_SHARED_VALIDATE	:: 0x03,
+	MAP_FIXED			:: 0x10,
+	MAP_ANONYMOUS		:: 0x20,
+
+	MAP_POPULATE		:: 0x008000,
+	MAP_NONBLOCK		:: 0x010000,
+	MAP_STACK			:: 0x020000,
+	MAP_HUGETLB			:: 0x040000,
+	MAP_SYNC			:: 0x080000,
+	MAP_FIXED_NOREPLACE	:: 0x100000,
+	MAP_UNINITIALIZED	:: 0x400000;
+
+usz	PROT_READ	:: 0x01,
+	PROT_WRITE	:: 0x02,
+	PROT_EXEC	:: 0x04,
+	PROT_SEM	:: 0x08;
+
+let mmap :: void*(usz addr, usz size, usz prot, usz flags, usz fd, usz off) {
+	return syscall(SYS_MMAP, addr, size, prot, flags, fd, off);
+}
+
+let mprotect :: i64(usz addr, usz size, usz prot) {
+	return syscall(SYS_MPROTECT, addr, size, prot);
+}
+
+let munmap :: void*(usz addr, usz size) {
+	return syscall(SYS_MUNMAP, addr, size);
+}
+
+// ----- Time
 
 u64 CLOCK_REALTIME				:: 0,
 	CLOCK_MONOTONIC				:: 1,
@@ -17,51 +95,13 @@ def timespec :: struct {
 	u64 tv_nsec;
 }
 
-let clock_gettime :: i64(i32 clockid, timespec* ts) {
+let clock_gettime :: isz(i32 clockid, timespec* ts) {
 	return syscall(SYS_CLOCK_GETTIME, clockid, ts);
 }
 
-u64 PATH_MAX :: 4096,
-	FILE_MAX :: 255;
+// ----- Misc.
 
-u64 O_RDONLY	:: 0x00,
-	O_WRONLY	:: 0x01,
-	O_RDWR		:: 0x02,
-	O_CREAT		:: 0x40,
-	O_TRUNC		:: 0x200,
-	O_APPEND	:: 0x400,
-
-	S_IRUSR 	:: 0x100,
-	S_IWUSR 	:: 0x80,
-	S_IXUSR 	:: 0x40;
-
-let read :: i64(i64 fd, u8[] data) {
-	return syscall(SYS_READ, fd, data.data, data.count);
-}
-
-let write :: i64(i64 fd, u8[] data) {
-	return syscall(SYS_WRITE, fd, data.data, data.count);
-}
-
-let open :: i64(u8[] path, u64 flags, u64 mode) {
-	if path.count >= PATH_MAX {
-		return -1;
-	}
-
-	u8[PATH_MAX] path_nt;
-
-	for u8 i..path.count {
-		path_nt[i] = path[i];
-	}
-	path_nt[path.count] = 0;
-	return syscall(SYS_OPEN, path_nt.data, flags, mode);
-}
-
-let close :: i64(i64 fd) {
-	return syscall(SYS_CLOSE, fd);
-}
-
-let exit :: void(i64 code) {
+let exit :: void(i32 code) {
 	syscall(SYS_EXIT, code);
 }
 
