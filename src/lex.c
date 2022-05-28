@@ -201,8 +201,40 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			break;
 
 		case TK_NUMBER: {
-			while (is_numeric_body(data[it]))
-				++it;
+			if (c == '0') {
+				c = data[it];
+				if (c == 'x' || c == 'X') { // Hexadecimal
+					++it;
+					while (is_hex_digit(data[it]))
+						++it;
+				}
+				else if (c == 'b' || c == 'B') { // Binary
+					++it;
+					while (data[it] == '0' || data[it] == '1')
+						++it;
+				}
+				else { // Octal
+					while (is_oct_digit(data[it]))
+						++it;
+				}
+			}
+			else { // Decimal
+				while (is_digit(data[it]))
+					++it;
+
+				c = data[it];
+				if (c == '.' && is_digit(data[it + 1])) { // Float
+					++it;
+					while (is_digit(data[it]))
+						++it;
+					if (data[it] == 'f')
+						++it;
+				}
+				else {
+					if (data[it] == 'u' || data[it] == 'U' || data[it] == 'i' || data[it] == 'I' || data[it] == 'f' || data[it] == 'F')
+						++it;
+				}
+			}
 			emit(TK_NUMBER);
 		}	break;
 

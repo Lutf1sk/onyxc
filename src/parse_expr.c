@@ -158,8 +158,8 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			while (i < tk->str.len) { // Parse decimal integer
 				char c = tk->str.str[i++];
 
-				if (c == '.') { // Parse float
-				parse_float:
+				switch (c) { // Parse float
+				case '.': parse_float: {
 					u64 low = 0;
 					u64 mult = 1;
 					while (i < tk->str.len) {
@@ -171,6 +171,18 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 					new->float_val = (f64)iv + ((f64)low / (f64)mult);
 					new->type = &f64_def;
 					new->stype = EXPR_FLOAT;
+				}	return new;
+
+				case 'u': case 'U':
+					new->uint_val = iv;
+					new->type = &u64_def;
+					new->stype = EXPR_INTEGER;
+					return new;
+
+				case 'i': case 'I':
+					new->int_val = iv;
+					new->type = &i64_def;
+					new->stype = EXPR_INTEGER;
 					return new;
 				}
 

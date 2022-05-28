@@ -20,11 +20,16 @@ let main :: u64() {
 	fd->fstat(&st);
 
 	u8* elf_data = malloc(st.st_size);
-	fd->read(elf_data[0 .. st.st_size]);
+	fd->read(elf_data[0..st.st_size]);
 
 	if !elf_verify_magic(ELF64_FileHeader*:elf_data) {
 		print("ELF Magic invalid\n");
 	}
+
+	print_i64(123);
+	print("\n0x");
+	print_h64(0x12345);
+	print("\n");
 
 	fd->close();
 

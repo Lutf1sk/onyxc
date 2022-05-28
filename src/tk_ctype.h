@@ -83,6 +83,28 @@ u8 is_digit(u8 c) {
 }
 
 static LT_INLINE
+u8 is_hex_digit(u8 c) {
+	switch (c) {
+	case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+	case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static LT_INLINE
+u8 is_oct_digit(u8 c) {
+	switch (c) {
+	case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7':
+		return 1;
+	default:
+		return 0;
+	}
+}
+
+static LT_INLINE
 u8 is_numeric_body(u8 c) {
 	return ctype_table[c] & NUMB;
 }
