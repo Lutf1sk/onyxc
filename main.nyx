@@ -9,9 +9,28 @@ let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
 	return 1;
 }
 
+let elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
+	return ELF64_SectHeader*:(usz:fh + fh.sh_offs + fh.sh_size * i);
+}
+
+let mcopy :: void(void* dst, void* src, usz bytes) {
+	u8* dst_it = dst;
+	u8* src_it = src;
+
+	while bytes-- {
+		*dst_it++ = *src_it++;
+	}
+}
+
+let printnum :: void(u8[] s1, i64 n) {
+	print(s1);
+	print_i64(n);
+	print("\n");
+}
+
 let main :: u64() {
 	isz fd;
-	if &fd->file_openr("a.out") {
+	if &fd->file_openr("/usr/lib/libGL.so") {
 		print("Failed to open 'a.out'\n");
 		exit(1);
 	}
@@ -22,14 +41,22 @@ let main :: u64() {
 	u8* elf_data = malloc(st.st_size);
 	fd->read(elf_data[0..st.st_size]);
 
-	if !elf_verify_magic(ELF64_FileHeader*:elf_data) {
+	let fh = ELF64_FileHeader*:elf_data;
+	if !elf_verify_magic(fh) {
 		print("ELF magic invalid\n");
 	}
 
-	print_i64(12345);
-	print("\n0x");
-	print_h64(0x12345);
-	print("\n");
+	printnum("strtab_index: ", fh.strtab_index);
+	printnum("sh_size: ", fh.sh_size);
+	printnum("sh_offs: ", fh.sh_offs);
+
+	ELF64_SectHeader* strtab_sh = elf_getsh(fh, fh.strtab_index);
+
+// 	u8* strtab_start = elf_data + u8*:shs[fh.strtab_index].offs;
+
+// 	for usz i..fh.sh_count {
+// 		
+// 	}
 
 	fd->close();
 

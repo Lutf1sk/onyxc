@@ -118,7 +118,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 		usz load_addr = LOAD_ADDR + make_space(&elf_cx, 0, 16);
 
 		if (seg->stype == SEG_MCODE) {
-// 			lt_printf("%S: 0x%hz\n", seg->name, load_addr);
+			lt_printf("%S: 0x%hz\n", seg->name, load_addr);
 			seg->load_at = load_addr;
 			cx->seg[seg->origin].load_at = load_addr;
 
@@ -175,6 +175,9 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 							rex = 1;
 					}
 				}
+
+				if (var->flags & VFLAG_OPSIZE)
+					*it++ = 0x66;
 
 				u8 rex_w = !!(var->flags & VFLAG_REX_W);
 				u8 rex_r = !!(mi->reg_rm & REG_REX_BIT);

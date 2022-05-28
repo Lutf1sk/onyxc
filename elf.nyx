@@ -76,6 +76,25 @@ def ELF64_ProgHeader :: struct {
 
 // ----- Section Header
 
+u32	ELFSH_NULL		:: 0,
+	ELFSH_PROGBITS	:: 1,
+	ELFSH_SYMTAB	:: 2,
+	ELFSH_STRTAB	:: 3,
+	ELFSH_RELA		:: 4,
+	ELFSH_HASH		:: 5,
+	ELFSH_DYN		:: 6,
+	ELFSH_NOTE		:: 7,
+	ELFSH_NOBITS	:: 8,
+	ELFSH_REL		:: 9,
+	ELFSH_SHLIB		:: 10,
+	ELFSH_DYNSYM	:: 11,
+
+	ELFSH_INIT_ARRAY	:: 14,
+	ELFSH_FINIT_ARRAY	:: 15,
+	ELFSH_PREINIT_ARRAY	:: 16,
+	ELFSH_GROUP			:: 17,
+	ELFSH_SYMTAB_SHNDX	:: 18;
+
 def ELF64_SectHeader :: struct {
 	u32 strtab_name_offs;
 	u32 type;
@@ -90,5 +109,20 @@ def ELF64_SectHeader :: struct {
 
 	u64 addr_align;
 	u64 ent_size;
+}
+
+// ----- Relocation Table
+
+// Located in SHT_REL
+def ELF64_Rel :: struct {
+	u64 offs;
+	u64 info;
+}
+
+// Located in SHT_RELA
+def ELF64_RelAdd :: struct {
+	u64 offs;
+	u64 info;
+	i64 addend;
 }
 
