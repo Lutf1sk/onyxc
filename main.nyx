@@ -26,7 +26,7 @@ let main :: u64() {
 		print("ELF Magic invalid\n");
 	}
 
-	print_i64(123);
+	print_i64();
 	print("\n0x");
 	print_h64(0x12345);
 	print("\n");

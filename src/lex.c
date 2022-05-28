@@ -213,21 +213,19 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 					while (data[it] == '0' || data[it] == '1')
 						++it;
 				}
-				else { // Octal
-					while (is_oct_digit(data[it]))
-						++it;
-				}
+				else
+					goto parse_decimal_end;
 			}
 			else { // Decimal
 				while (is_digit(data[it]))
 					++it;
-
 				c = data[it];
+			parse_decimal_end:
 				if (c == '.' && is_digit(data[it + 1])) { // Float
 					++it;
 					while (is_digit(data[it]))
 						++it;
-					if (data[it] == 'f')
+					if (data[it] == 'f' || data[it] == 'F')
 						++it;
 				}
 				else {

@@ -184,6 +184,12 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 					new->type = &i64_def;
 					new->stype = EXPR_INTEGER;
 					return new;
+
+				case 'f': case 'F':
+					new->float_val = (f64)iv;
+					new->type = &f64_def;
+					new->stype = EXPR_FLOAT;
+					return new;
 				}
 
 				iv *= 10;
