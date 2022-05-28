@@ -214,7 +214,6 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 	for (usz i = 0; i < arg_count; ++i)
 		lt_printf("(type:%ud,size:%ud)", args[i].type, args[i].size);
 	lt_printc('\n');
-	*(u8*)0 = 0;
 	LT_ASSERT_NOT_REACHED();
 }
 

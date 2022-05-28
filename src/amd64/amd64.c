@@ -89,17 +89,17 @@ void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_CALL: UPD(ir->dst); UPD(ir->regs[0]);
 		for (usz i = 0; i < cx->arg_index_max; ++i)
 			ir_arr[cx->arg_ir_indices[i]].regs[1] = CCONV_SYSV;
+		cx->arg_index_max = 0;
 		break;
 
 	case IR_SYSCALL: UPD(ir->dst);
 		for (usz i = 0; i < cx->arg_index_max; ++i)
 			ir_arr[cx->arg_ir_indices[i]].regs[1] = CCONV_LINUX_SYSCALL;
+		cx->arg_index_max = 0;
 		break;
 
 	case IR_SETARG: {
 		u32 arg_index = ir->regs[0];
-		if (!arg_index)
-			cx->arg_index_max = 0;
 		cx->arg_index_max++;
 		UPD(ir->dst);
 		cx->arg_ir_indices[arg_index] = i;
@@ -306,7 +306,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 #define GENERIC3(x, res_reg) { \
 	x64_mov(cx, XREG(REG_A, ir->size), *reg0); \
 	amd64_ireg_t arg = *reg1; \
-	if (arg.type == IREG_IMM || arg.type == IREG_SEG) { \
+	if (arg.type == IREG_IMM || arg.type == IREG_SEG || arg.type == IREG_LBL) { \
 		arg = XREG(REG_C, ir->size); \
 		x64_mov(cx, arg, *reg1); \
 	} \
