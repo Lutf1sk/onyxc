@@ -117,7 +117,7 @@ Therefore ```1.7->ceil()->fmod();``` is equal to ```fmod(ceil(1.7));```.
 
 # Variables
 A variable is defined either with C syntax:
-```int some_var;```
+```isz some_var;```
 
 Or by using the 'let' keyword to automatically deduce the type from the initializer:
 ```let an_integer = 123;```
@@ -126,20 +126,20 @@ Or by using the 'let' keyword to automatically deduce the type from the initiali
 
 Multiple variables can be defined at once like this:
 ```
-float a_float, another_float = 1.0, a_third_float;
+f32 a_float, another_float = 1.0, a_third_float;
 let an_int = 1, some_float = 123.0, a_bool = false;
 ```
 
 A compile-time constant can be defined by switching the '=' in the initializer for '::'
 ```
-float a_constant :: 1.0;
+f32 a_constant :: 1.0;
 let another_float_constant :: 2.0;
 ```
 
 # Functions
 ### Example function definition
 ```
-let fadd :: float(float x, float y) {
+let fadd :: f32(f32 x, f32 y) {
 	return x + y
 }
 ```
