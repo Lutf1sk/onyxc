@@ -1,25 +1,34 @@
 import "io.nyx", "elf.nyx";
 
+let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
+	for usz i..fh.magic.count {
+		if fh.magic[i] != ELFMAGIC[i] {
+			return 0;
+		}
+	}
+	return 1;
+}
+
 let main :: u64() {
 	isz fd;
 	if &fd->file_openr("a.out") {
 		print("Failed to open 'a.out'\n");
 		exit(1);
 	}
-	fd->file_close();
 
-	for u32 i..0x10 {
-		print_i64(i);
-		print(": 0x");
-		print_h64(i);
-		print("\n");
+	stat_t st;
+	fd->fstat(&st);
+
+	u8* elf_data = malloc(st.st_size);
+	fd->read(elf_data[0 .. st.st_size]);
+
+	if !elf_verify_magic(ELF64_FileHeader*:elf_data) {
+		print("ELF Magic invalid\n");
 	}
 
-// 	void(){
-// 		print("asdf\n");
-// 		let a = "ASDFASDFASDF";
-// 	}();
+	fd->close();
 
+	mfree(elf_data);
 	exit(0);
 }
 

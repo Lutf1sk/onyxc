@@ -145,6 +145,17 @@ void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, e
 			ferr("bitwise operator must have operands of same type", *tk);
 		return;
 
+	case EXPR_VIEW:
+		to = &i64_def;
+
+		from = (*left)->type;
+		if (!type_convert_implicit(cx, to, left))
+			goto implicit_err;
+		from = (*right)->type;
+		if (!type_convert_implicit(cx, to, right))
+			goto implicit_err;
+		return;
+
 	default:
 		return;
 	}

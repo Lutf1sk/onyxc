@@ -388,7 +388,23 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 
 			subscript->child_2 = parse_expr(cx, NULL);
 			if (!is_int_any_sign(subscript->child_2->type))
-				ferr("array index must be an integer", *tk);
+				ferr("array index must be an integer", *subscript->child_2->tk);
+
+			if (peek(cx, 0)->stype == TK_DOUBLE_DOT) {
+				type_t* view_type = lt_arena_reserve(cx->arena, sizeof(type_t));
+				*view_type = TYPE(TP_ARRAY_VIEW, operand->type->base);
+				subscript->type = view_type;
+				subscript->stype = EXPR_VIEW;
+
+				tk_t* tk = consume(cx);
+
+				expr_t* next = parse_expr(cx, NULL);
+				if (!is_int_any_sign(next->type))
+					ferr("array index must be an integer", *next->tk);
+
+				type_make_compatible(cx, tk, EXPR_VIEW, &subscript->child_2, &next);
+				subscript->child_2->next = next;
+			}
 			consume_type(cx, TK_RIGHT_BRACKET, CLSTR(", expected "A_BOLD"']'"A_RESET" after array subscript"));
 
 			operand = subscript;

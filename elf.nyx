@@ -18,6 +18,8 @@ u16	ELFOBJ_REL	:: 1,
 u16	ELFARCH_I386	:: 3,
 	ELFARCH_AMD64	:: 62;
 
+u8[4] ELFMAGIC :: { 0x7F, 'E', 'L', 'F' };
+
 def ELF64_FileHeader :: struct {
 	u8[4] magic;
 	u8 class;

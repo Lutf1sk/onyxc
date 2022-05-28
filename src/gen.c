@@ -528,6 +528,8 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_VIEW: {
+		LT_ASSERT(!expr->child_2); // !!
+
 		usz child_count = 2;
 		ival_t* children = lt_arena_reserve(cx->arena, child_count * sizeof(ival_t));
 		ival_t addr = icode_gen_expr(cx, expr->child_1);
@@ -606,19 +608,32 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return expr->sym->val;
 
 	case EXPR_VIEW: {
-		ival_t v = icode_gen_expr(cx, expr->child_1);
-		if (v.stype == IVAL_COM)
-			v = gen_static_compound(cx, expr->child_1->type, &v);
+		ival_t ptr, count;
+		if (expr->child_2) {
+			LT_ASSERT(expr->child_2->next);
 
-		u32 ptr = ival_ptr(cx, v);
+			ival_t start_count = icode_gen_expr(cx, expr->child_2);
 
-		usz count = expr->child_1->type->child_count;
+			ptr = gen_add(cx, ISZ_64, icode_gen_expr(cx, expr->child_1), gen_imul(cx, ISZ_64, start_count, IMMI(type_bytes(expr->child_1->type))));
+			count = icode_gen_expr(cx, expr->child_2->next);
+		}
+		else {
+			ival_t v = icode_gen_expr(cx, expr->child_1);
+			if (v.stype == IVAL_COM)
+				v = gen_static_compound(cx, expr->child_1->type, &v);
+
+			LT_ASSERT(v.stype & IVAL_REF);
+			v.stype &= ~IVAL_REF;
+			ptr = v;
+
+			count = IMMI(expr->child_1->type->child_count);
+		}
 		u32 view_start = alloc_reg(cx);
 		emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
 
-		gen_assign(cx, ISZ_64, REF(view_start), REG(ptr));
+		gen_assign(cx, ISZ_64, REF(view_start), ptr);
 		u32 count_ptr = ival_reg(cx, ISZ_64, gen_add(cx, ISZ_64, REG(view_start), IMMI(8)));
-		gen_assign(cx, ISZ_64, REF(count_ptr), IMMI(count));
+		gen_assign(cx, ISZ_64, REF(count_ptr), count);
 
 		return REF(view_start);
 	}

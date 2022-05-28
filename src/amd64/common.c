@@ -175,7 +175,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 				mi.reg_rm |= ireg->mreg << 4;
 
 				if (ireg->disp) {
-					if (ireg->disp <= 0xFF)
+					if (ireg->disp < 0x80)
 						mi.mod = MOD_DSP8;
 					else
 						mi.mod = MOD_DSP32;

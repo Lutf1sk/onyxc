@@ -46,8 +46,39 @@ let close :: isz(isz fd) {
 	return syscall(SYS_CLOSE, fd);
 }
 
-let stat :: isz(u8* path) {
+def stat_t :: struct {
+	u64 st_dev;
+	u64 st_ino;
+	u64 st_nlink;
 
+	u32 st_mode;
+	u32 st_uid;
+	u32 st_gid;
+	u32 pad;
+	u64 st_rdev;
+	i64 st_size;
+	i64 st_blksize;
+	i64 st_blocks;
+
+	u64 st_atime;
+	u64 st_atime_nsec;
+	u64 st_mtime;
+	u64 st_mtime_nsec;
+	u64 st_ctime;
+	u64 st_ctime_nsec;
+	i64[3] unused;
+}
+
+let stat :: isz(u8* path, stat_t* buf) {
+	syscall(SYS_STAT, path, buf);
+}
+
+let fstat :: isz(isz fd, stat_t* buf) {
+	syscall(SYS_FSTAT, fd, buf);
+}
+
+let lstat :: isz(u8* path, stat_t* buf) {
+	syscall(SYS_LSTAT, path, buf);
 }
 
 // ----- Memory Allocation
@@ -90,12 +121,12 @@ u64 CLOCK_REALTIME				:: 0,
 	CLOCK_PROCESS_CPUTIME_ID	:: 2,
 	CLOCK_THREAD_CPUTIME_ID		:: 3;
 
-def timespec :: struct {
+def timespec_t :: struct {
 	u64 tv_sec;
 	u64 tv_nsec;
 }
 
-let clock_gettime :: isz(i32 clockid, timespec* ts) {
+let clock_gettime :: isz(i32 clockid, timespec_t* ts) {
 	return syscall(SYS_CLOCK_GETTIME, clockid, ts);
 }
 
