@@ -8,8 +8,7 @@ Use ```make all``` to build and ```make test``` to run the (very hacked together
 ## Planned features
 - [X] C-like syntax
 - [X] 'Simulation mode' that executes the intermediate code directly
-- [ ] Compilation to x86 and x64 machine code
-- [ ] Support for 16-bit x86
+- [X] Compilation x64 machine code
 - [ ] Inline assembly
 - [ ] Floating point math
 - [ ] AVX intrinsics
