@@ -65,7 +65,7 @@ let dlopen :: ELF64_FileHeader*(u8[] libname) {
 		print(" 0x");
 		print_h64(ph.offs);
 		print("\n");
-		dyn += void*:16;
+		dyn += void*:sizeof(ELF64_Dyn);
 	}
 
 	u8* dynstr = null;
@@ -91,7 +91,7 @@ let dlopen :: ELF64_FileHeader*(u8[] libname) {
 		u8[] name = strtab_name[0..cstrlen(strtab_name)];
 
 		if sh.type == ELFSH_DYNSYM {
-			dynsym = (ELF64_Sym*:elf_data + ELF64_Sym*:sh.offs)[0..sh.size/24];
+			dynsym = (ELF64_Sym*:elf_data + ELF64_Sym*:sh.offs)[0..sh.size/sizeof(ELF64_Sym)];
 		}
 
 		print("SH '");

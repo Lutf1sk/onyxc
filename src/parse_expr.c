@@ -239,15 +239,33 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		return new;
 	}
 
+	case TK_KW_SIZEOF: consume(cx); {
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_INTEGER, &i64_def, tk);
+		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET" after "A_BOLD"'sizeof'"A_RESET));
+		new->int_val = type_bytes(parse_type(cx));
+		consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET));
+		return new;
+	}
+
+	case TK_KW_ALIGNOF: consume(cx); {
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_INTEGER, &i64_def, tk);
+		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET" after "A_BOLD"'sizeof'"A_RESET));
+		new->int_val = type_align(parse_type(cx));
+		consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET));
+		return new;
+	}
+
 	case TK_KW_SYSCALL: consume(cx); {
-		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET));
+		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET)); // !!
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_SYSCALL, &i64_def, tk);
 
 		expr_t** eit = &new->child_1;
 		while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
 			if (eit != &new->child_1)
-				consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"';'"A_RESET", "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
+				consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"';'"A_RESET", "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET)); // !!
 
 			*eit = parse_expr(cx, NULL);
 			eit = &(*eit)->next;

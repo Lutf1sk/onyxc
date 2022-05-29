@@ -40,6 +40,10 @@ tk_stype_t identifier_type(lstr_t str) {
 		return TK_IDENTIFIER;
 
 	switch (*str.str) {
+	case 'a':
+		if (lt_lstr_eq(str, CLSTR("alignof"))) return TK_KW_ALIGNOF;
+		break;
+
 	case 'b':
 		if (lt_lstr_eq(str, CLSTR("break"))) return TK_KW_BREAK;
 		break;
@@ -85,6 +89,7 @@ tk_stype_t identifier_type(lstr_t str) {
 		if (lt_lstr_eq(str, CLSTR("switch"))) return TK_KW_SWITCH;
 		if (lt_lstr_eq(str, CLSTR("struct"))) return TK_KW_STRUCT;
 		if (lt_lstr_eq(str, CLSTR("syscall"))) return TK_KW_SYSCALL;
+		if (lt_lstr_eq(str, CLSTR("sizeof"))) return TK_KW_SIZEOF;
 		break;
 
 	case 'w':
