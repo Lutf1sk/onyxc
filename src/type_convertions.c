@@ -190,17 +190,6 @@ type_t* type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left
 		}
 		return (*to)->type;
 
-	case EXPR_VIEW:
-// 		to = &i64_def;
-
-// 		from = (*left)->type;
-		if (!type_convert_implicit(cx, &i64_def, left));
-// 			goto implicit_err;
-// 		from = (*right)->type;
-		if (!type_convert_implicit(cx, &u64_def, right));
-// 			goto implicit_err;
-		return &i64_def;
-
 	case EXPR_UFCS:
 		return (*right)->type->base;
 

@@ -430,13 +430,16 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				subscript->type = view_type;
 				subscript->stype = EXPR_VIEW;
 
-				tk_t* tk = consume(cx);
+				consume(cx);
 
 				expr_t* next = parse_expr(cx, NULL);
 				if (!is_int_any_sign(next->type))
 					ferr("array index must be an integer", *next->tk);
 
-				type_make_compatible(cx, tk, EXPR_VIEW, &subscript->child_2, &next);
+				// Skip error checking for these, as we already know both values are integers
+				type_convert_implicit(cx, &i64_def, &subscript->child_2);
+				type_convert_implicit(cx, &u64_def, &next);
+
 				subscript->child_2->next = next;
 			}
 			else {
