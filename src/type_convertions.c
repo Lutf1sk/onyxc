@@ -5,21 +5,30 @@
 #include "err.h"
 
 b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
-#define old (*expr)
+	expr_t* old = *expr;
 
 	if (type_eq(type, old->type))
 		return 1;
 
-	if ((type_eq(old->type, &void_view_def) && type->stype == TP_ARRAY) ||
-		(old->type->stype == TP_ARRAY && type_eq(type, &void_view_def)))
-	{
-		type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
-		*type = TYPE(TP_ARRAY_VIEW, old->type->base);
+	b8 void_arr1 = type_eq(old->type, &void_view_def) && type->stype == TP_ARRAY;
+	b8 void_arr2 = old->type->stype == TP_ARRAY && type_eq(type, &void_view_def);
+	if (void_arr1 || void_arr2) {
+		type_t* base = type->base;
+		if (void_arr2)
+			base = old->type->base;
+		type_t* view_type = lt_arena_reserve(cx->arena, sizeof(type_t));
+		*view_type = TYPE(TP_ARRAY_VIEW, base);
+
+		expr_t* view = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*view = EXPR(EXPR_VIEW, view_type, (*expr)->tk);
+		view->child_1 = (*expr);
 
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-		*new = EXPR(EXPR_VIEW, type, (*expr)->tk);
-		new->child_1 = old;
+		*new = EXPR(EXPR_CONVERT, type, (*expr)->tk);
+		new->child_1 = view;
+
 		*expr = new;
+		return 1;
 	}
 
 	if ((is_int_any_sign(type) && is_int_any_sign(old->type)) ||
@@ -46,8 +55,6 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		return 1;
 	}
 
-#undef old
-
 	return 0;
 }
 
@@ -69,9 +76,6 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		*expr = new;
 		return 1;
 	}
-
-	if (type->stype == TP_ARRAY_VIEW && old->type->stype == TP_ARRAY_VIEW)
-		return 1;
 
 	if (type->stype == TP_ARRAY_VIEW && old->type->stype == TP_ARRAY) {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));

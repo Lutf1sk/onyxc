@@ -10,6 +10,11 @@ b8 type_eq(type_t* t1, type_t* t2) {
 
 	switch (t1->stype) {
 		case TP_FUNC:
+			if (t1->child_count != t2->child_count)
+				return 0;
+			for (usz i = 0; i < t1->child_count; ++i)
+				if (!type_eq(t1->children[i], t2->children[i]))
+					return 0;
 			return type_eq(t1->base, t2->base);
 
 		case TP_PTR:
@@ -18,6 +23,9 @@ b8 type_eq(type_t* t1, type_t* t2) {
 
 		case TP_ARRAY_VIEW:
 			return type_eq(t1->base, t2->base);
+
+		case TP_STRUCT:
+			return t1 == t2;
 
 		default:
 			return 1;

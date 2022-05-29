@@ -9,12 +9,6 @@ let mcopy :: void(void* dst, void* src, usz bytes) {
 	}
 }
 
-let printnum :: void(u8[] s1, i64 n) {
-	print(s1);
-	print_i64(n);
-	print("\n");
-}
-
 let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
 	for usz i..fh.magic.count {
 		if fh.magic[i] != ELFMAGIC[i] {
@@ -32,7 +26,7 @@ let elf_getph :: ELF64_ProgHeader*(ELF64_FileHeader* fh, usz i) {
 	return ELF64_ProgHeader*:(usz:fh + fh.ph_offs + fh.ph_size * i);
 }
 
-let dlopen :: void*(u8[] libname) {
+let dlopen :: ELF64_FileHeader*(u8[] libname) {
 	isz fd;
 	if &fd->file_openr(libname) {
 		return null;
@@ -50,20 +44,55 @@ let dlopen :: void*(u8[] libname) {
 		print("ELF magic invalid\n");
 	}
 
-	printnum("strtab_index: ", fh.strtab_index);
-	printnum("sh_size: ", fh.sh_size);
-	printnum("sh_offs: ", fh.sh_offs);
-
 	ELF64_SectHeader* strtab = elf_getsh(fh, fh.strtab_index);
 	u8* strtab_start = elf_data + u8*:strtab.offs;
 
+	u8[] interp = null[0..0];
+	ELF64_Dyn* dyn = null;
+
+	for usz i..fh.ph_count {
+		let ph = elf_getph(fh, i);
+
+		if ph.type == ELFPH_INTERP {
+			interp = (elf_data + u8*:ph.offs)[0..ph.mem_size];
+		}
+		if ph.type == ELFPH_DYNAMIC {
+			dyn = ELF64_Dyn*:(usz:elf_data + ph.offs);
+		}
+
+		print("PH ");
+		print_i64(ph.type);
+		print(" 0x");
+		print_h64(ph.offs);
+		print("\n");
+		dyn += void*:16;
+	}
+
 	u8* dynstr = null;
+
+	while dyn && dyn.type != ELFDYN_NULL {
+		if dyn.type == ELFDYN_STRTAB {
+			dynstr = elf_data + void*:dyn.val;
+		}
+
+		print("DYN ");
+		print_i64(dyn.type);
+		print(" 0x");
+		print_h64(dyn.val);
+		print("\n");
+		dyn += void*:16;
+	}
+
 	ELF64_Sym[] dynsym = null[0..0];
 
 	for usz i..fh.sh_count {
 		let sh = elf_getsh(fh, i);
 		u8* strtab_name = strtab_start + u8*:sh.name;
 		u8[] name = strtab_name[0..cstrlen(strtab_name)];
+
+		if sh.type == ELFSH_DYNSYM {
+			dynsym = (ELF64_Sym*:elf_data + ELF64_Sym*:sh.offs)[0..sh.size/24];
+		}
 
 		print("SH '");
 		print(name);
@@ -72,22 +101,20 @@ let dlopen :: void*(u8[] libname) {
 		print(" type:");
 		print_i64(sh.type);
 		print("\n");
+	}
 
-		if sh.type == ELFSH_DYNAMIC {
-			let it = ELF64_Dyn*:(usz:elf_data + sh.offs);
-			while it.type != ELFDYN_NULL {
-				if it.type == ELFDYN_STRTAB {
-					dynstr = elf_data + void*:it.val;
-				}
+	print("symbol count: ");
+	print_i64(dynsym.count);
+	print("\n");
+	for usz i..dynsym.count {
+		u8* strtab_name = dynstr + u8*:dynsym[i].name;
+		u8[] name = strtab_name[0..cstrlen(strtab_name)];
 
-				print("DYN ");
-				print_i64(it.type);
-				print(" 0x");
-				print_h64(it.val);
-				print("\n");
-				it += void*:16;
-			}
-		}
+		print("SYM ");
+		print_i64(i);
+		print(" '");
+		print(name);
+		print("'\n");
 	}
 
 	return fh;
@@ -106,10 +133,6 @@ let main :: u64() {
 		exit(1);
 	}
 
-	void[] arr1 = u64[]{1, 2};
-	u64[] arr2 = arr1;
-	printnum("arr1.count: ", arr1.count);
-	printnum("arr2.count: ", arr2.count);
 	exit(0);
 }
 

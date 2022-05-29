@@ -49,14 +49,14 @@ def ELF64_FileHeader :: struct {
 
 // ----- Program Header
 
-u32	ELFPH_NULL		:: 0,
-	ELFPH_LOAD		:: 1,
-	ELFPH_DYNAMIC	:: 2,
-	ELFPH_INTERP	:: 3,
-	ELFPH_NOTE		:: 4,
-	ELFPH_SHLIB		:: 5,
-	ELFPH_PHDR		:: 6,
-	ELFPH_TLS		:: 7;
+u32	ELFPH_NULL		:: 0,	// Unused segment
+	ELFPH_LOAD		:: 1,	// Loadable segment
+	ELFPH_DYNAMIC	:: 2,	// Dynamic linking info
+	ELFPH_INTERP	:: 3,	// Interpreter name
+	ELFPH_NOTE		:: 4,	// Auxiliary info
+	ELFPH_SHLIB		:: 5,	// Reserved
+	ELFPH_PHDR		:: 6,	// Entry for header table
+	ELFPH_TLS		:: 7;	// Thread-local storage segment
 
 u32	ELFPH_X :: 1,
 	ELFPH_W :: 2,
