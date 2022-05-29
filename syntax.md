@@ -20,6 +20,7 @@ Unlike C, onyx attaches subtypes like *, [] and () to the type itself instead of
 | T*    | Pointer to T                   |
 | void* | Pointer to nothing             |
 | T[]   | View of array of T             |
+| void[]| View of nothing                |
 | T[N]  | N element array of T           |
 | T(A)  | Pointer to funtion returning T |
 
@@ -34,6 +35,8 @@ Floating point types work in the same way,
 implicitly converting between each other and promoting the smaller type when necessary.
 
 Pointer types can be implicitly converted to/from 'void*' types.
+
+Arrays/views can be implicitly converted to/from 'void[]' types, this automatically converts between the count and the number of bytes.
 
 # Expressions
 Order of evaluation is undefined.

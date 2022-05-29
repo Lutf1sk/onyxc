@@ -1,18 +1,5 @@
 import "io.nyx", "elf.nyx";
 
-let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
-	for usz i..fh.magic.count {
-		if fh.magic[i] != ELFMAGIC[i] {
-			return 0;
-		}
-	}
-	return 1;
-}
-
-let elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
-	return ELF64_SectHeader*:(usz:fh + fh.sh_offs + fh.sh_size * i);
-}
-
 let mcopy :: void(void* dst, void* src, usz bytes) {
 	u8* dst_it = dst;
 	u8* src_it = src;
@@ -28,11 +15,27 @@ let printnum :: void(u8[] s1, i64 n) {
 	print("\n");
 }
 
-let main :: u64() {
+let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
+	for usz i..fh.magic.count {
+		if fh.magic[i] != ELFMAGIC[i] {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+let elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
+	return ELF64_SectHeader*:(usz:fh + fh.sh_offs + fh.sh_size * i);
+}
+
+let elf_getph :: ELF64_ProgHeader*(ELF64_FileHeader* fh, usz i) {
+	return ELF64_ProgHeader*:(usz:fh + fh.ph_offs + fh.ph_size * i);
+}
+
+let dlopen :: void*(u8[] libname) {
 	isz fd;
-	if &fd->file_openr("/usr/lib/libGL.so") {
-		print("Failed to open 'a.out'\n");
-		exit(1);
+	if &fd->file_openr(libname) {
+		return null;
 	}
 
 	stat_t st;
@@ -40,6 +43,7 @@ let main :: u64() {
 
 	u8* elf_data = malloc(st.st_size);
 	fd->read(elf_data[0..st.st_size]);
+	fd->close();
 
 	let fh = ELF64_FileHeader*:elf_data;
 	if !elf_verify_magic(fh) {
@@ -50,17 +54,62 @@ let main :: u64() {
 	printnum("sh_size: ", fh.sh_size);
 	printnum("sh_offs: ", fh.sh_offs);
 
-	ELF64_SectHeader* strtab_sh = elf_getsh(fh, fh.strtab_index);
+	ELF64_SectHeader* strtab = elf_getsh(fh, fh.strtab_index);
+	u8* strtab_start = elf_data + u8*:strtab.offs;
 
-// 	u8* strtab_start = elf_data + u8*:shs[fh.strtab_index].offs;
+	u8* dynstr = null;
+	ELF64_Sym[] dynsym = null[0..0];
 
-// 	for usz i..fh.sh_count {
-// 		
-// 	}
+	for usz i..fh.sh_count {
+		let sh = elf_getsh(fh, i);
+		u8* strtab_name = strtab_start + u8*:sh.name;
+		u8[] name = strtab_name[0..cstrlen(strtab_name)];
 
-	fd->close();
+		print("SH '");
+		print(name);
+		print("' offs:0x");
+		print_h64(sh.offs);
+		print(" type:");
+		print_i64(sh.type);
+		print("\n");
 
-	mfree(elf_data);
+		if sh.type == ELFSH_DYNAMIC {
+			let it = ELF64_Dyn*:(usz:elf_data + sh.offs);
+			while it.type != ELFDYN_NULL {
+				if it.type == ELFDYN_STRTAB {
+					dynstr = elf_data + void*:it.val;
+				}
+
+				print("DYN ");
+				print_i64(it.type);
+				print(" 0x");
+				print_h64(it.val);
+				print("\n");
+				it += void*:16;
+			}
+		}
+	}
+
+	return fh;
+}
+
+let main :: u64() {
+// 	u8[] libname = "/usr/lib/ld-linux-x86-64.so.2";
+// 	u8[] libname = "/usr/lib/libvulkan.so.1";
+	u8[] libname = "/usr/lib/libxcb.so";
+
+	void* lib = dlopen(libname);
+	if !lib {
+		print("Failed to load '");
+		print(libname);
+		print("'\n");
+		exit(1);
+	}
+
+	void[] arr1 = u64[]{1, 2};
+	u64[] arr2 = arr1;
+	printnum("arr1.count: ", arr1.count);
+	printnum("arr2.count: ", arr2.count);
 	exit(0);
 }
 

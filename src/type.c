@@ -137,6 +137,7 @@ lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type) {
 
 type_t void_def = TYPE_INIT(TP_VOID, NULL);
 type_t void_ptr_def = TYPE_INIT(TP_PTR, &void_def);
+type_t void_view_def = TYPE_INIT(TP_ARRAY_VIEW, &void_def);
 
 type_t u8_def = TYPE_INIT(TP_U8, NULL);
 type_t u8_ptr_def = TYPE_INIT(TP_PTR, &u8_def);

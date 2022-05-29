@@ -30,11 +30,11 @@ i32 O_RDONLY	:: 0x00,
 	S_IWUSR 	:: 0x80,
 	S_IXUSR 	:: 0x40;
 
-let read :: isz(isz fd, u8[] data) {
+let read :: isz(isz fd, void[] data) {
 	return syscall(SYS_READ, fd, data.data, data.count);
 }
 
-let write :: isz(isz fd, u8[] data) {
+let write :: isz(isz fd, void[] data) {
 	return syscall(SYS_WRITE, fd, data.data, data.count);
 }
 
@@ -103,7 +103,7 @@ usz	PROT_READ	:: 0x01,
 	PROT_SEM	:: 0x08;
 
 let mmap :: void*(usz addr, usz size, usz prot, usz flags, usz fd, usz off) {
-	return syscall(SYS_MMAP, addr, size, prot, flags, fd, off);
+	return void*:syscall(SYS_MMAP, addr, size, prot, flags, fd, off);
 }
 
 let mprotect :: i64(usz addr, usz size, usz prot) {
@@ -111,7 +111,7 @@ let mprotect :: i64(usz addr, usz size, usz prot) {
 }
 
 let munmap :: void*(usz addr, usz size) {
-	return syscall(SYS_MUNMAP, addr, size);
+	return void*:syscall(SYS_MUNMAP, addr, size);
 }
 
 // ----- Time

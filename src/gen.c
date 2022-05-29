@@ -93,6 +93,7 @@ u32 ival_reg(gen_ctx_t* cx, usz size, ival_t v) {
 	case IVAL_REG | IVAL_REF: return ref_reg(cx, size, v.reg);
 	}
 
+	*(u8*)0 = 0;
 	LT_ASSERT_NOT_REACHED();
 	return 0;
 }
@@ -408,7 +409,7 @@ ival_t gen_udiv(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	if (a1.stype == IVAL_IMM) {
 		switch (a1.uint_val) {
-//		case 0:
+// 		case 0:
 		case 1: return a2;
 		}
 	}
@@ -624,6 +625,38 @@ expected_lval:
 	}
 }
 
+static
+ival_t gen_ptr_view(gen_ctx_t* cx, ival_t v, ival_t start_index, usz elem_size, ival_t count) {
+	ival_t ptr = gen_add(cx, ISZ_64, v, gen_imul(cx, ISZ_64, start_index, IMMI(elem_size)));
+
+	u32 view_start = alloc_reg(cx);
+	emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
+
+	gen_assign(cx, ISZ_64, REF(view_start), ptr);
+	u32 count_ptr = ival_reg(cx, ISZ_64, gen_add(cx, ISZ_64, REG(view_start), IMMI(8)));
+	gen_assign(cx, ISZ_64, REF(count_ptr), count);
+
+	return REF(view_start);
+}
+
+static
+ival_t gen_view_data(gen_ctx_t* cx, ival_t v) {
+	if (v.stype == IVAL_COM)
+		return v.children[0];
+	return v;
+}
+
+static
+ival_t gen_view_count(gen_ctx_t* cx, ival_t v) {
+	if (v.stype == IVAL_COM)
+		return v.children[1];
+
+	u32 reg = ival_ptr(cx, v);
+	ival_t ref = gen_add(cx, ISZ_64, REG(reg), IMMI(8));
+	ref.stype |= IVAL_REF;
+	return ref;
+}
+
 ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	switch (expr->stype) {
 	// Literals
@@ -637,14 +670,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return expr->sym->val;
 
 	case EXPR_VIEW: {
-		ival_t ptr, count;
+// 		ival_t ptr, count;
 		if (expr->child_2) {
 			LT_ASSERT(expr->child_2->next);
-
-			ival_t start_count = icode_gen_expr(cx, expr->child_2);
-
-			ptr = gen_add(cx, ISZ_64, icode_gen_expr(cx, expr->child_1), gen_imul(cx, ISZ_64, start_count, IMMI(type_bytes(expr->child_1->type))));
-			count = icode_gen_expr(cx, expr->child_2->next);
+			return gen_ptr_view(cx, icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2), type_bytes(expr->child_1->type), icode_gen_expr(cx, expr->child_2->next));
 		}
 		else {
 			ival_t v = icode_gen_expr(cx, expr->child_1);
@@ -653,18 +682,18 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 			LT_ASSERT(v.stype & IVAL_REF);
 			v.stype &= ~IVAL_REF;
-			ptr = v;
 
-			count = IMMI(expr->child_1->type->child_count);
+// 			count = IMMI(expr->child_1->type->child_count);
+			return gen_ptr_view(cx, v, IMMI(0), 0, IMMI(expr->child_1->type->child_count));
 		}
-		u32 view_start = alloc_reg(cx);
-		emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
+// 		u32 view_start = alloc_reg(cx);
+// 		emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
 
-		gen_assign(cx, ISZ_64, REF(view_start), ptr);
-		u32 count_ptr = ival_reg(cx, ISZ_64, gen_add(cx, ISZ_64, REG(view_start), IMMI(8)));
-		gen_assign(cx, ISZ_64, REF(count_ptr), count);
+// 		gen_assign(cx, ISZ_64, REF(view_start), ptr);
+// 		u32 count_ptr = ival_reg(cx, ISZ_64, gen_add(cx, ISZ_64, REG(view_start), IMMI(8)));
+// 		gen_assign(cx, ISZ_64, REF(count_ptr), count);
 
-		return REF(view_start);
+// 		return REF(view_start);
 	}
 
 	case EXPR_ARRAY: {
@@ -767,6 +796,23 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		if (a1.stype == IVAL_IMM)
 			return a1;
 
+		if (expr->type->stype == TP_ARRAY_VIEW && expr->child_1->type->stype == TP_ARRAY_VIEW) {\
+			if (type_eq(expr->type, &void_view_def)) {
+				usz elem_size = type_bytes(expr->child_1->type->base);
+				ival_t count_bytes = IMMI(0);
+				if (elem_size)
+					count_bytes = gen_umul(cx, ISZ_64, gen_view_count(cx, a1), IMMI(elem_size));
+				return gen_ptr_view(cx, gen_view_data(cx, a1), IMMI(0), elem_size, count_bytes);
+			}
+			else if (type_eq(expr->child_1->type, &void_view_def)) {
+				usz elem_size = type_bytes(expr->type->base);
+				ival_t count_bytes = IMMI(0);
+				if (elem_size)
+					count_bytes = gen_udiv(cx, ISZ_64, gen_view_count(cx, a1), IMMI(elem_size));
+				return gen_ptr_view(cx, gen_view_data(cx, a1), IMMI(0), elem_size, count_bytes);
+			}
+		}
+
 		u32 op = IR_INVAL;
 		if (is_int(expr->type) && is_int(expr->child_1->type)) {
 			switch (to) {
@@ -776,7 +822,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			case ISZ_64: op = IR_TOI64; break;
 			}
 		}
-		else {
+		else if (is_number(expr->type) && is_number(expr->child_1->type)) {
 			switch (to) {
 			case ISZ_8: op = IR_TOU8; break;
 			case ISZ_16: op = IR_TOU16; break;
@@ -784,6 +830,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			case ISZ_64: op = IR_TOU64; break;
 			}
 		}
+		else
+			LT_ASSERT_NOT_REACHED();
 		u32 r1 = ival_reg(cx, from, a1), dst = alloc_reg(cx);
 		emit(cx, ICODE2(op, from, dst, r1));
 		return REG(dst);
