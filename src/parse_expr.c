@@ -258,14 +258,14 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	}
 
 	case TK_KW_SYSCALL: consume(cx); {
-		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET)); // !!
+		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET));
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_SYSCALL, &i64_def, tk);
 
 		expr_t** eit = &new->child_1;
 		while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
 			if (eit != &new->child_1)
-				consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"';'"A_RESET", "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET)); // !!
+				consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
 
 			*eit = parse_expr(cx, NULL);
 			eit = &(*eit)->next;
@@ -531,6 +531,8 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 			new->type = type;
 		}	break;
 
+		case EXPR_LOGIC_NOT: new->type = &u8_def; break;
+
 		default:
 			new->type = child->type;
 			if (!is_number(new->type))
@@ -559,7 +561,7 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 		expr_t* right = parse_expr_binary(cx, NULL, op->precedence);
 		type_t* type = left->type;
 
-		type_make_compatible(cx, tk, op->expr, &left, &right);
+		type = type_make_compatible(cx, tk, op->expr, &left, &right);
 
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(op->expr, type, tk);

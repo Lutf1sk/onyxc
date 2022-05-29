@@ -88,50 +88,59 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	return 0;
 }
 
-void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, expr_t** right) {
+type_t* type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, expr_t** right) {
 	LT_ASSERT(left && *left && (*left)->type);
 	LT_ASSERT(right && *right && (*right)->type);
 
-	type_t* from = NULL;
-	type_t* to = NULL;
-
-	// TODO: promote types to higher precision when possible
-
 	if ((*left)->type->stype == TP_VOID)
-		ferr("void type in expression", *tk);
+		ferr("void type in expression", *(*left)->tk);
 	if ((*right)->type->stype == TP_VOID)
-		ferr("void type in expression", *tk);
+		ferr("void type in expression", *(*right)->tk);
+
+	expr_t** from = NULL;
+	expr_t** to = NULL;
+
+	expr_t** small = right;
+	expr_t** large = left;
+	if ((type_bytes((*small)->type) > type_bytes((*large)->type)) ||
+		((*small)->type->stype == TP_PTR && is_int_any_sign((*large)->type)) ||
+		((*small)->type->stype == TP_PTR && type_eq((*large)->type, &void_ptr_def)))
+	{
+		small = left;
+		large = right;
+	}
 
 	switch (stype) {
 	case EXPR_LOGIC_AND: case EXPR_LOGIC_OR:
 		if (!is_number((*left)->type) || !is_number((*right)->type))
 			ferr("operands of binary "A_BOLD"'%S'"A_RESET" must be valid numbers", *tk, tk->str);
-		return;
+		return &u8_def;
 
-	case EXPR_BIT_SHIFT_LEFT: case EXPR_BIT_SHIFT_RIGHT:
-		from = (*right)->type;
-		to = &u8_def;
-		if (!type_convert_implicit(cx, to, right))
-			goto implicit_err;
-		return;
-
+	case EXPR_EQUAL: case EXPR_NOT_EQUAL:
 	case EXPR_LESSER: case EXPR_GREATER:
 	case EXPR_LESSER_OR_EQUAL: case EXPR_GREATER_OR_EQUAL:
-		from = (*right)->type;
-		to = (*left)->type;
+		from = small;
+		to = large;
 		if (is_int_any_sign((*left)->type) && is_int_any_sign((*right)->type)) {
 			b8 l_signed = is_int((*left)->type);
 			b8 r_signed = is_int((*right)->type);
 
 			b8 differing_sign = l_signed ^ r_signed;
 			if (differing_sign)
-				goto implicit_err;
+				werr("comparison of integers of differing sign", *tk);
 		}
-		if (!type_convert_implicit(cx, to, right))
+		if (!type_convert_implicit(cx, (*to)->type, from))
 			goto implicit_err;
-		return;
+		return &u8_def;
 
-	case EXPR_EQUAL: case EXPR_NOT_EQUAL: // TODO
+
+	case EXPR_BIT_AND:
+	case EXPR_BIT_OR:
+	case EXPR_BIT_XOR:
+	case EXPR_BIT_SHIFT_LEFT:
+	case EXPR_BIT_SHIFT_RIGHT:
+		if (!is_int_any_sign_or_ptr((*left)->type) || !is_int_any_sign_or_ptr((*right)->type))
+			ferr("operands of binary "A_BOLD"'%S'"A_RESET" must have integer operands", *tk, tk->str);
 	case EXPR_ADD:
 	case EXPR_SUBTRACT:
 	case EXPR_MULTIPLY:
@@ -140,49 +149,67 @@ void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, e
 		if (!is_number((*left)->type) || !is_number((*right)->type))
 			ferr("operands of binary "A_BOLD"'%S'"A_RESET" must be valid numbers", *tk, tk->str);
 
-		to = (*left)->type;
-		from = (*right)->type;
-		if (type_eq(to, from))
-			return;
-		if (!type_convert_implicit(cx, to, right))
-			goto implicit_err;
-		return;
+		from = small;
+		to = large;
 
+		if ((*to)->type->stype == TP_PTR && (*from)->type->stype != TP_PTR) {
+			if (!type_convert_explicit(cx, (*to)->type, from))
+				goto implicit_err;
+		}
+		else {
+			if (!type_convert_implicit(cx, (*to)->type, from))
+				goto implicit_err;
+		}
+		return (*to)->type;
 
+	case EXPR_BIT_SHIFT_LEFT_ASSIGN:
+	case EXPR_BIT_SHIFT_RIGHT_ASSIGN:
+	case EXPR_BIT_AND_ASSIGN:
+	case EXPR_BIT_XOR_ASSIGN:
+	case EXPR_BIT_OR_ASSIGN:
+		if (!is_int_any_sign_or_ptr((*left)->type) || !is_int_any_sign_or_ptr((*right)->type))
+			ferr("operands of "A_BOLD"'%S'"A_RESET" must have integer operands", *tk, tk->str);
+	case EXPR_ADD_ASSIGN:
+	case EXPR_SUBTRACT_ASSIGN:
+	case EXPR_MULTIPLY_ASSIGN:
+	case EXPR_DIVIDE_ASSIGN:
+	case EXPR_MODULO_ASSIGN:
+		if (!is_number((*left)->type) || !is_number((*right)->type))
+			ferr("operands of "A_BOLD"'%S'"A_RESET" must be valid numbers", *tk, tk->str);
 	case EXPR_ASSIGN:
-		from = (*right)->type;
-		to = (*left)->type;
+		from = right;
+		to = left;
 
-		if (!type_convert_implicit(cx, to, right))
-			goto implicit_err;
-		return;
-
-	case EXPR_BIT_AND:
-	case EXPR_BIT_OR:
-	case EXPR_BIT_XOR:
-		if (!is_int_any_sign((*left)->type) || !is_int_any_sign((*right)->type))
-			ferr("operands of binary "A_BOLD"'%S'"A_RESET" must have integer operands", *tk, tk->str);
-		if (!type_eq((*left)->type, (*right)->type))
-			ferr("bitwise operator must have operands of same type", *tk);
-		return;
+		if ((*to)->type->stype == TP_PTR && (*from)->type->stype != TP_PTR) {
+			if (!type_convert_explicit(cx, (*to)->type, from))
+				goto implicit_err;
+		}
+		else {
+			if (!type_convert_implicit(cx, (*to)->type, from))
+				goto implicit_err;
+		}
+		return (*to)->type;
 
 	case EXPR_VIEW:
-		to = &i64_def;
+// 		to = &i64_def;
 
-		from = (*left)->type;
-		if (!type_convert_implicit(cx, to, left))
-			goto implicit_err;
-		from = (*right)->type;
-		if (!type_convert_implicit(cx, to, right))
-			goto implicit_err;
-		return;
+// 		from = (*left)->type;
+		if (!type_convert_implicit(cx, &i64_def, left));
+// 			goto implicit_err;
+// 		from = (*right)->type;
+		if (!type_convert_implicit(cx, &u64_def, right));
+// 			goto implicit_err;
+		return &i64_def;
+
+	case EXPR_UFCS:
+		return (*right)->type->base;
 
 	default:
-		return;
+		lt_ferrf("Unhandled expression type %S\n", expr_type_str(stype));
 	}
 
 implicit_err:
 	ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
-			type_to_reserved_str(cx->arena, from), type_to_reserved_str(cx->arena, to));
+			type_to_reserved_str(cx->arena, (*from)->type), type_to_reserved_str(cx->arena, (*to)->type));
 }
 

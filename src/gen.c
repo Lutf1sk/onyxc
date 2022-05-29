@@ -1102,13 +1102,16 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size = type_bytes(expr->type);
 		u32 dst = immi_reg(cx, size, 0);
 
-		u32 r1 = ival_reg(cx, size, icode_gen_expr(cx, expr->child_1));
+		usz size1 = type_bytes(expr->child_1->type);
+		usz size2 = type_bytes(expr->child_2->type);
+
+		u32 r1 = ival_reg(cx, size1, icode_gen_expr(cx, expr->child_1));
 		u32 trg = alloc_reg(cx);
 		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
-		emit(cx, ICODE2(IR_CJMPZ, size, trg, r1));
+		emit(cx, ICODE2(IR_CJMPZ, size1, trg, r1));
 
-		u32 r2 = ival_reg(cx, size, icode_gen_expr(cx, expr->child_2));
-		emit(cx, ICODE2(IR_CSETNZ, size, dst, r2));
+		u32 r2 = ival_reg(cx, size2, icode_gen_expr(cx, expr->child_2));
+		emit(cx, ICODE2(IR_CSETNZ, size2, dst, r2));
 
 		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
 		return REG(dst);
@@ -1118,20 +1121,23 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size = type_bytes(expr->type);
 		u32 dst = immi_reg(cx, size, 1);
 
-		u32 r1 = ival_reg(cx, size, icode_gen_expr(cx, expr->child_1));
+		usz size1 = type_bytes(expr->child_1->type);
+		usz size2 = type_bytes(expr->child_2->type);
+
+		u32 r1 = ival_reg(cx, size1, icode_gen_expr(cx, expr->child_1));
 		u32 trg = alloc_reg(cx);
 		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
-		emit(cx, ICODE2(IR_CJMPNZ, size, trg, r1));
+		emit(cx, ICODE2(IR_CJMPNZ, size1, trg, r1));
 
-		u32 r2 = ival_reg(cx, size, icode_gen_expr(cx, expr->child_2));
-		emit(cx, ICODE2(IR_CSETNZ, size, dst, r2));
+		u32 r2 = ival_reg(cx, size2, icode_gen_expr(cx, expr->child_2));
+		emit(cx, ICODE2(IR_CSETNZ, size2, dst, r2));
 
 		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
 		return REG(dst);
 	}
 
 	case EXPR_LOGIC_NOT: {
-		usz size = type_bytes(expr->type);
+		usz size = type_bytes(expr->child_1->type);
 		u32 r = ival_reg(cx, size, icode_gen_expr(cx, expr->child_1));
 		u32 dst = alloc_reg(cx);
 		emit(cx, ICODE2(IR_CSETZ, size, dst, r));
@@ -1139,7 +1145,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_LESSER: {
-		usz size = type_bytes(expr->type);
+		usz size = type_bytes(expr->child_1->type);
 		u32 dst = alloc_reg(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
@@ -1158,7 +1164,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_GREATER: {
-		usz size = type_bytes(expr->type);
+		usz size = type_bytes(expr->child_1->type);
 		u32 dst = alloc_reg(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
@@ -1177,7 +1183,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_LESSER_OR_EQUAL: {
-		usz size = type_bytes(expr->type);
+		usz size = type_bytes(expr->child_1->type);
 		u32 dst = alloc_reg(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
@@ -1196,7 +1202,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_GREATER_OR_EQUAL: {
-		usz size = type_bytes(expr->type);
+		usz size = type_bytes(expr->child_1->type);
 		u32 dst = alloc_reg(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
@@ -1215,7 +1221,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_EQUAL: {
-		usz size = type_bytes(expr->type);
+		usz size = type_bytes(expr->child_1->type);
 		u32 dst = alloc_reg(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
@@ -1227,7 +1233,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_NOT_EQUAL: {
-		usz size = type_bytes(expr->type);
+		usz size = type_bytes(expr->child_1->type);
 		u32 dst = alloc_reg(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)

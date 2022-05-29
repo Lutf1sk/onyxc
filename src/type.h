@@ -39,6 +39,7 @@ b8 type_eq(type_t* t1, type_t* t2);
 void type_add_child(type_t* type, type_t* child, lstr_t name, sym_t* sym);
 
 b8 is_int_any_sign(type_t* type);
+b8 is_int_any_sign_or_ptr(type_t* type);
 
 b8 is_number(type_t* type);
 b8 is_int(type_t* type);
@@ -55,7 +56,7 @@ lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type);
 b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr);
 b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr);
 
-void type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, expr_t** right);
+type_t* type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, expr_t** right);
 
 extern type_t void_def;
 extern type_t void_ptr_def;

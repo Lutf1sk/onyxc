@@ -213,35 +213,35 @@ int main(int argc, char** argv) {
 			icode_t* icode = seg->data;
 			usz icode_count = seg->size;
 
-			lt_printf("CS %uq '%S':\n", i, seg->name);
-			for (usz i = 0; i < icode_count; ++i) {
-				icode_t ic = icode[i];
+// 			lt_printf("CS %uq '%S':\n", i, seg->name);
+// 			for (usz i = 0; i < icode_count; ++i) {
+// 				icode_t ic = icode[i];
 
-				lt_printf("\t%S\t%S\t", icode_size_str(ic.size), icode_op_str(ic.op));
+// 				lt_printf("\t%S\t%S\t", icode_size_str(ic.size), icode_op_str(ic.op));
 
-				if (!ic.dst) {
-					lt_printc('\n');
-					continue;
-				}
-				lt_printf(A_BOLD"r%iq "A_RESET, ic.dst);
-				switch (ic.op) {
-				case IR_INT: lt_printf("0x%hq\n", ic.uint_val); break;
-				case IR_FLOAT: lt_printf("FLOAT\n"); break;
-				case IR_SRESV: lt_printf("%ud %ud\n", ic.regs[0], ic.regs[1]); break;
-				case IR_IPO: lt_printf("%iq\n", ic.int_val); break;
-				case IR_SEG: lt_printf("%ud\n", ic.regs[0]); break;
-				case IR_CALL: lt_printf("r%ud %ud\n", ic.regs[0], ic.regs[1]); break;
-				case IR_SYSCALL: lt_printf("%ud\n", ic.regs[0]); break;
-				case IR_SETARG: lt_printf("%ud\n", ic.regs[0]); break;
-				case IR_GETARG: lt_printf("%ud\n", ic.regs[0]); break;
-				default:
-					for (usz i = 0; i < 2; ++i)
-						if (ic.regs[i])
-							lt_printf("r%ud ", ic.regs[i]);
-					lt_printc('\n');
-					break;
-				}
-			}
+// 				if (!ic.dst) {
+// 					lt_printc('\n');
+// 					continue;
+// 				}
+// 				lt_printf(A_BOLD"r%iq "A_RESET, ic.dst);
+// 				switch (ic.op) {
+// 				case IR_INT: lt_printf("0x%hq\n", ic.uint_val); break;
+// 				case IR_FLOAT: lt_printf("FLOAT\n"); break;
+// 				case IR_SRESV: lt_printf("%ud %ud\n", ic.regs[0], ic.regs[1]); break;
+// 				case IR_IPO: lt_printf("%iq\n", ic.int_val); break;
+// 				case IR_SEG: lt_printf("%ud\n", ic.regs[0]); break;
+// 				case IR_CALL: lt_printf("r%ud %ud\n", ic.regs[0], ic.regs[1]); break;
+// 				case IR_SYSCALL: lt_printf("%ud\n", ic.regs[0]); break;
+// 				case IR_SETARG: lt_printf("%ud\n", ic.regs[0]); break;
+// 				case IR_GETARG: lt_printf("%ud\n", ic.regs[0]); break;
+// 				default:
+// 					for (usz i = 0; i < 2; ++i)
+// 						if (ic.regs[i])
+// 							lt_printf("r%ud ", ic.regs[i]);
+// 					lt_printc('\n');
+// 					break;
+// 				}
+// 			}
 		}
 
 		switch (target) {
@@ -255,13 +255,13 @@ int main(int argc, char** argv) {
 			amd64_gen(&x64);
 
 			// Print machine code
-			for (usz i = 0; i < x64.seg_count; ++i) {
-				if (x64.seg[i].stype != SEG_MCODE)
-					continue;
+// 			for (usz i = 0; i < x64.seg_count; ++i) {
+// 				if (x64.seg[i].stype != SEG_MCODE)
+// 					continue;
 
-				lt_printf("\nM-CS %uq '%S':\n", i, x64.seg[i].name);
-				amd64_print_seg(&x64, i);
-			}
+// 				lt_printf("\nM-CS %uq '%S':\n", i, x64.seg[i].name);
+// 				amd64_print_seg(&x64, i);
+// 			}
 
 			if (format == FMT_ELF64)
 				amd64_write_elf64(&x64, out_path.str);
