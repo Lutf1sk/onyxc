@@ -103,9 +103,6 @@ let dlopen :: ELF64_FileHeader*(u8[] libname) {
 		print("\n");
 	}
 
-	print("symbol count: ");
-	print_i64(dynsym.count);
-	print("\n");
 	for usz i..dynsym.count {
 		u8* strtab_name = dynstr + u8*:dynsym[i].name;
 		u8[] name = strtab_name[0..cstrlen(strtab_name)];
