@@ -10,6 +10,15 @@ usz SYS_READ			:: 0,
 	SYS_MPROTECT		:: 10,
 	SYS_MUNMAP			:: 11,
 	SYS_BRK				:: 12,
+	SYS_SOCKET			:: 41,
+	SYS_CONNECT			:: 42,
+	SYS_ACCEPT			:: 43,
+	SYS_SENDTO			:: 44,
+	SYS_RECVFROM		:: 45,
+	SYS_BIND			:: 49,
+	SYS_LISTEN			:: 50,
+	SYS_SETSOCKOPT		:: 54,
+	SYS_GETSOCKOPT		:: 55,
 	SYS_EXIT			:: 60,
 	SYS_TIME			:: 201,
 	SYS_CLOCK_GETTIME	:: 228;
@@ -128,6 +137,94 @@ def timespec_t :: struct {
 
 let clock_gettime :: isz(i32 clockid, timespec_t* ts) {
 	return syscall(SYS_CLOCK_GETTIME, clockid, ts);
+}
+
+// ----- Sockets
+
+u16	PF_UNSPEC	:: 0,
+	PF_LOCAL	:: 1,
+	PF_INET		:: 2,
+	PF_INET6	:: 10;
+
+u16	AF_UNSPEC	:: PF_UNSPEC,
+	AF_LOCAL	:: PF_LOCAL,
+	AF_INET		:: PF_INET,
+	AF_INET6	:: PF_INET6;
+
+u32	SOCK_STREAM		:: 1,
+	SOCK_DGRAM		:: 2,
+	SOCK_RAW		:: 3,
+	SOCK_CLOEXEC	:: 0x00080000,
+	SOCK_NONBLOCK	:: 0x00000800;
+
+u32	SO_DEBUG		:: 1,	// i32
+	SO_REUSEADDR	:: 2,	// i32
+	SO_DONTROUTE	:: 5,	// i32
+	SO_BROADCAST	:: 6,	// i32
+	SO_SNDBUF		:: 7,	// i32
+	SO_RCVBUF		:: 8,	// i32
+	SO_KEEPALIVE	:: 9,	// i32
+	SO_OOBLINE		:: 10,	// i32
+	SO_LINGER		:: 13,	// i32
+	SO_RCVLOWAT		:: 18,	// i32
+	SO_SNDLOWAT		:: 19,	// i32
+	SO_RCVTIMEO		:: 20,	// timeval_t
+	SO_SNDTIMEO		:: 21;	// timeval_t
+
+def sockaddr_t :: struct {
+	u16 sa_family;
+	u8[14] sa_data;
+}
+
+def sockaddr_in_t :: struct {
+	u16 sin_family;
+	u16 sin_port;	// Big-endian
+	u32 sin_addr;	// Big-endian
+	u8[8] pad;
+}
+
+def sockaddr_in6_t :: struct {
+	u16 sin6_family;
+	u16 sin6_port;		// Big-endian
+	u32 sin6_flowinfo;	// Big-endian
+	u8[16] sin6_addr;
+	u32 sin6_scope_id;
+}
+
+let socket :: isz(i32 family, i32 type, i32 protocol) {
+	return syscall(SYS_SOCKET, family, type, protocol);
+}
+
+let connect :: isz(isz fd, sockaddr_t* addr, i32 addrlen) {
+	return syscall(SYS_CONNECT, fd, addr, addrlen);
+}
+
+let accept :: isz(isz fd, sockaddr_t* addr_out, i32 addrlen) {
+	return syscall(SYS_ACCEPT, fd, addr_out, addrlen);
+}
+
+let sendto :: isz(isz fd, void* buf, usz len, u32 flags, sockaddr_t* addr, i32 addrlen) {
+	return syscall(SYS_SENDTO, fd, buf, len, flags, addr, addrlen);
+}
+
+let recvfrom :: isz(isz fd, void* buf, usz len, u32 flags, sockaddr_t* addr, i32 addrlen) {
+	return syscall(SYS_RECVFROM, fd, buf, len, flags, addr, addrlen);
+}
+
+let bind :: isz(isz fd, sockaddr_t* addr, i32 addrlen) {
+	return syscall(SYS_BIND, fd, addr, addrlen);
+}
+
+let listen :: isz(isz fd, i32 backlog) {
+	return syscall(SYS_LISTEN, fd, backlog);
+}
+
+let setsockopt :: isz(isz fd, i32 level, i32 optname, void* optval, i32 optlen) {
+	return syscall(SYS_SETSOCKOPT, fd, level, optname, optval, optlen);
+}
+
+let getsockopt :: isz(isz fd, i32 level, i32 optname, void* optval, i32* optlen) {
+	return syscall(SYS_GETSOCKOPT, fd, level, optname, optval, optlen);
 }
 
 // ----- Misc.

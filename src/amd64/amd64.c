@@ -4,6 +4,7 @@
 
 #include "../interm.h"
 #include "../segment.h"
+#include "../textattrib.h"
 
 #include "amd64.h"
 #include "ops.h"
@@ -143,7 +144,8 @@ void ireg_end(amd64_ctx_t* cx, u32 reg, usz i) {
 	amd64_ireg_t* ireg = &cx->reg_map[reg];
 
 	if (ireg_reg_any(ireg) && ireg_movable(cx, reg, i) && !reg_free(cx, ireg->mreg))
-		lt_printf("Invalid free of %S (r%ud) at %uz\n", reg_names[ireg->mreg][VARG_64], reg, i);
+		lt_printf(A_BOLD"m-cs '%S': "A_MAGENTA"internal compiler error"A_RESET": invalid free of %S (r%ud)\n",
+						cx->seg[cx->curr_func].name, reg_names[ireg->mreg][VARG_64], reg);
 }
 
 static
@@ -204,15 +206,6 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		break;
 
 	case IR_LOAD: {
-// 		if (reg0->type & IREG_REF) {
-// 			*dst = XREG(reg_alloc(cx, ir->dst), ISZ_64);
-// 			x64_mov(cx, *dst, *reg0);
-// 		}
-// 		else
-// 			ireg_copy(cx, ir->dst, ir->regs[0]);
-// 		dst->type |= IREG_REF;
-// 		dst->size = ir->size;
-
 		*dst = XREG(reg_alloc(cx, ir->dst), ir->size);
 
 		amd64_ireg_t tmp_src = *reg0;
@@ -252,50 +245,23 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 
 #define GENERIC2(x) { \
 	*dst = XREG(init_new_reg(cx, ir->regs[0], i), ir->size); \
-	\
 	amd64_ireg_t args[2] = {*dst, *reg1}; \
 	emit_instr(cx, (x), 2, args); \
 }
 
-	case IR_ADD:
-// 		if (reg0->type == IREG_IMM && !(reg1->type & IREG_REF) && ireg_movable(cx, ir->regs[1], i)) {
-// 			ireg_copy(cx, ir->dst, ir->regs[1]);
-// 			dst->disp += reg0->imm;
-// 			break;
-// 		}
-// 		if (!(reg0->type & IREG_REF) && reg1->type == IREG_IMM && ireg_movable(cx, ir->regs[0], i)) {
-// 			ireg_copy(cx, ir->dst, ir->regs[0]);
-// 			dst->disp += reg1->imm;
-// 			break;
-// 		}
-
-		GENERIC2(X64_ADD);
-		break;
-
-	case IR_SUB:
-// 		if (reg0->type == IREG_IMM && !(reg1->type & IREG_REF) && ireg_movable(cx, ir->regs[1], i)) {
-// 			ireg_copy(cx, ir->dst, ir->regs[1]);
-// 			dst->disp -= reg0->imm;
-// 			break;
-// 		}
-// 		if (!(reg0->type & IREG_REF) && reg1->type == IREG_IMM && ireg_movable(cx, ir->regs[0], i)) {
-// 			ireg_copy(cx, ir->dst, ir->regs[0]);
-// 			dst->disp -= reg1->imm;
-// 			break;
-// 		}
-
-		GENERIC2(X64_SUB);
-		break;
-
+	case IR_ADD: GENERIC2(X64_ADD); break;
+	case IR_SUB: GENERIC2(X64_SUB); break;
 	case IR_AND: GENERIC2(X64_AND); break;
 	case IR_OR: GENERIC2(X64_OR); break;
 	case IR_XOR: GENERIC2(X64_XOR); break;
 
 #define SHIFT(x) { \
-	*dst = XREG(init_new_reg(cx, ir->regs[0], i), ir->size); \
-	\
-	amd64_ireg_t args[2] = {*dst, *reg1}; \
-	emit_instr(cx, (x), 2, args); \
+	*dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_8); \
+	amd64_ireg_t reg1_tmp = *reg1; \
+	reg1_tmp.size = ISZ_8; \
+	x64_mov(cx, XREG(REG_C, ISZ_8), reg1_tmp); \
+	dst->size = ir->size; \
+	emit_instr(cx, (x), 1, dst); \
 }
 
 	case IR_USHL: SHIFT(X64_SHL); break;
@@ -517,8 +483,6 @@ void amd64_gen(amd64_ctx_t* cx) {
 
 		seg_ent_t* ms = &cx->seg[cx->curr_func];
 
-		lt_printf("Assembling CS %uq -> M-CS %uq\n", i, cx->curr_func);
-
 		for (usz i = 0; i < cs->size; ++i)
 			prepass_icode(cx, cs, i);
 
@@ -530,9 +494,12 @@ void amd64_gen(amd64_ctx_t* cx) {
 		for (usz i = 0; i < cs->size; ++i)
 			convert_icode(cx, cs, i);
 
+#ifdef LT_DEBUG
 		for (usz i = 0 ; i < AMD64_REG_COUNT; ++i)
 			if (cx->reg_allocated[i])
-				lt_printf("Leaked register %S (r%ud)\n", reg_names[i][VARG_64], cx->reg_allocated[i]);
+				lt_printf(A_BOLD"m-cs '%S': "A_MAGENTA"internal compiler error"A_RESET": leaked register %S (r%ud)\n",
+						cs->name, reg_names[i][VARG_64], cx->reg_allocated[i]);
+#endif
 
 		ms->lbl = cx->lbl;
 	}

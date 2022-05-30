@@ -187,8 +187,11 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				}
 
 				u8 ext = !!(var->flags & VFLAG_OP_EXT);
-				for (usz i = ext; var_op[i] && i < sizeof(var->instr); ++i)
-					*it++ = var_op[i];
+				usz var_i = ext;
+				u8 var_b = var_op[var_i++];
+				*it++ = var_b;
+				if (var_b == 0x0F)
+					*it++ = var_op[var_i++];
 
 				if (modrm) {
 					if (ext)

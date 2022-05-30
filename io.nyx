@@ -49,14 +49,14 @@ let print :: isz(u8[] str) {
 	return write(1, str);
 }
 
-let print_i64 :: i64(i64 n) {
+let print_i64 :: usz(i64 n) {
 	if (n < 0) {
 		print("-");
 		n = -n;
 	}
 
 	u8[32] str;
-	u8* end = str.data + u8*:(str.count), it = end - u8*:1;
+	u8* end = str.data + str.count, it = end - 1;
 
 	while n >= 10 {
 		*it-- = n % 10 + '0';
@@ -64,24 +64,24 @@ let print_i64 :: i64(i64 n) {
 	}
 	*it = n + '0';
 
-	u8[] view = it[0..i64:(end - it)];
+	u8[] view = it[0..usz:(end - it)];
 	print(view);
 	return view.count;
 }
 
-let print_h64 :: i64(u64 n) {
+let print_h64 :: usz(u64 n) {
 	u8[16] hex_conv_tab :: "0123456789ABCDEF";
 
 	u8[16] str;
-	u8* end = str.data + u8*:(str.count), it = end - u8*:1;
+	u8* end = str.data + str.count, it = end - 1;
 
 	while n > 0x0F {
 		*it-- = hex_conv_tab[n & 0x0F];
-		n >>= 4;
+		n >>= 4u;
 	}
 	*it = hex_conv_tab[n];
 
-	u8[] view = it[0..i64:(end - it)];
+	u8[] view = it[0..usz:(end - it)];
 	print(view);
 	return view.count;
 }
@@ -114,5 +114,87 @@ let malloc :: void*(usz size) {
 
 let mfree :: void(void* mem) {
 	munmap(usz:mem, 0);
+}
+
+let mcopy :: void(void* dst, void* src, usz bytes) {
+	u8* dst_it = dst;
+	u8* src_it = src;
+
+	while bytes-- {
+		*dst_it++ = *src_it++;
+	}
+}
+
+let mset8 :: void(void* dst, u8 v, usz bytes) {
+	u8* it = dst;
+	while bytes-- {
+		*it++ = v;
+	}
+}
+
+// str.nyx
+
+
+let stou :: u8(u8[] str, u64* out) {
+	u8* it = str.data;
+	u8* end = it + str.count;
+
+	if it == end {
+		return 1;
+	}
+
+	i64 v = 0;
+	while it < end {
+		u8 c = *it++;
+
+		if c > '9' || c < '0' {
+			return 1;
+		}
+
+		v *= 10;
+		v += c - '0';
+	}
+
+	*out = v;
+	return 0;
+}
+
+let stoi :: u8(u8[] str, i64* out) {
+	u8* it = str.data;
+	u8* end = it + str.count;
+
+	if it == end {
+		return 1;
+	}
+
+	u8 sign = 0;
+	if *it == '-' {
+		sign = 1;
+		if it++ == end {
+			return 1;
+		}
+	}
+
+	i64 v = 0;
+	while it < end {
+		u8 c = *it++;
+		if c > '9' || c < '0' {
+			return 1;
+		}
+
+		v *= 10;
+		v += c - '0';
+	}
+
+	if sign {
+		v = -v;
+	}
+
+	*out = v;
+	return 0;
+}
+
+let is_digit :: u8(u8 c) {
+	return c >= '0' && c <= '9';
 }
 
