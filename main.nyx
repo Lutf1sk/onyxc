@@ -1,4 +1,4 @@
-import "io.nyx", "elf.nyx";
+import "io.nyx", "elf.nyx", "dns.nyx";
 
 let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
 	for usz i..fh.magic.count {
@@ -131,52 +131,211 @@ let hton32 :: u32(u32 v) {
 // 			((v & 0xFF00000000000000) >> 56u);
 // }
 
-let ipv4_addr_str :: u8(u8[] str, sockaddr_in_t* out) {
-	u8[4] addr = { 0, 0, 0, 0 };
+let ipv4_parse_addr :: u8(u8[] str, sockaddr_in_t* out) {
+	u8[][5] nums;
 	usz j = 0;
 
-	for usz i..usz:(str.count) {
+	u8* num_start = str.data;
+	for usz i..str.count {
 		u8 c = str[i];
 		if c == '.' {
-			if ++j >= 4 {
+			if j >= 3u {
 				return 1;
 			}
+			nums[j++] = num_start[0..usz:(i - (num_start - str.data))];
+			num_start = str.data + i + 1;
 		}
-		else {
-			if is_digit(c) {
-				addr[j] *= u8:10;
-				addr[j] += c - '0';
-			}
-			else {
+		if c == ':' {
+			if j != 3u {
 				return 1;
 			}
+			nums[j++] = num_start[0..usz:(i - (num_start - str.data))];
+			num_start = str.data + i + 1;
 		}
 	}
-	if j != 3 {
+	if j < 3u {
 		return 1;
 	}
+	nums[j] = num_start[0..usz:(str.count - (num_start - str.data))];
 
-	out.sin_addr = *u32*:addr.data;
+	u32 addr = 0;
+	for usz i..4 {
+		u64 v;
+		if stou(nums[i], &v) || v > 0xFF {
+			return 1;
+		}
+		addr |= v << i * 8;
+	}
+
+	if j == 4u {
+		u64 v;
+		if stou(nums[4], &v) || v > 0xFFFF {
+			return 1;
+		}
+		out.sin_port = hton16(v);
+	}
+
+	out.sin_addr = addr;
 	return 0;
 }
 
-let func :: u8() {
-	print("ASDF\n");
+let recv :: isz(isz sock, void[] buf) {
+	void* it = buf.data, end = it + buf.count;
+	while it < end {
+		isz res = sock->read(it[0..usz:(end - it)]);
+		if res <= 0 {
+			return res;
+		}
+
+		it += res;
+	}
+	return buf.count;
+}
+
+let dns_encode_name :: isz(u8[] domain, u8[] out) {
+	u8* q_it = out.data, q_max = q_it + out.count;
+	u8* substr = domain.data;
+	for usz i..domain.count {
+		if domain[i] == '.' {
+			usz substr_len = i - usz:(substr - domain.data);
+			u8* q_it_next = q_it + substr_len + 1;
+			if !substr_len || substr_len > 63u || q_it_next >= q_max {
+				return -1;
+			}
+			*q_it++ = substr_len;
+			for usz j..substr_len {
+				*q_it++ = substr[j];
+			}
+
+			q_it = q_it_next;
+			substr = domain.data + i + 1;
+		}
+	}
+
+	usz substr_len = domain.count - usz:(substr - domain.data);
+	u8* q_it_next = q_it + substr_len + 2;
+	if !substr_len || substr_len > 63u || q_it_next >= q_max {
+		return -1;
+	}
+	*q_it++ = substr_len;
+	for usz j..substr_len {
+		*q_it++ = substr[j];
+	}
+
+	*q_it++ = 0;
+	return usz:(q_it - out.data);
+}
+
+let ipv4_dnslookup :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
+	sockaddr_in_t saddr;
+	mset8(&saddr, 0, sizeof(sockaddr_in_t));
+	saddr.sin_family = AF_INET;
+	saddr.sin_port = hton16(53);
+
+	if ipv4_parse_addr(dns_host, &saddr) {
+		return 1;
+	}
+
+	isz sock = socket(AF_INET, SOCK_STREAM, 0);
+	if sock < 0 {
+		return 1;
+	}
+
+	if sock->connect(void*:&saddr, sizeof(sockaddr_in_t)) < 0 {
+		sock->close();
+		return 1;
+	}
+
+	DNS_Header dh;
+	mset8(&dh, 0, sizeof(DNS_Header));
+	dh.flags = hton16(DNSH_QUERY | DNSH_STANDARD | DNSH_RD);
+	dh.qdcount = hton16(1);
+
+	DNS_Question dq;
+	dq.qtype = hton16(DNST_A);
+	dq.qclass = hton16(DNSC_IN);
+
+	u8[256] question;
+	isz qlen = dns_encode_name(domain, question);
+	if qlen < 0 {
+		sock->close();
+		return 1;
+	}
+
+	u16 msglen = hton16(qlen + sizeof(DNS_Question) + sizeof(DNS_Header));
+	sock->write((&msglen)[0..1]);
+	sock->write((&dh)[0..1]);
+	sock->write(question[0..qlen]);
+	sock->write((&dq)[0..1]);
+
+	// Receive message length
+	if sock->recv((&msglen)[0..1]) <= 0 {
+		sock->close();
+		return 1;
+	}
+	msglen = hton16(msglen);
+
+	// Receive message body
+	u8[4096] buf;
+	if sock->recv(buf[0..msglen]) <= 0 || msglen < u32:sizeof(DNS_Header) {
+		sock->close();
+		return 1;
+	}
+
+	sock->close();
+
+	DNS_Header* rh = void*:buf.data;
+	rh.flags = hton16(rh.flags);
+	rh.qdcount = hton16(rh.qdcount);
+	rh.ancount = hton16(rh.ancount);
+	rh.nscount = hton16(rh.nscount);
+	rh.arcount = hton16(rh.arcount);
+
+	u16 rcode = rh.flags & DNSH_RCODE_MASK;
+	if rcode != DNSH_NO_ERROR {
+		return 1;
+	}
+
+	void* section_start = buf.data + sizeof(DNS_Header);
+	u8* it = section_start;
+
+	for usz i..rh.qdcount {
+		while *it { it++; } // QNAME
+		it += sizeof(DNS_Question);
+	}
+
+	for usz i..rh.ancount {
+		while *it { it++; } // NAME
+		let rr = DNS_RsrcRecord*:it;
+		rr.type = hton16(rr.type);
+		rr.class = hton16(rr.class);
+		rr.ttl = hton16(rr.ttl);
+		rr.rdlen = hton16(rr.rdlen);
+
+		it += sizeof(DNS_RsrcRecord);
+
+		if rr.type == DNST_A && rr.class == DNSC_IN {
+			out.sin_addr = *u32*:it;
+			return 0;
+		}
+
+		it += rr.rdlen; // RDATA
+	}
+
 	return 1;
 }
 
 let main :: u64() {
-// 	u8[] libname = "/usr/lib/ld-linux-x86-64.so.2";
-// 	u8[] libname = "/usr/lib/libvulkan.so.1";
 // 	u8[] libname = "/usr/lib/libxcb.so";
 
 // 	void* lib = dlopen(libname);
 // 	if !lib {
-// 		print("Failed to load '");
-// 		print(libname);
-// 		print("'\n");
-// 		exit(1);
+// 		print("failed to load library\n");
 // 	}
+
+	if 1 {
+		
+	}
 
 	isz sock = socket(AF_INET, SOCK_STREAM, 0);
 	if sock < 0 {
@@ -188,23 +347,15 @@ let main :: u64() {
 	saddr.sin_family = AF_INET;
 	saddr.sin_port = hton16(80);
 
-	if ipv4_addr_str("109.225.102.157", &saddr) {
-		print("address string parsing failed\n");
-	}
-	else {
-		print_h64(saddr.sin_addr);
-		print("\n");
+	if ipv4_dnslookup("9.9.9.9", "lutfisk.net", &saddr) {
+		print("failed to resolve host\n");
 	}
 
-	isz res = connect(sock, void*:&saddr, sizeof(sockaddr_in_t));
-	if res < 0 {
+	if connect(sock, void*:&saddr, sizeof(sockaddr_in_t)) < 0 {
 		print("connection failed\n");
 	}
-	else {
-		print("connection successful\n");
-	}
 
-	write(sock, "GET / HTTP/1.1\r\n\r\n");
+	write(sock, "GET / HTTP/1.1\r\nHost: lutfisk.net\r\nAccept: */*\r\nUpgrade-Insecure-Requests: 0\r\nConnection: close\r\n\r\n");
 
 	u8[512] buf;
 	isz bytes;

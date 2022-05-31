@@ -172,7 +172,7 @@ int main(int argc, char** argv) {
 		parse_cx.gen_cx = &gen_cx;
 		stmt_t* root = parse(&parse_cx);
 
-#if 1
+#if 0
 		// Print AST
 		stmt_print(arena, root);
 #endif
@@ -257,7 +257,7 @@ int main(int argc, char** argv) {
 
 			amd64_gen(&x64);
 
-#if 0
+#if 1
 			// Print machine code
 			for (usz i = 0; i < x64.seg_count; ++i) {
 				if (x64.seg[i].stype != SEG_MCODE)

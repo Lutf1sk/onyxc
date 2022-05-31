@@ -1,0 +1,75 @@
+
+// Implementation of RFC 1035
+
+u16	DNSH_QUERY		:: 0b0000000000000000,
+	DNSH_RESPONSE	:: 0b1000000000000000,
+	DNSH_QR_MASK	:: 0b1000000000000000,
+
+	DNSH_STANDARD	:: 0b0000000000000000,	// Standard query
+	DNSH_INVERSE	:: 0b0000100000000000,	// Inverse query
+	DNSH_SRVSTATRQ	:: 0b0001000000000000,	// Server status request
+	DNSH_QCODE_MASK	:: 0b0111100000000000,
+
+	DNSH_AA			:: 0b0000010000000000,	// Responding name server is an authority
+	DNSH_TC			:: 0b0000001000000000,	// Message was truncated
+	DNSH_RD			:: 0b0000000100000000,	// Recursion desired (copied into response)
+	DNSH_RA			:: 0b0000000010000000,	// Recursion available
+
+	DNSH_NO_ERROR	:: 0b0000000000000000,
+	DNSH_FORMAT_ERR	:: 0b0000000000000001,	// Server was unable to interpret the query
+	DNSH_SRV_FAIL	:: 0b0000000000000010,	// Server failure
+	DNSH_NAME_ERR	:: 0b0000000000000011,	// Name does not exist (meaningful from authoritative only)
+	DNSH_NOT_IMPL	:: 0b0000000000000100,	// Unsupported query type
+	DNSH_REFUSED	:: 0b0000000000000101,	// Refused for policy reasons
+	DNSH_RCODE_MASK	:: 0b0000000000001111;
+
+u16	DNST_A		:: 1,	// Host address
+	DNST_NS		:: 2,	// Authoritative name server
+	DNST_MD		:: 3,	// Mail destination (obsolete)
+	DNST_MF		:: 4,	// Mail forwarder (obsolete)
+	DNST_CNAME	:: 5,	// Canonical alias name
+	DNST_SOA	:: 6,	// Start of a zone of authority
+	DNST_MB		:: 7,	// Mailbox domain name
+	DNST_MG		:: 8,	// Mail group member
+	DNST_MR		:: 9,	// Mail rename domain name
+	DNST_NULL	:: 10,	// Null RR
+	DNST_WKS	:: 11,	// Well known service description
+	DNST_PTR	:: 12,	// Domain name pointer
+	DNST_HINFO	:: 13,	// Host information
+	DNST_MINFO	:: 14,	// Mailbox/mail list information
+	DNST_MX		:: 15,	// Mail exchange
+	DNST_TXT	:: 16;	// Text strings
+
+u16 DNSQT_AXFR	:: 252,	// Request transfer of an entire zone
+	DNSQT_MAILB	:: 253,	// Request mailbox-related (MB/MG/MR)
+	DNSQT_MAILA	:: 254,	// Request mail agent RRs
+	DNSQT_ALL	:: 255;	// Request all records
+
+u16	DNSC_IN		:: 1,	// Internet
+	DNSC_CS		:: 2,	// CSNET (obsolete)
+	DNSC_CH		:: 3,	// CHAOS
+	DNSC_HS		:: 4;	// Hesiod
+
+u16	DNSQC_ALL	:: 255;	// All classes
+
+def DNS_Header :: struct {
+	u16 id;
+	u16 flags;
+	u16 qdcount;
+	u16 ancount;
+	u16 nscount;
+	u16 arcount;
+}
+
+def DNS_Question :: struct {
+	u16 qtype;
+	u16 qclass;
+}
+
+def DNS_RsrcRecord :: struct {
+	u16 type;
+	u16 class;
+	u32 ttl;
+	u16 rdlen;
+}
+

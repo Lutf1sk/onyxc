@@ -118,7 +118,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 		usz load_addr = LOAD_ADDR + make_space(&elf_cx, 0, 16);
 
 		if (seg->stype == SEG_MCODE) {
-			lt_printf("%S: 0x%hz\n", seg->name, load_addr);
+// 			lt_printf("%S: 0x%hz\n", seg->name, load_addr);
 			seg->load_at = load_addr;
 			cx->seg[seg->origin].load_at = load_addr;
 

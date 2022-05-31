@@ -83,38 +83,45 @@ usz emit(amd64_ctx_t* cx, amd64_instr_t mi) {
 	return ent->size++;
 }
 
+static
+usz immsz(amd64_ireg_t* ireg, u8 sign) {
+	LT_ASSERT(ireg->type == IREG_IMM);
+
+	u8 imm_min_size = 1;
+	if (sign) {
+		i64 imm = (i32)ireg->imm;
+		if (imm < 0)
+			imm = -imm;
+
+		if (imm > 0x80000000) // !!
+			imm_min_size = 8;
+		else if (imm > 0x8000)
+			imm_min_size = 4;
+		else if (imm > 0x80)
+			imm_min_size = 2;
+	}
+	else {
+		u64 imm = ireg->imm;
+		if (imm > 0xFFFFFFFF)
+			imm_min_size = 8;
+		else if (imm > 0xFFFF)
+			imm_min_size = 4;
+		else if (imm > 0xFF)
+			imm_min_size = 2;
+	}
+	return imm_min_size;
+}
+
 void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 	LT_ASSERT(arg_count <= 2);
 
 	amd64_ireg_t args[2];
 	memcpy(args, args_, sizeof(amd64_ireg_t) * arg_count);
 
-	amd64_instr_t mi;
 	amd64_op_t* op = &ops[op_i];
 
-	if (arg_count >= 2) {
-		if (ireg_reg_displaced(&args[1])) {
-			u32 tmpreg = reg_scratch(cx, 1);
-			amd64_ireg_t tmpireg = XREG(tmpreg, args[1].size);
-			if (args[1].size > 1) {
-				args[1].type |= IREG_REF;
-				x64_lea(cx, tmpireg, args[1]);
-			}
-			else {
-				u32 disp = args[1].disp;
-				args[1].disp = 0;
-				x64_mov(cx, tmpireg, args[1]);
-				amd64_ireg_t add_args[2] = { tmpireg, XIMMI(disp) };
-				emit_instr(cx, X64_ADD, 2, add_args);
-			}
-			args[1] = tmpireg;
-		}
-		if ((args[0].type & IREG_REF) && (args[1].type & IREG_REF)) {
-			u32 tmpreg = reg_scratch(cx, 1);
-			x64_mov(cx, XREG(tmpreg, args[1].size), args[1]);
-			args[1] = XREG(tmpreg, args[1].size);
-		}
-	}
+	isz best_match = -1;
+	usz min_score = -1;
 
 	for (usz i = 0; i < op->var_count; ++i) {
 		amd64_var_t* var = &op->vars[i];
@@ -122,7 +129,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 		if (var->arg_count != arg_count)
 			continue;
 
-		memset(&mi, 0, sizeof(mi));
+		usz score = 0;
 
 		for (usz i = 0; i < arg_count; ++i) {
 			amd64_ireg_t* ireg = &args[i];
@@ -131,89 +138,140 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 			u8 varg = var->args[i] & VARG_TYPE_MASK;
 			u8 vbytes = 1 << (var->args[i] & VARG_SIZE_MASK);
 
-			if (varg != VARG_IMM && vbytes != ireg->size)
-				goto next_var;
+			usz min_bytes = 0;
+			if (type == IREG_IMM)
+				min_bytes = immsz(ireg, var->args[i] & VARG_SGEXT);
 
 			switch (type) {
 			case IREG_REG:
-				if (varg == VARG_MRM) {
-					mi.mod = MOD_REG;
-					mi.reg_rm |= ireg->mreg << 4;
-				}
-				else if (varg == VARG_REG)
-					mi.reg_rm |= ireg->mreg;
-				else
+				LT_ASSERT(ireg->size);
+				if ((varg != VARG_MRM && varg != VARG_REG) || vbytes != ireg->size)
 					goto next_var;
-				break;
-
-			case IREG_IMM:
-				LT_ASSERT(!ireg->disp);
-				if (varg != VARG_IMM)
-					goto next_var;
-				mi.imm = ireg->imm;
-				break;
-
-			case IREG_SEG:
-				LT_ASSERT(!ireg->disp);
-				if (varg != VARG_IMM)
-					goto next_var;
-				mi.flags[i] = MI_SEG;
-				mi.imm = ireg->imm;
-				break;
-
-			case IREG_LBL:
-				LT_ASSERT(!ireg->disp);
-				if (varg != VARG_IMM)
-					goto next_var;
-				mi.flags[i] = MI_LBL;
-				mi.imm = ireg->imm;
+				if (ireg->disp)
+					;
 				break;
 
 			case IREG_REG | IREG_REF:
-				if (varg != VARG_MRM)
+				LT_ASSERT(ireg->size);
+				if (varg != VARG_MRM || vbytes != ireg->size)
 					goto next_var;
-				mi.reg_rm |= ireg->mreg << 4;
-
-				if (ireg->disp) {
-					if (ireg->disp < 0x80)
-						mi.mod = MOD_DSP8;
-					else
-						mi.mod = MOD_DSP32;
-					mi.disp = ireg->disp;
-				}
-				else
-					mi.mod = MOD_DREG;
 				break;
 
 			case IREG_IMM | IREG_REF:
-				LT_ASSERT(!ireg->disp);
-				if (varg != VARG_MRM)
-					goto next_var;
-				LT_ASSERT_NOT_REACHED();
-
 			case IREG_SEG | IREG_REF:
-				if (varg != VARG_MRM)
-					goto next_var;
-				mi.flags[i] = MI_SEG;
-				LT_ASSERT_NOT_REACHED();
-
 			case IREG_LBL | IREG_REF:
 				LT_ASSERT_NOT_REACHED();
+				break;
+
+			case IREG_LBL:
+			case IREG_SEG:
+				min_bytes = 4; // This assumes that no labels/segments have offsets greater than 2GiB
+			case IREG_IMM:
+				if (vbytes < min_bytes)
+					goto next_var;
+				if (varg == VARG_IMM)
+					;
+				else if (varg == VARG_REG || varg == VARG_MRM)
+					score++;
+				else
+					goto next_var;
+				break;
 			}
 		}
 
-		mi.op = op_i;
-		mi.var = i;
-		emit(cx, mi);
-		return;
-
+		if (score < min_score) {
+			best_match = i;
+			min_score = score;
+		}
 	next_var:
 	}
 
-	lt_printf("Invalid operands to '%S' ", op->str);
-	for (usz i = 0; i < arg_count; ++i)
-		lt_printf("(type:%ud,size:%ud)", args[i].type, args[i].size);
-	lt_printc('\n');
-	LT_ASSERT_NOT_REACHED();
+	if (best_match < 0) {
+		lt_printf("Invalid operands to '%S' ", op->str);
+		for (usz i = 0; i < arg_count; ++i)
+			lt_printf("(type:%ud,size:%ud)", args[i].type, args[i].size);
+		lt_printc('\n');
+		LT_ASSERT_NOT_REACHED();
+		return;
+	}
+
+	amd64_var_t* var = &op->vars[best_match];
+
+	amd64_instr_t mi;
+	memset(&mi, 0, sizeof(mi));
+
+#define WR_REG(r) do { \
+	if (varg == VARG_REG) \
+		mi.reg_rm |= (r); \
+	else if (varg == VARG_MRM) { \
+		mi.mod = MOD_REG; \
+		mi.reg_rm |= (r) << 4; \
+	} \
+	else \
+		LT_ASSERT_NOT_REACHED(); \
+} while (0)
+
+
+	for (usz i = 0; i < arg_count; ++i) {
+		amd64_ireg_t* ireg = &args[i];
+
+		u8 type = ireg->type;
+		u8 varg = var->args[i] & VARG_TYPE_MASK;
+		u8 vbytes = 1 << (var->args[i] & VARG_SIZE_MASK);
+
+		switch (type) {
+		case IREG_REG:
+			if (ireg->disp) {
+				ireg->type |= IREG_REF;
+				amd64_ireg_t tmp = XREG(reg_scratch(cx, i), ireg->size);
+				x64_lea(cx, tmp, *ireg);
+				*ireg = tmp;
+			}
+			WR_REG(ireg->mreg);
+			break;
+
+		case IREG_REG | IREG_REF:
+			mi.reg_rm |= ireg->mreg << 4;
+
+			if (ireg->disp) {
+				if (ireg->disp < 0x80)
+					mi.mod = MOD_DSP8;
+				else
+					mi.mod = MOD_DSP32;
+				mi.disp = ireg->disp;
+			}
+			else
+				mi.mod = MOD_DREG;
+			break;
+
+		case IREG_IMM | IREG_REF:
+		case IREG_SEG | IREG_REF:
+		case IREG_LBL | IREG_REF:
+			LT_ASSERT_NOT_REACHED();
+			break;
+
+		case IREG_SEG:
+		case IREG_LBL:
+		case IREG_IMM:
+			LT_ASSERT(!ireg->disp);
+			if (varg == VARG_REG || varg == VARG_MRM) {
+				u32 mreg = reg_scratch(cx, i);
+				x64_mov(cx, XREG(mreg, vbytes), *ireg);
+				WR_REG(mreg);
+			}
+			else if (varg == VARG_IMM) {
+				mi.imm = ireg->imm;
+				if (type == IREG_LBL)
+					mi.flags[i] = MI_LBL;
+				else if (type == IREG_SEG)
+					mi.flags[i] = MI_SEG;
+			}
+			break;
+		}
+	}
+
+	mi.op = op_i;
+	mi.var = best_match;
+	emit(cx, mi);
 }
 

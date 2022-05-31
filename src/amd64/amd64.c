@@ -169,17 +169,17 @@ void x64_mcopy(amd64_ctx_t* cx, amd64_ireg_t dst, amd64_ireg_t src, usz bytes) {
 }
 
 static
-u32 init_new_reg(amd64_ctx_t* cx, u32 reg, usz i) {
+u32 init_new_reg(amd64_ctx_t* cx, u32 reg, usz size, usz i) {
 	amd64_ireg_t* ireg = &cx->reg_map[reg];
 
 	if (ireg_reg_any(ireg) && ireg_movable(cx, reg, i)) {
 		if (ireg->type & IREG_REF)
-			x64_mov(cx, XREG(ireg->mreg, ireg->size), *ireg);
+			x64_mov(cx, XREG(ireg->mreg, size), *ireg);
 		return mreg_move(cx, reg);
 	}
 
 	u32 mreg = reg_alloc(cx, reg);
-	x64_mov(cx, XREG(mreg, ireg->size), *ireg);
+	x64_mov(cx, XREG(mreg, size), *ireg);
 	return mreg;
 }
 
@@ -233,18 +233,18 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		x64_mov(cx, tmp_dst, src);
 	}	break;
 
-	case IR_TOU8: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_8), *reg0); break;
-	case IR_TOU16: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_16), *reg0); break;
-	case IR_TOU32: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_32), *reg0); break;
-	case IR_TOU64: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_64), *reg0); break;
+	case IR_TOU8: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_8, i), ISZ_8), *reg0); break;
+	case IR_TOU16: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_16, i), ISZ_16), *reg0); break;
+	case IR_TOU32: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_32, i), ISZ_32), *reg0); break;
+	case IR_TOU64: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_64, i), ISZ_64), *reg0); break;
 
-	case IR_TOI8: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_8), *reg0); break;
-	case IR_TOI16: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_16), *reg0); break;
-	case IR_TOI32: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_32), *reg0); break;
-	case IR_TOI64: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_64), *reg0); break;
+	case IR_TOI8: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_8, i), ISZ_8), *reg0); break;
+	case IR_TOI16: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_16, i), ISZ_16), *reg0); break;
+	case IR_TOI32: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_32, i), ISZ_32), *reg0); break;
+	case IR_TOI64: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_64, i), ISZ_64), *reg0); break;
 
 #define GENERIC2(x) { \
-	*dst = XREG(init_new_reg(cx, ir->regs[0], i), ir->size); \
+	*dst = XREG(init_new_reg(cx, ir->regs[0], ir->size, i), ir->size); \
 	amd64_ireg_t args[2] = {*dst, *reg1}; \
 	emit_instr(cx, (x), 2, args); \
 }
@@ -256,7 +256,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_XOR: GENERIC2(X64_XOR); break;
 
 #define SHIFT(x) { \
-	*dst = XREG(init_new_reg(cx, ir->regs[0], i), ISZ_8); \
+	*dst = XREG(init_new_reg(cx, ir->regs[0], ir->size, i), ISZ_8); \
 	amd64_ireg_t reg1_tmp = *reg1; \
 	reg1_tmp.size = ISZ_8; \
 	x64_mov(cx, XREG(REG_C, ISZ_8), reg1_tmp); \
@@ -292,7 +292,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_UMUL: GENERIC3(X64_MUL, REG_A); break;
 
 #define GENERIC1(x) { \
-		*dst = XREG(init_new_reg(cx, ir->regs[0], i), ir->size); \
+		*dst = XREG(init_new_reg(cx, ir->regs[0], ir->size, i), ir->size); \
 		emit_instr(cx, (x), 1, dst); \
 }
 
@@ -415,12 +415,18 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 
 	case IR_CALL:
 		emit_instr(cx, X64_CALL, 1, dst);
+		cx->arg_num = 0;
+
+		usz* lifetime = &cx->reg_lifetimes[ir->regs[0]];
+		if (*lifetime == i) {
+			*lifetime = 0;
+			break;
+		}
 
 		if (ir->size <= 8 && ir->size) {
  			*reg0 = XREG(reg_alloc(cx, ir->regs[0]), ir->size);
 			x64_mov(cx, *reg0, XREG(REG_A, ir->size));
  		}
-		cx->arg_num = 0;
 		break;
 
 	case IR_RET:
@@ -463,8 +469,8 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 
 
 void amd64_gen(amd64_ctx_t* cx) {
-	cx->reg_map = lt_arena_reserve(cx->arena, sizeof(amd64_ireg_t) * 512);
-	cx->reg_lifetimes = lt_arena_reserve(cx->arena, sizeof(usz) * 512);
+	cx->reg_map = lt_arena_reserve(cx->arena, sizeof(amd64_ireg_t) * 1024);
+	cx->reg_lifetimes = lt_arena_reserve(cx->arena, sizeof(usz) * 1024);
 
 	usz seg_count = cx->seg_count;
 

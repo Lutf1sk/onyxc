@@ -1327,10 +1327,8 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		icode_gen_stmt(cx, stmt->child);
 
 		trg = alloc_reg(cx);
-		usz jmp2 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = start - CURR_IP()));
 		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
-
-		FUNC_INSTR(jmp2).int_val = start - jmp2;
 
 		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
 	}	break;
