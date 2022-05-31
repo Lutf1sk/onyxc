@@ -262,7 +262,7 @@ let ipv4_dnslookup :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 		return 1;
 	}
 
-	u16 msglen = hton16(qlen + sizeof(DNS_Question) + sizeof(DNS_Header));
+	u16 msglen = hton16(sizeof(DNS_Header) + qlen + sizeof(DNS_Question));
 	sock->write((&msglen)[0..1]);
 	sock->write((&dh)[0..1]);
 	sock->write(question[0..qlen]);
@@ -332,10 +332,6 @@ let main :: u64() {
 // 	if !lib {
 // 		print("failed to load library\n");
 // 	}
-
-	if 1 {
-		
-	}
 
 	isz sock = socket(AF_INET, SOCK_STREAM, 0);
 	if sock < 0 {
