@@ -150,22 +150,38 @@ void ireg_end(amd64_ctx_t* cx, u32 reg, usz i) {
 
 static
 void x64_mcopy(amd64_ctx_t* cx, amd64_ireg_t dst, amd64_ireg_t src, usz bytes) {
-	LT_ASSERT(src.size == dst.size);
+	if (!bytes)
+		return;
 
-	if (bytes <= 32) {
-		amd64_ireg_t tmp = XREG(reg_scratch(cx, 0), src.size);
-		dst.type |= IREG_REF;
-		src.type |= IREG_REF;
+	amd64_ireg_t tmp = XREG(reg_scratch(cx, 0), ISZ_64);
+	dst.type |= IREG_REF;
+	src.type |= IREG_REF;
+	dst.size = ISZ_64;
+	src.size = ISZ_64;
 
-		for (; bytes > 0; bytes -= src.size) {
-			x64_mov(cx, tmp, src);
-			x64_mov(cx, dst, tmp);
-			dst.disp += src.size;
-			src.disp += src.size;
+	while (bytes) {
+		if (bytes < 8) {
+			dst.size = ISZ_8;
+			src.size = ISZ_8;
+			tmp.size = ISZ_8;
 		}
+		x64_mov(cx, tmp, src);
+		x64_mov(cx, dst, tmp);
+		dst.disp += src.size;
+		src.disp += src.size;
+		bytes -= src.size;
 	}
-	else
-		LT_ASSERT_NOT_REACHED();
+
+// 	x64_mov(cx, XREG(REG_DI, ISZ_64), dst);
+// 	x64_mov(cx, XREG(REG_SI, ISZ_64), src);
+// 	x64_mov(cx, XREG(REG_C, ISZ_64), XIMMI(bytes));
+
+// 	amd64_instr_t mi;
+// 	memset(&mi, 0, sizeof(mi));
+// 	mi.op = X64_MOVSB;
+// 	mi.var = 0;
+// 	mi.prefix[0] = 0xF3;
+// 	emit(cx, mi);
 }
 
 static
@@ -543,8 +559,8 @@ void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr) {
 
 	lt_printf("%ud %S ", var->arg_count, op->str);
 
-	u8 reg = instr->reg_rm & 0b1111;
-	u8 rm = instr->reg_rm >> 4;
+	u8 reg = instr->mrm.reg_rm & 0b1111;
+	u8 rm = instr->mrm.reg_rm >> 4;
 
 	for (usz i = 0; i < var->arg_count; ++i) {
 		if (i)
@@ -555,14 +571,21 @@ void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr) {
 
 		switch (arg & VARG_TYPE_MASK) {
 		case VARG_REG: lt_printf("%S", reg_names[reg][size]); break;
-		case VARG_MRM: print_modrm(instr->mod, rm, size, instr->disp); break;
-		case VARG_IMM:
-			if (instr->flags[i] & MI_SEG)
-				lt_printf("<%S>", cx->seg[instr->imm].name);
-			else if (instr->flags[i] & MI_LBL)
-				lt_printf("(%id)", instr->imm);
+		case VARG_MRM:
+			if (instr->disp_flags & MI_SEG)
+				lt_printf("[<%S+%ud>]", cx->seg[instr->mrm.disp].name, instr->mrm.disp2);
+			else if (instr->disp_flags & MI_LBL)
+				lt_printf("[(%id+%ud)]", instr->mrm.disp, instr->mrm.disp2);
 			else
-				lt_printf("0x%hq", instr->imm);
+				print_modrm(instr->mrm.mod, rm, size, instr->mrm.disp);
+			break;
+		case VARG_IMM:
+			if (instr->imm_flags & MI_SEG)
+				lt_printf("<%S+%ud>", cx->seg[instr->imm.index].name, instr->imm.disp);
+			else if (instr->imm_flags & MI_LBL)
+				lt_printf("(%id+%ud)", instr->imm.index, instr->imm.disp);
+			else
+				lt_printf("0x%hq", instr->imm.imm);
 			break;
 		}
 	}

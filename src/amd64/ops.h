@@ -39,7 +39,7 @@
 #define X64_IMUL 26
 
 #define X64_MOVSB 27
-#define X64_MOVSW 28
+#define X64_MOVSQ 28
 
 #define X64_INT 29
 

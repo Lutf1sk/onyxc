@@ -268,8 +268,10 @@ amd64_op_t ops[] = {
 		VAR1(RM32, VFLAG_OP_EXT, { 5, 0xF7 }),				// IMUL r/m32
 		VAR1(RM64, VFLAG_REX_W|VFLAG_OP_EXT, { 5, 0xF7 })),	// IMUL r/m64
 
-	OP("movsb", 0), // 0xA4
-	OP("movsw", 0), // 0xA5
+	OP("movsb", 1,
+		VAR0(VFLAG_REX_W, { 0xA4 })),
+	OP("movsq", 1,
+		VAR0(VFLAG_REX_W, { 0xA5 })),
 
 	OP("int", 1,
 		VAR1(UIMM8, 0, { 0xCD })),

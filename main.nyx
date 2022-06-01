@@ -332,6 +332,9 @@ let main :: u64() {
 // 	if !lib {
 // 		print("failed to load library\n");
 // 	}
+// 	let a = "12345678123456781234567812345678\n";
+// 	print(a);
+// 	exit(69);
 
 	isz sock = socket(AF_INET, SOCK_STREAM, 0);
 	if sock < 0 {

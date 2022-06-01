@@ -77,14 +77,32 @@
 
 #define MI_SEG 1
 #define MI_LBL 2
+#define MI_DISP_ONLY 4
+
+typedef
+struct modrm {
+	u8 mod, reg_rm;
+	u32 disp;
+	u32 disp2;
+} modrm_t;
+
+typedef
+union imm {
+	u64 imm;
+	struct {
+		u32 index;
+		u32 disp;
+	};
+} imm_t;
 
 typedef
 struct amd64_instr {
-	u8 flags[2];
-	u8 prefix[2];
 	u8 op, var;
-	u8 mod, reg_rm;
-	u32 imm, disp;
+	modrm_t mrm;
+	u8 prefix[2];
+	u8 disp_flags;
+	u8 imm_flags;
+	imm_t imm;
 } amd64_instr_t;
 
 static LT_INLINE

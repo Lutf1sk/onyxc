@@ -95,6 +95,34 @@ b8 elf_resolve_lbls(elf_ctx_t* cx, amd64_lbl_t* lbl, u32 i) {
 }
 
 #define LOAD_ADDR 0x70000000
+
+static
+void write_lbl(elf_ctx_t* cx, amd64_lbl_t* lbl, usz offs, u64* imm_val) {
+	if (lbl->m_i)
+		*imm_val = LOAD_ADDR + lbl->m_i;
+	else {
+		if (!lbl->ref_count)
+			lbl->refs = lt_arena_reserve(cx->arena, sizeof(u32) * 16); // !! Terrible, horrible stuff. Fix this
+		*imm_val = LOAD_ADDR;
+		lbl->refs[lbl->ref_count++] = offs;
+	}
+}
+
+
+static
+void write_seg(amd64_ctx_t* cx, fwd_ref_t** refs, usz offs, usz imm_bytes, u64* imm_val, u32 index) {
+	*imm_val = cx->seg[index].load_at;
+	if (!*imm_val) {
+		fwd_ref_t* new_ref = lt_arena_reserve(cx->arena, sizeof(fwd_ref_t));
+		new_ref->offs = offs;
+		new_ref->seg = index;
+		new_ref->next = *refs;
+		new_ref->size = imm_bytes;
+
+		*refs = new_ref;
+	}
+}
+
 #define ALIGN_BYTES 4096
 static u8 align_buf[ALIGN_BYTES];
 
@@ -147,23 +175,21 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				amd64_var_t* var = &op->vars[mi->var];
 				u8* var_op = var->instr;
 
-				u8 reg = mi->reg_rm & 0b111;
-				u8 rm = (mi->reg_rm >> 4) & 0b111;
+				u8 reg = mi->mrm.reg_rm & 0b111;
+				u8 rm = (mi->mrm.reg_rm >> 4) & 0b111;
 
 				b8 modrm = 0;
 				b8 imm = 0;
-				u8 imm_flags = 0;
 				u8 imm_size = 0;
-				u8 imm_mi_flags = 0;
+				u8 imm_idx;
 				b8 rex = 0;
 				for (usz i = 0; i < var->arg_count; ++i) {
 					u8 varg = var->args[i] & VARG_TYPE_MASK;
 					u8 vsize = var->args[i] & VARG_SIZE_MASK;
 					if (varg == VARG_IMM) {
-						imm_size = var->args[i] & VARG_SIZE_MASK;
 						imm = 1;
-						imm_flags = var->args[i] & VARG_FLAG_MASK;
-						imm_mi_flags = mi->flags[i];
+						imm_size = vsize;
+						imm_idx = i;
 					}
 					else if (varg == VARG_MRM) {
 						modrm = 1;
@@ -180,8 +206,8 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 					*it++ = 0x66;
 
 				u8 rex_w = !!(var->flags & VFLAG_REX_W);
-				u8 rex_r = !!(mi->reg_rm & REG_REX_BIT);
-				u8 rex_b = !!(mi->reg_rm & (REG_REX_BIT << 4));
+				u8 rex_r = !!(mi->mrm.reg_rm & REG_REX_BIT);
+				u8 rex_b = !!(mi->mrm.reg_rm & (REG_REX_BIT << 4));
 				if (rex_w || rex_r || rex_b || rex) {
 					*it++ = REX(rex_w, rex_r, 0, rex_b);
 				}
@@ -197,57 +223,61 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 					if (ext)
 						reg = var_op[0];
 
-					if (rm == REG_BP && mi->mod == MOD_DREG) {
-						mi->mod = MOD_DSP8;
-						mi->disp = 0;
+					if (rm == REG_BP && mi->mrm.mod == MOD_DREG) {
+						mi->mrm.mod = MOD_DSP8;
+						mi->mrm.disp = 0;
 					}
-					*it++ = MODRM(mi->mod, reg, rm);
 
-					if (mi->mod != MOD_REG) {
-						if (rm == REG_SP)
-							*it++ = SIB(SIB_S1, REG_SP, REG_SP);
+					u64 disp_val = mi->mrm.disp;
+					usz disp_bytes = 0;
 
-						switch (mi->mod) {
-						case MOD_DSP8: *it++ = mi->disp; break;
-						case MOD_DSP32:
-							memcpy(it, &mi->disp, 4);
-							it += 4;
-							break;
+					if (mi->disp_flags & MI_DISP_ONLY) {
+						*it++ = MODRM(0, reg, REG_SP);
+						*it++ = SIB(SIB_S1, REG_SP, REG_BP);
+
+						disp_bytes = 4;
+						u64 disp_offs = elf_cx.bin_size + (it - instr);
+
+						if (mi->disp_flags & MI_LBL) {
+							write_lbl(&elf_cx, find_lbl(cx, mi->mrm.disp), disp_offs, &disp_val);
+							disp_val += mi->mrm.disp2;
+						}
+						if (mi->disp_flags & MI_SEG) {
+							write_seg(cx, &refs, disp_offs, disp_bytes, &disp_val, mi->mrm.disp);
+							disp_val += mi->mrm.disp2;
 						}
 					}
+					else {
+						*it++ = MODRM(mi->mrm.mod, reg, rm);
+						if (mi->mrm.mod != MOD_REG) {
+							if (rm == REG_SP)
+								*it++ = SIB(SIB_S1, REG_SP, REG_SP);
+						}
+						switch (mi->mrm.mod) {
+						case MOD_DSP8: disp_bytes = 1; break;
+						case MOD_DSP32: disp_bytes = 4; break;
+						}
+					}
+
+					memcpy(it, &disp_val, disp_bytes);
+					it += disp_bytes;
 				}
 
 				if (imm) {
-					u64 imm_val = mi->imm;
+					u64 imm_val = mi->imm.imm;
 					u8 imm_bytes = 1 << imm_size;
+					u64 imm_offs = elf_cx.bin_size + (it - instr);
 
-					if (imm_mi_flags & MI_LBL) {
-						amd64_lbl_t* lbl = find_lbl(cx, mi->imm);
-						if (lbl->m_i)
-							imm_val = LOAD_ADDR + lbl->m_i;
-						else {
-							if (!lbl->ref_count)
-								lbl->refs = lt_arena_reserve(cx->arena, sizeof(u32) * 16); // !! Terrible, horrible stuff. Fix this
-							imm_val = LOAD_ADDR;
-							lbl->refs[lbl->ref_count++] = elf_cx.bin_size + (it - instr);
-						}
+					if (mi->imm_flags & MI_LBL) {
+						write_lbl(&elf_cx, find_lbl(cx, mi->imm.index), imm_offs, &imm_val);
+						imm_val += mi->imm.disp;
 					}
-
-					if (imm_mi_flags & MI_SEG) {
-						imm_val = cx->seg[imm_val].load_at;
-						if (!imm_val) {
-							fwd_ref_t* new_ref = lt_arena_reserve(cx->arena, sizeof(fwd_ref_t));
-							new_ref->offs = elf_cx.bin_size + (it - instr);
-							new_ref->seg = mi->imm;
-							new_ref->next = refs;
-							new_ref->size = imm_bytes;
-
-							refs = new_ref;
-						}
+					if (mi->imm_flags & MI_SEG) {
+						write_seg(cx, &refs, imm_offs, imm_bytes, &imm_val, mi->imm.index);
+						imm_val += mi->imm.disp;
 					}
-
-					if (imm_flags & VARG_REL)
-						imm_val -= LOAD_ADDR + elf_cx.bin_size + (it - instr) + imm_bytes;
+					if (var->args[imm_idx] & VARG_REL)
+						imm_val -= LOAD_ADDR + imm_offs + imm_bytes;
 
 					memcpy(it, &imm_val, imm_bytes);
 					it += imm_bytes;
