@@ -244,7 +244,15 @@ usz type_align(type_t* type) {
 	case TP_ARRAY_VIEW: return 8;
 	case TP_ARRAY: return type_align(type->base);
 
-	case TP_STRUCT: return 8;
+	case TP_STRUCT: {
+		usz align_max = 1;
+		for (usz i = 0; i < type->child_count; ++i) {
+			usz child_align = type_align(type->children[i]);
+			if (child_align > align_max)
+				align_max = child_align;
+		}
+		return align_max;
+	}
 	}
 
 	LT_ASSERT_NOT_REACHED();
