@@ -86,32 +86,29 @@ usz emit(amd64_ctx_t* cx, amd64_instr_t mi) {
 }
 
 static
-usz immsz(amd64_ireg_t* ireg, u8 sign) {
+usz immsz(amd64_ireg_t* ireg, u8 sign_ext) {
 	LT_ASSERT(ireg->type == IREG_IMM);
 
-	u8 imm_min_size = 1;
-	if (sign) {
-		i64 imm = (i32)ireg->imm;
-		if (imm < 0)
-			imm = -imm;
+	u64 imm = ireg->imm;
+	if (sign_ext) {
+		if (imm >= 0x80000000)
+			return 8;
+		else if (imm >= 0x8000)
+			return 4;
+		else if (imm >= 0x80)
+			return 2;
+		else
+			return 1;
+	}
 
-		if (imm > 0x80000000) // !!
-			imm_min_size = 8;
-		else if (imm > 0x8000)
-			imm_min_size = 4;
-		else if (imm > 0x80)
-			imm_min_size = 2;
-	}
-	else {
-		u64 imm = ireg->imm;
-		if (imm > 0xFFFFFFFF)
-			imm_min_size = 8;
-		else if (imm > 0xFFFF)
-			imm_min_size = 4;
-		else if (imm > 0xFF)
-			imm_min_size = 2;
-	}
-	return imm_min_size;
+	if (imm > 0xFFFFFFFF)
+		return 8;
+	else if (imm > 0xFFFF)
+		return 4;
+	else if (imm > 0xFF)
+		return 2;
+	else
+		return 1;
 }
 
 void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {

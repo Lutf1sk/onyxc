@@ -93,6 +93,7 @@
 #define VFLAG_OP_EXT	0b0001
 #define VFLAG_REX_W		0b0010
 #define VFLAG_OPSIZE	0b0100
+#define VFLAG_OI		0b1000
 
 typedef
 struct amd64_var {

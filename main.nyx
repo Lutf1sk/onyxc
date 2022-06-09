@@ -52,19 +52,30 @@ let dlopen :: ELF64_FileHeader*(u8[] libname) {
 		if ph.type == ELFPH_DYNAMIC {
 			dyn = ELF64_Dyn*:elf_data + ph.offs;
 		}
+	}
 
-		print("PH ");
-		print_i64(ph.type);
-		print(" 0x");
-		print_h64(ph.offs);
-		print("\n");
+	if !dyn {
+		print("No dynamic section found\n");
+		mfree(elf_data);
+		return null;
 	}
 
 	u8* dynstr = null;
+	ELF64_RelAdd* rela_ptr = null;
+	usz relasz = 0, relaent = 0;
 
 	while dyn && dyn.type != ELFDYN_NULL {
 		if dyn.type == ELFDYN_STRTAB {
 			dynstr = elf_data + dyn.val;
+		}
+		if dyn.type == ELFDYN_RELA {
+			rela_ptr = ELF64_RelAdd*:(elf_data + dyn.val);
+		}
+		if dyn.type == ELFDYN_RELASZ {
+			relasz = dyn.val;
+		}
+		if dyn.type == ELFDYN_RELAENT {
+			relaent = dyn.val;
 		}
 
 		print("DYN ");
@@ -85,26 +96,40 @@ let dlopen :: ELF64_FileHeader*(u8[] libname) {
 		if sh.type == ELFSH_DYNSYM {
 			dynsym = (ELF64_Sym*:elf_data + sh.offs)[0..sh.size/sizeof(ELF64_Sym)];
 		}
+	}
 
-		print("SH '");
-		print(name);
-		print("' offs:0x");
-		print_h64(sh.offs);
-		print(" type:");
-		print_i64(sh.type);
+	ELF64_RelAdd* rela = rela_ptr;
+	usz rela_count = relasz / relaent;
+	for usz i..rela_count {
+
+		print("RELA 0x");
+		print_h64(rela.offs);
+		print(" ");
+		print_i64(rela.info & ELFREL64_TYPE_MASK);
+		print(" ");
+
+		u32 sym = rela.info >> ELFREL64_SYM_SHIFT;
+		u8* strtab_symname = dynstr + dynsym[sym].name;
+		u8[] symname = strtab_symname[0..cstrlen(strtab_symname)];
+		print(symname);
+		print(" ");
+
+		print_i64(rela.addend);
 		print("\n");
+
+		rela += relaent;
 	}
 
-	for usz i..dynsym.count {
-		u8* strtab_name = dynstr + dynsym[i].name;
-		u8[] name = strtab_name[0..cstrlen(strtab_name)];
+// 	for usz i..dynsym.count {
+// 		u8* strtab_name = dynstr + dynsym[i].name;
+// 		u8[] name = strtab_name[0..cstrlen(strtab_name)];
 
-		print("SYM ");
-		print_i64(i);
-		print(" '");
-		print(name);
-		print("'\n");
-	}
+// 		print("SYM ");
+// 		print_i64(i);
+// 		print(" '");
+// 		print(name);
+// 		print("'\n");
+// 	}
 
 	return fh;
 }
@@ -299,6 +324,8 @@ let ipv4_dnslookup :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 	void* section_start = buf.data + sizeof(DNS_Header);
 	u8* it = section_start;
 
+	// TODO: Prevent out-of-bounds writes
+
 	for usz i..rh.qdcount {
 		while *it { it++; } // QNAME
 		it += sizeof(DNS_Question);
@@ -326,12 +353,14 @@ let ipv4_dnslookup :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 }
 
 let main :: u64() {
-// 	u8[] libname = "/usr/lib/libxcb.so";
+	u8[] libname = "/usr/lib/libxcb.so";
 
-// 	void* lib = dlopen(libname);
-// 	if !lib {
-// 		print("failed to load library\n");
-// 	}
+	void* lib = dlopen(libname);
+	if !lib {
+		print("failed to load library\n");
+	}
+
+	exit(69);
 
 	isz sock = socket(AF_INET, SOCK_STREAM, 0);
 	if sock < 0 {

@@ -112,6 +112,20 @@ def ELF64_SectHeader :: struct {
 
 // ----- Relocation Table
 
+u64	ELFREL_X64_NONE		:: 0,
+	ELFREL_X64_64		:: 1,
+	ELFREL_X64_REL64	:: 8,
+	ELFREL_X64_32		:: 10,
+	ELFREL_X64_32S		:: 11,
+	ELFREL_X64_16		:: 12,
+	ELFREL_X64_PC16		:: 13,
+	ELFREL_X64_8		:: 14,
+	ELFREL_X64_PC8		:: 15,
+
+	ELFREL64_TYPE_MASK	:: 0x00000000FFFFFFFF,
+	ELFREL64_SYM_MASK	:: 0xFFFFFFFF00000000,
+	ELFREL64_SYM_SHIFT	:: 32;
+
 // Located in ELFSH_REL
 def ELF64_Rel :: struct {
 	u64 offs;

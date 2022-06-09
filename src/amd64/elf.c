@@ -178,6 +178,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				u8 reg = mi->mrm.reg_rm & 0b111;
 				u8 rm = (mi->mrm.reg_rm >> 4) & 0b111;
 
+				b8 oi = var->flags & VFLAG_OI;
 				b8 modrm = 0;
 				b8 imm = 0;
 				u8 imm_size = 0;
@@ -206,18 +207,29 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 					*it++ = 0x66;
 
 				u8 rex_w = !!(var->flags & VFLAG_REX_W);
-				u8 rex_r = !!(mi->mrm.reg_rm & REG_REX_BIT);
-				u8 rex_b = !!(mi->mrm.reg_rm & (REG_REX_BIT << 4));
-				if (rex_w || rex_r || rex_b || rex) {
-					*it++ = REX(rex_w, rex_r, 0, rex_b);
+				u8 reg_rex_bit = !!(mi->mrm.reg_rm & REG_REX_BIT);
+				u8 rm_rex_bit = !!(mi->mrm.reg_rm & (REG_REX_BIT << 4));
+				if (rex_w || reg_rex_bit || rm_rex_bit || rex) {
+					if (modrm)
+						*it++ = REX(rex_w, reg_rex_bit, 0, rm_rex_bit);
+					else if (oi)
+						*it++ = REX(rex_w, 0, 0, reg_rex_bit);
 				}
 
 				u8 ext = !!(var->flags & VFLAG_OP_EXT);
 				usz var_i = ext;
 				u8 var_b = var_op[var_i++];
-				*it++ = var_b;
-				if (var_b == 0x0F)
-					*it++ = var_op[var_i++];
+
+				u8 oi_offs = 0;
+				if (oi)
+					oi_offs += reg;
+
+				if (var_b == 0x0F) {
+					*it++ = var_b;
+					*it++ = var_op[var_i++] + oi_offs;
+				}
+				else
+					*it++ = var_b + oi_offs;
 
 				if (modrm) {
 					if (ext)
