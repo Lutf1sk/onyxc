@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
 			return code;
 		}
 
-#if 0
+#if 1
 		// Print segments
 		for (usz i = 0; i < gen_cx.seg_count; ++i) {
 			seg_ent_t* seg = &gen_cx.seg[i];

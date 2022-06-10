@@ -42,7 +42,7 @@ u8 ir_get_regs(icode_t* ir) {
 	case IR_SYSCALL: case IR_SETARG: case IR_GETARG:
 	case IR_INT: case IR_FLOAT: case IR_SRESV: case IR_IPO: case IR_SEG:
 		return IR_REG_DST;
-	case IR_ENTER: return 0;
+	case IR_ENTER: case IR_BEGCALL: return 0;
 	case IR_CALL: return IR_REG_DST|IR_REG_R0; break;
 
 	default: {
@@ -87,29 +87,11 @@ void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_SEG: UPD(ir->dst); break;
 	case IR_ENTER: break;
 
-	case IR_CALL: UPD(ir->dst); UPD(ir->regs[0]);
-		for (usz i = 0; i < cx->arg_index_max; ++i)
-			ir_arr[cx->arg_ir_indices[i]].regs[1] = CCONV_SYSV;
-		cx->arg_index_max = 0;
-		break;
-
-	case IR_SYSCALL: UPD(ir->dst);
-		for (usz i = 0; i < cx->arg_index_max; ++i)
-			ir_arr[cx->arg_ir_indices[i]].regs[1] = CCONV_LINUX_SYSCALL;
-		cx->arg_index_max = 0;
-		break;
-
-	case IR_SETARG: {
-		u32 arg_index = ir->regs[0];
-		cx->arg_index_max++;
-		UPD(ir->dst);
-		cx->arg_ir_indices[arg_index] = i;
-	}	break;
-
-	case IR_GETARG:
-		UPD(ir->dst);
-		cx->arg_ir_indices[ir->regs[0]] = i;
-		break;
+	case IR_CALL: UPD(ir->dst); UPD(ir->regs[0]); break;
+	case IR_SYSCALL: UPD(ir->dst); break;
+	case IR_SETARG: UPD(ir->dst); break;
+	case IR_GETARG: UPD(ir->dst); break;
+	case IR_BEGCALL: break;
 
 	default:
 		if (ir->dst)
@@ -316,48 +298,6 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_INC: GENERIC1(X64_INC); break;
 	case IR_DEC: GENERIC1(X64_DEC); break;
 
-	case IR_ENTER:
-		reg_push_caller_owned(cx);
-		if (cx->frame_size) {
-			amd64_ireg_t args[2] = { XREG(REG_SP, ISZ_64), XIMMI(cx->frame_size) };
-			emit_instr(cx, X64_SUB, 2, args);
-		}
-		break;
-
-	case IR_GETARG: {
-		LT_ASSERT(ir->size);
-		if (ir->size <= 8) {
-			amd64_ireg_t dst_tmp = *dst;
-			LT_ASSERT(!(dst->type & IREG_REF));
-			dst_tmp.type |= IREG_REF;
-			dst_tmp.size = ir->size;
-			x64_mov(cx, dst_tmp, XREG(cconvs[CCONV_SYSV].regs[ir->regs[0]], ir->size));
-		}
-		else
-			x64_mcopy(cx, *dst, XREG(cconvs[CCONV_SYSV].regs[ir->regs[0]], ISZ_64), ir->size);
-	}	break;
-
-	case IR_SETARG: {
-		call_conv_t* cconv = &cconvs[ir->regs[1]];
-		LT_ASSERT(cx->arg_num < cconv->reg_count);
-		u8 reg = cconv->regs[cx->arg_num++];
-		u8 size = ir->size;
-		if (size > ISZ_64)
-			size = ISZ_64;
-		x64_mov(cx, XREG(reg, size), *dst);
-	}	break;
-
-	case IR_SYSCALL:
-		mi.op = X64_SYSCALL;
-		mi.var = 0;
-		emit(cx, mi);
-
-		*dst = XREG(reg_alloc(cx, ir->dst), ISZ_64);
-		x64_mov(cx, *dst, XREG(REG_A, ISZ_64));
-
-		cx->arg_num = 0;
-		break;
-
 #define GENERIC4(x) { \
 	*dst = XREG(reg_alloc(cx, ir->dst), ISZ_8); \
 	zero_reg(cx, dst->mreg); \
@@ -429,7 +369,59 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		emit_instr(cx, X64_JMP, 1, dst);
 	}	break;
 
+	case IR_ENTER:
+		reg_push_caller_owned(cx);
+		reg_push64(cx, cconvs[CCONV_SYSV].regs[0]);
+		if (cx->frame_size) {
+			amd64_ireg_t args[2] = { XREG(REG_SP, ISZ_64), XIMMI(cx->frame_size) };
+			emit_instr(cx, X64_SUB, 2, args);
+		}
+		break;
+
+	case IR_GETARG: {
+		LT_ASSERT(ir->size);
+		if (ir->size <= 8) {
+			amd64_ireg_t dst_tmp = *dst;
+			LT_ASSERT(!(dst->type & IREG_REF));
+			dst_tmp.type |= IREG_REF;
+			dst_tmp.size = ir->size;
+			x64_mov(cx, dst_tmp, XREG(cconvs[CCONV_SYSV].regs[cx->getarg_offs + ir->regs[0]], ir->size));
+		}
+		else
+			x64_mcopy(cx, *dst, XREG(cconvs[CCONV_SYSV].regs[cx->getarg_offs + ir->regs[0]], ISZ_64), ir->size);
+	}	break;
+
+	case IR_BEGCALL: {
+		if (ir->size > 8)
+			++cx->arg_num;
+		cx->cconv = ir->dst;
+	}	break;
+
+	case IR_SETARG: {
+		call_conv_t* cconv = &cconvs[cx->cconv];
+		LT_ASSERT(cx->arg_num < cconv->reg_count);
+		u8 reg = cconv->regs[cx->arg_num++];
+		u8 size = ir->size;
+		if (size > ISZ_64)
+			size = ISZ_64;
+		x64_mov(cx, XREG(reg, size), *dst);
+	}	break;
+
+	case IR_SYSCALL:
+		mi.op = X64_SYSCALL;
+		mi.var = 0;
+		emit(cx, mi);
+
+		*dst = XREG(reg_alloc(cx, ir->dst), ISZ_64);
+		x64_mov(cx, *dst, XREG(REG_A, ISZ_64));
+
+		cx->arg_num = 0;
+		break;
+
 	case IR_CALL:
+		if (ir->size > 8)
+			x64_mov(cx, XREG(cconvs[cx->cconv].regs[0], ISZ_64), *reg0);
+
 		emit_instr(cx, X64_CALL, 1, dst);
 		cx->arg_num = 0;
 
@@ -448,16 +440,18 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_RET:
 		if (ir->dst) {
 			LT_ASSERT(ir->size);
-			if (ir->size <= 8)
-				x64_mov(cx, XREG(REG_A, ir->size), *dst);
-			else
-				LT_ASSERT_NOT_REACHED();
+			usz size = ir->size;
+			if (size > 8)
+				size = 8;
+			x64_mov(cx, XREG(REG_A, size), *dst);
 		}
 		if (cx->frame_size) {
 			amd64_ireg_t args[2] = { XREG(REG_SP, ISZ_64), XIMMI(cx->frame_size) };
 			emit_instr(cx, X64_ADD, 2, args);
 		}
-
+		reg_pop64(cx, cconvs[CCONV_SYSV].regs[0]);
+		if (ir->size > 8)
+			x64_mcopy(cx, XREG(cconvs[CCONV_SYSV].regs[0], ISZ_64), XREG(REG_A, ISZ_64), ir->size);
 		reg_pop_caller_owned(cx);
 
 		mi.op = X64_RET;
@@ -482,8 +476,6 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		ireg_end(cx, ir->regs[1], i);
 }
 
-
-
 void amd64_gen(amd64_ctx_t* cx) {
 	cx->reg_map = lt_arena_reserve(cx->arena, sizeof(amd64_ireg_t) * 1024);
 	cx->reg_lifetimes = lt_arena_reserve(cx->arena, sizeof(usz) * 1024);
@@ -501,6 +493,9 @@ void amd64_gen(amd64_ctx_t* cx) {
 		cx->curr_func = new_mcode_seg(cx, cs->type, cs->name, i);
 		cx->stack_top = 0;
 		cx->arg_num = 0;
+		cx->getarg_offs = 0;
+		if (type_bytes(cs->type->base) > 8)
+			cx->getarg_offs = 1;
 		cx->lbl = NULL;
 
 		seg_ent_t* ms = &cx->seg[cx->curr_func];

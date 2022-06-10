@@ -17,6 +17,11 @@ let elf_getph :: ELF64_ProgHeader*(ELF64_FileHeader* fh, usz i) {
 	return ELF64_ProgHeader*:(usz:fh + fh.ph_offs + fh.ph_size * i);
 }
 
+let elf_getstr :: u8[](u8* strtab, usz offs) {
+	u8* str = strtab + offs;
+	return str[0..cstrlen(str)];
+}
+
 let dlopen :: ELF64_FileHeader*(u8[] libname) {
 	isz fd;
 	if &fd->file_openr(libname) {
@@ -39,6 +44,28 @@ let dlopen :: ELF64_FileHeader*(u8[] libname) {
 
 	ELF64_SectHeader* strtab = elf_getsh(fh, fh.strtab_index);
 	u8* strtab_start = elf_data + strtab.offs;
+
+	ELF64_SectHeader* got = null;
+
+	ELF64_Sym[] dynsym = null[0..0];
+
+	for usz i..fh.sh_count {
+		let sh = elf_getsh(fh, i);
+		u8[] name = elf_getstr(strtab_start, sh.name);
+
+		if sh.type == ELFSH_DYNSYM {
+			dynsym = (ELF64_Sym*:elf_data + sh.offs)[0..sh.size/sizeof(ELF64_Sym)];
+		}
+		if sh.type == ELFSH_PROGBITS && streq(name, ".got") {
+			got = sh;
+		}
+	}
+
+	if !got {
+		print("Failed to find GOT\n");
+		mfree(elf_data);
+		return null;
+	}
 
 	u8[] interp = null[0..0];
 	ELF64_Dyn* dyn = null;
@@ -86,33 +113,18 @@ let dlopen :: ELF64_FileHeader*(u8[] libname) {
 		dyn += sizeof(ELF64_Dyn);
 	}
 
-	ELF64_Sym[] dynsym = null[0..0];
-
-	for usz i..fh.sh_count {
-		let sh = elf_getsh(fh, i);
-		u8* strtab_name = strtab_start + sh.name;
-		u8[] name = strtab_name[0..cstrlen(strtab_name)];
-
-		if sh.type == ELFSH_DYNSYM {
-			dynsym = (ELF64_Sym*:elf_data + sh.offs)[0..sh.size/sizeof(ELF64_Sym)];
-		}
-	}
-
 	ELF64_RelAdd* rela = rela_ptr;
 	usz rela_count = relasz / relaent;
 	for usz i..rela_count {
-
 		print("RELA 0x");
 		print_h64(rela.offs);
 		print(" ");
 		print_i64(rela.info & ELFREL64_TYPE_MASK);
-		print(" ");
+		print(" '");
 
 		u32 sym = rela.info >> ELFREL64_SYM_SHIFT;
-		u8* strtab_symname = dynstr + dynsym[sym].name;
-		u8[] symname = strtab_symname[0..cstrlen(strtab_symname)];
-		print(symname);
-		print(" ");
+		print(elf_getstr(dynstr, dynsym[sym].name));
+		print("' ");
 
 		print_i64(rela.addend);
 		print("\n");
@@ -120,16 +132,13 @@ let dlopen :: ELF64_FileHeader*(u8[] libname) {
 		rela += relaent;
 	}
 
-// 	for usz i..dynsym.count {
-// 		u8* strtab_name = dynstr + dynsym[i].name;
-// 		u8[] name = strtab_name[0..cstrlen(strtab_name)];
-
-// 		print("SYM ");
-// 		print_i64(i);
-// 		print(" '");
-// 		print(name);
-// 		print("'\n");
-// 	}
+	for usz i..dynsym.count {
+		print("SYM ");
+		print_i64(i);
+		print(" '");
+		print(elf_getstr(dynstr, dynsym[i].name));
+		print("'\n");
+	}
 
 	return fh;
 }
@@ -353,7 +362,7 @@ let ipv4_dnslookup :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 }
 
 let main :: u64() {
-	u8[] libname = "/usr/lib/libxcb.so";
+	u8[] libname = "/usr/lib/ld-linux-x86-64.so.2";
 
 	void* lib = dlopen(libname);
 	if !lib {

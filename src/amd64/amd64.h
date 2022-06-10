@@ -52,8 +52,10 @@ struct amd64_ctx {
 
 	amd64_lbl_t* lbl, *lbl_it;
 
-	usz arg_ir_indices[32];
-	usz arg_num, arg_index_max;
+	usz arg_num;
+	usz cconv;
+
+	usz getarg_offs;
 } amd64_ctx_t;
 
 void amd64_gen(amd64_ctx_t* cx);

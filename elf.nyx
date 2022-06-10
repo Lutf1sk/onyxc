@@ -112,15 +112,25 @@ def ELF64_SectHeader :: struct {
 
 // ----- Relocation Table
 
-u64	ELFREL_X64_NONE		:: 0,
-	ELFREL_X64_64		:: 1,
-	ELFREL_X64_REL64	:: 8,
-	ELFREL_X64_32		:: 10,
-	ELFREL_X64_32S		:: 11,
-	ELFREL_X64_16		:: 12,
-	ELFREL_X64_PC16		:: 13,
-	ELFREL_X64_8		:: 14,
-	ELFREL_X64_PC8		:: 15,
+u64	ELFREL_X64_NONE		:: 0,	// No relocation
+	ELFREL_X64_64		:: 1,	// Direct 64-bit
+	ELFREL_X64_PC32		:: 2,	// Sign-extended PC relative 32-bit
+	ELFREL_X64_GOT32	:: 3,	// 32-bit GOT entry
+	ELFREL_X64_PLT32	:: 4,	// 32-bit PLT address
+	ELFREL_X64_COPY		:: 5,	// Runtime symbol copy
+	ELFREL_X64_GLOB_DAT	:: 6,	// Create GOT entry
+	ELFREL_X64_JMP_SLOT	:: 7,	// Create PLT entry
+	ELFREL_X64_REL32	:: 8,	// 32-bit adjust by program base
+	ELFREL_X64_GOTPCREL	:: 9,	// 32-bit signed PC relative offset to GOT
+	ELFREL_X64_32		:: 10,	// Zero-extended direct 32-bit
+	ELFREL_X64_32S		:: 11,	// Sign-extended direct 32-bit
+	ELFREL_X64_16		:: 12,	// Zero-extended direct 16-bit
+	ELFREL_X64_PC16		:: 13,	// Sign-extended PC relative 16-bit
+	ELFREL_X64_8		:: 14,	// Zero-extended direct 8-bit
+	ELFREL_X64_PC8		:: 15,	// Sign-extended PC relative 8-bit
+
+	ELFREL_X64_IREL32	:: 37,	// 32-bit adjust indirectly by program base
+	ELFREL_X64_REL64	:: 38,	// 64-bit adjust by program base
 
 	ELFREL64_TYPE_MASK	:: 0x00000000FFFFFFFF,
 	ELFREL64_SYM_MASK	:: 0xFFFFFFFF00000000,

@@ -946,11 +946,11 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			else
 				reg = ival_reg(cx, size, ival);
 			arg_regs[i] = reg;
-// 			emit(cx, ICODE1(IR_SETARG, size, reg));
 		}
 
 		u32 func_addr = ival_reg(cx, ISZ_64, icode_gen_expr(cx, expr->child_1));
 
+		emit(cx, ICODE1(IR_BEGCALL, ret_size, 0/*CCONV_SYSV*/));
 		for (usz i = 0; i < arg_count; ++i)
 			emit(cx, ICODE2(IR_SETARG, arg_sizes[i], arg_regs[i], i));
 
@@ -1255,6 +1255,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			it = it->next;
 		}
 
+		emit(cx, ICODE1(IR_BEGCALL, ISZ_64, 1/*CCONV_SYSCALL*/));
 		for (usz i = 0; i < argc; ++i)
 			emit(cx, ICODE2(IR_SETARG, ISZ_64, arg_regs[i], i));
 
