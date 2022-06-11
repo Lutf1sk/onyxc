@@ -34,7 +34,7 @@ extern u8 reg_flags[];
 u8 reg_alloc(amd64_ctx_t* cx, u32 ireg);
 u8 reg_scratch(amd64_ctx_t* cx, u32 offs);
 
-b8 reg_free(amd64_ctx_t* cx, u8 reg);
+u32 reg_free(amd64_ctx_t* cx, u8 reg);
 
 void reg_push64(amd64_ctx_t* cx, u8 reg);
 void reg_pop64(amd64_ctx_t* cx, u8 reg);

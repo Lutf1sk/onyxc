@@ -108,16 +108,7 @@ void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 static LT_INLINE
 b8 ireg_movable(amd64_ctx_t* cx, u32 reg, usz i) {
 	amd64_ireg_t* ireg = &cx->reg_map[reg];
-	return (reg_flags[ireg->mreg] & REG_ALLOCATABLE) && cx->reg_lifetimes[reg] == i;
-}
-
-static LT_INLINE
-u8 mreg_move(amd64_ctx_t* cx, u32 reg) {
-	amd64_ireg_t* ireg = &cx->reg_map[reg];
-	LT_ASSERT(cx->reg_lifetimes[reg]);
-	LT_ASSERT(ireg_reg_any(ireg));
-	cx->reg_lifetimes[reg] = 0;
-	return ireg->mreg;
+	return (reg_flags[ireg->mreg] & REG_ALLOCATABLE) && cx->reg_lifetimes[reg] == i && cx->reg_allocated[ireg->mreg] == reg;
 }
 
 static
@@ -166,18 +157,22 @@ void x64_mcopy(amd64_ctx_t* cx, amd64_ireg_t dst, amd64_ireg_t src, usz bytes) {
 }
 
 static
-u32 init_new_reg(amd64_ctx_t* cx, u32 reg, usz size, usz i) {
-	amd64_ireg_t* ireg = &cx->reg_map[reg];
+amd64_ireg_t* init_new_reg(amd64_ctx_t* cx, u32 dst, u32 src, usz size, usz i) {
+	amd64_ireg_t* ireg = &cx->reg_map[src];
+	amd64_ireg_t* dst_ireg = &cx->reg_map[dst];
 
-	if (ireg_reg_any(ireg) && ireg_movable(cx, reg, i)) {
-		if (ireg->type & IREG_REF)
-			x64_mov(cx, XREG(ireg->mreg, size), *ireg);
-		return mreg_move(cx, reg);
+	if (ireg_movable(cx, src, i)) {
+		ireg_move(cx, dst, src);
+		dst_ireg->size = size;
+
+		if (ireg_reg_any(ireg))
+			x64_mov(cx, *dst_ireg, *ireg);
+		return dst_ireg;
 	}
 
-	u32 mreg = reg_alloc(cx, reg);
-	x64_mov(cx, XREG(mreg, size), *ireg);
-	return mreg;
+	*dst_ireg = XREG(reg_alloc(cx, dst), size);
+	x64_mov(cx, *dst_ireg, *ireg);
+	return dst_ireg;
 }
 
 static
@@ -230,19 +225,18 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 		x64_mov(cx, tmp_dst, src);
 	}	break;
 
-	case IR_TOU8: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_8, i), ISZ_8), *reg0); break;
-	case IR_TOU16: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_16, i), ISZ_16), *reg0); break;
-	case IR_TOU32: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_32, i), ISZ_32), *reg0); break;
-	case IR_TOU64: x64_movzx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_64, i), ISZ_64), *reg0); break;
+	case IR_TOU8: x64_movzx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ISZ_8, i), *reg0); break;
+	case IR_TOU16: x64_movzx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ISZ_16, i), *reg0); break;
+	case IR_TOU32: x64_movzx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ISZ_32, i), *reg0); break;
+	case IR_TOU64: x64_movzx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ISZ_64, i), *reg0); break;
 
-	case IR_TOI8: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_8, i), ISZ_8), *reg0); break;
-	case IR_TOI16: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_16, i), ISZ_16), *reg0); break;
-	case IR_TOI32: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_32, i), ISZ_32), *reg0); break;
-	case IR_TOI64: x64_movsx(cx, *dst = XREG(init_new_reg(cx, ir->regs[0], ISZ_64, i), ISZ_64), *reg0); break;
+	case IR_TOI8: x64_movsx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ISZ_8, i), *reg0); break;
+	case IR_TOI16: x64_movsx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ISZ_16, i), *reg0); break;
+	case IR_TOI32: x64_movsx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ISZ_32, i), *reg0); break;
+	case IR_TOI64: x64_movsx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ISZ_64, i), *reg0); break;
 
 #define GENERIC2(x) { \
-	*dst = XREG(init_new_reg(cx, ir->regs[0], ir->size, i), ir->size); \
-	amd64_ireg_t args[2] = {*dst, *reg1}; \
+	amd64_ireg_t args[2] = {*init_new_reg(cx, ir->dst, ir->regs[0], ir->size, i), *reg1}; \
 	emit_instr(cx, (x), 2, args); \
 }
 
@@ -253,7 +247,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_XOR: GENERIC2(X64_XOR); break;
 
 #define SHIFT(x) { \
-	*dst = XREG(init_new_reg(cx, ir->regs[0], ir->size, i), ISZ_8); \
+	init_new_reg(cx, ir->dst, ir->regs[0], ISZ_8, i); \
 	amd64_ireg_t reg1_tmp = *reg1; \
 	reg1_tmp.size = ISZ_8; \
 	x64_mov(cx, XREG(REG_C, ISZ_8), reg1_tmp); \
@@ -288,10 +282,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 	case IR_IMUL: GENERIC3(X64_IMUL, REG_A); break;
 	case IR_UMUL: GENERIC3(X64_MUL, REG_A); break;
 
-#define GENERIC1(x) { \
-		*dst = XREG(init_new_reg(cx, ir->regs[0], ir->size, i), ir->size); \
-		emit_instr(cx, (x), 1, dst); \
-}
+#define GENERIC1(x) emit_instr(cx, (x), 1, init_new_reg(cx, ir->dst, ir->regs[0], ir->size, i))
 
 	case IR_NEG: GENERIC1(X64_NEG); break;
 	case IR_INC: GENERIC1(X64_INC); break;
@@ -476,8 +467,8 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 }
 
 void amd64_gen(amd64_ctx_t* cx) {
-	cx->reg_map = lt_arena_reserve(cx->arena, sizeof(amd64_ireg_t) * 1024);
-	cx->reg_lifetimes = lt_arena_reserve(cx->arena, sizeof(usz) * 1024);
+	cx->reg_map = lt_arena_reserve(cx->arena, sizeof(amd64_ireg_t) * 2048);
+	cx->reg_lifetimes = lt_arena_reserve(cx->arena, sizeof(usz) * 2048);
 
 	usz seg_count = cx->seg_count;
 

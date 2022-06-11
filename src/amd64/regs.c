@@ -67,8 +67,8 @@ u8 reg_scratch(amd64_ctx_t* cx, u32 offs) {
 	return REG_A;
 }
 
-b8 reg_free(amd64_ctx_t* cx, u8 reg) {
-	b8 prev = cx->reg_allocated[reg];
+u32 reg_free(amd64_ctx_t* cx, u8 reg) {
+	u32 prev = cx->reg_allocated[reg];
 	cx->reg_allocated[reg] = 0;
 	return prev;
 }

@@ -24,22 +24,17 @@ b8 ireg_eq(amd64_ireg_t* v1, amd64_ireg_t* v2) {
 	}
 }
 
-void ireg_copy(amd64_ctx_t* cx, u32 dst, u32 src) {
+void ireg_move(amd64_ctx_t* cx, u32 dst, u32 src) {
 	amd64_ireg_t* dst_ireg = &cx->reg_map[dst];
 	amd64_ireg_t* src_ireg = &cx->reg_map[src];
 
-	if (ireg_reg_any(src_ireg)) {
-		*dst_ireg = *src_ireg;
-		return;
-	}
-
-	LT_ASSERT(cx->reg_lifetimes[src]);
-
-	if (cx->reg_lifetimes[dst] > cx->reg_lifetimes[src])
-		cx->reg_lifetimes[src] = 0;
-	else
-		cx->reg_lifetimes[dst] = 0;
 	*dst_ireg = *src_ireg;
+
+	if (!ireg_reg_any(src_ireg))
+		return;
+
+	LT_ASSERT(cx->reg_allocated[src_ireg->mreg] == src);
+	cx->reg_allocated[src_ireg->mreg] = dst;
 }
 
 b8 ireg_reg_pure(amd64_ireg_t* ireg) {

@@ -116,7 +116,7 @@ usz min(usz a, usz b) {
 }
 
 b8 ireg_eq(amd64_ireg_t* v1, amd64_ireg_t* v2);
-void ireg_copy(amd64_ctx_t* cx, u32 dst, u32 src);
+void ireg_move(amd64_ctx_t* cx, u32 dst, u32 src);
 
 b8 ireg_reg_pure(amd64_ireg_t* ireg);
 b8 ireg_reg_displaced(amd64_ireg_t* ireg);
