@@ -257,7 +257,7 @@ int main(int argc, char** argv) {
 
 			amd64_gen(&x64);
 
-#if 1
+#if 0
 			// Print machine code
 			for (usz i = 0; i < x64.seg_count; ++i) {
 				if (x64.seg[i].stype != SEG_MCODE)

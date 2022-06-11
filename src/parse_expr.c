@@ -421,7 +421,11 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			}
 
 			subscript->child_2 = parse_expr(cx, NULL);
-			if (!is_int_any_sign(subscript->child_2->type))
+			if (is_int(subscript->child_2->type))
+				type_convert_implicit(cx, &i64_def, &subscript->child_2);
+			else if (is_uint(subscript->child_2->type))
+				type_convert_implicit(cx, &u64_def, &subscript->child_2);
+			else
 				ferr("array index must be an integer", *subscript->child_2->tk);
 
 			if (peek(cx, 0)->stype == TK_DOUBLE_DOT) {
@@ -435,9 +439,6 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				expr_t* next = parse_expr(cx, NULL);
 				if (!is_int_any_sign(next->type))
 					ferr("array index must be an integer", *next->tk);
-
-				// Skip error checking for these, as we already know both values are integers
-				type_convert_implicit(cx, &i64_def, &subscript->child_2);
 				type_convert_implicit(cx, &u64_def, &next);
 
 				subscript->child_2->next = next;
