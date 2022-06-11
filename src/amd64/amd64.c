@@ -161,12 +161,9 @@ amd64_ireg_t* init_new_reg(amd64_ctx_t* cx, u32 dst, u32 src, usz size, usz i) {
 	amd64_ireg_t* ireg = &cx->reg_map[src];
 	amd64_ireg_t* dst_ireg = &cx->reg_map[dst];
 
-	if (ireg_movable(cx, src, i)) {
+	if (ireg_reg_any(ireg) && ireg_movable(cx, src, i)) {
 		ireg_move(cx, dst, src);
 		dst_ireg->size = size;
-
-		if (ireg_reg_any(ireg))
-			x64_mov(cx, *dst_ireg, *ireg);
 		return dst_ireg;
 	}
 
@@ -361,6 +358,8 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 
 	case IR_ENTER:
 		reg_push_caller_owned(cx);
+		// Push RDI twice to preserve 16 byte alignment
+		reg_push64(cx, cconvs[CCONV_SYSV].regs[0]);
 		reg_push64(cx, cconvs[CCONV_SYSV].regs[0]);
 		if (cx->frame_size) {
 			amd64_ireg_t args[2] = { XREG(REG_SP, ISZ_64), XIMMI(cx->frame_size) };
@@ -439,6 +438,8 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 			amd64_ireg_t args[2] = { XREG(REG_SP, ISZ_64), XIMMI(cx->frame_size) };
 			emit_instr(cx, X64_ADD, 2, args);
 		}
+		// Pop RDI twice to preserve 16 byte alignment
+		reg_pop64(cx, cconvs[CCONV_SYSV].regs[0]);
 		reg_pop64(cx, cconvs[CCONV_SYSV].regs[0]);
 		if (ir->size > 8)
 			x64_mcopy(cx, XREG(cconvs[CCONV_SYSV].regs[0], ISZ_64), XREG(REG_A, ISZ_64), ir->size);

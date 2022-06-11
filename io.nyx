@@ -105,7 +105,7 @@ let time_msec :: u64() {
 // mem.nyx
 
 let malloc :: void*(usz size) {
-	isz addr = isz:mmap(0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	isz addr = isz:mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 	if (addr < 0) {
 		return null;
 	}

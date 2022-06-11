@@ -365,69 +365,74 @@ let dlopen :: u8(u8[] libname, DynLibrary* out) {
 	out.strtab = strtab;
 	out.strtab_sym = strtab_sym;
 
+	print_h64(usz:syms.data);
+	print("\n");
+
 	ELF64_RelAdd* rela = rela_ptr;
 	usz rela_count = relasz / relaent;
+
 	for usz i..rela_count {
-		print("RELA 0x");
-		print_h64(rela.offs);
-		print(" ");
+// 		print("RELA 0x");
+// 		print_h64(rela.offs);
 
 		u32 reltype = rela.info & ELFREL64_TYPE_MASK;
 		u32 relsym = rela.info >> ELFREL64_SYM_SHIFT;
 
-		u8 unkn = 1;
+// 		u8 unkn;
 
-		void* patch_ptr = base + rela.offs;
+// 		void* patch_ptr = base + rela.offs;
 
-		if reltype == ELFREL_X64_NONE {
-			unkn = 0;
-			print("NONE");
-		}
-		if reltype == ELFREL_X64_64 {
-			unkn = 0;
-			print("64");
-			*u64*:patch_ptr = usz:base + syms[relsym].val + rela.addend;
-		}
-		if reltype == ELFREL_X64_RELATIVE {
-			unkn = 0;
-			print("RELATIVE");
-			*u64*:patch_ptr = usz:base + rela.addend;
-		}
-		if reltype == ELFREL_X64_GLOB_DAT {
-			unkn = 0;
-			print("GLOB_DAT");
-			*u64*:patch_ptr = usz:base + syms[relsym].val;
-		}
+// 		if reltype == ELFREL_X64_NONE {
+// 			unkn = 0;
+// 			print(" NONE");
+// 		}
+// 		if reltype == ELFREL_X64_64 {
+// 			unkn = 0;
+// 			print(" 64");
+// 			*u64*:patch_ptr = usz:base + syms[relsym].val + rela.addend;
+// 		}
+// 		if reltype == ELFREL_X64_RELATIVE {
+// 			unkn = 0;
+// 			print(" RELATIVE");
+// 			*u64*:patch_ptr = usz:base + rela.addend;
+// 		}
+// 		if reltype == ELFREL_X64_GLOB_DAT {
+// 			unkn = 0;
+// 			print(" GLOB_DAT");
+// 			*u64*:patch_ptr = usz:base + syms[relsym].val;
+// 		}
 
-		if unkn {
-			print("UNKN");
-			print_i64(reltype);
-		}
 
-		if relsym >= 0xFF00 && relsym {
-			
-		}
-		else {
-			print(" '");
+// 		if unkn {
+// 			print(" UNKN");
+// 			print_i64(reltype);
+// 		}
+// 		print(" ");
+// 		print_i64(relsym);
+// 		print(" ");
+// 		print_h64(usz:syms.data);
+// 		if relsym < 0xFF00 && !relsym {
+// 			print(" '");
 			print(elf_getstr(strtab_sym, syms[relsym].name));
-			print("' 0x");
-		}
+// 			print("'");
+// 		}
+// 		print(" 0x");
 
-		print_h64(rela.addend);
-		print("\n");
+// 		print_h64(rela.addend);
+// 		print("\n");
 
 		rela += relaent;
 	}
 
-	for usz i..syms.count {
+// 	for usz i..syms.count {
 // 		print("SYM ");
 // 		print_i64(i);
 // 		print(" 0x");
-// 		print_h64(dynsym[i].val);
+// 		print_h64(syms[i].val);
 // 		print(" '");
-// 		print(elf_getstr(dynstr, dynsym[i].name));
+// 		print(elf_getstr(strtab_sym, syms[i].name));
 // 		print("'\n");
-	}
+// 	}
 	return 0;
 }
 
@@ -450,12 +455,14 @@ let main :: u64() {
 		print("failed to load library\n");
 	}
 
-// 	let strlen_hnd = usz(u8*): dlsym(&lib, "strlen");
-// 	if !strlen_hnd {
-// 		print("Failed to load symbol\n");
-// 	}
+	let func_hnd = void*(usz): dlsym(&lib, "free");
+	if !func_hnd {
+		print("Failed to load symbol\n");
+	}
 
-// 	strlen_hnd("ASDF\x00".data);
+	print("func: 0x");
+	print_h64(usz:func_hnd(0));
+	print("\n");
 
 	exit(69);
 
