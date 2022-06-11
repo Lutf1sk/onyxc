@@ -168,11 +168,11 @@ b8 is_int_any_sign(type_t* type) {
 }
 
 b8 is_int_any_sign_or_ptr(type_t* type) {
-	return (type->stype >= TP_U8 && type->stype <= TP_I64) || type->stype == TP_PTR;
+	return (type->stype >= TP_U8 && type->stype <= TP_I64) || type->stype == TP_PTR || type->stype == TP_FUNC;
 }
 
 b8 is_number(type_t* type) {
-	return is_int_any_sign(type) || is_float(type) || is_bool(type) || type->stype == TP_PTR;
+	return is_int_any_sign(type) || is_float(type) || is_bool(type) || type->stype == TP_PTR || type->stype == TP_FUNC;
 }
 
 b8 is_int(type_t* type) {

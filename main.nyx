@@ -1,147 +1,5 @@
 import "io.nyx", "elf.nyx", "dns.nyx";
 
-let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
-	for usz i..fh.magic.count {
-		if fh.magic[i] != ELFMAGIC[i] {
-			return 0;
-		}
-	}
-	return 1;
-}
-
-let elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
-	return ELF64_SectHeader*:(usz:fh + fh.sh_offs + fh.sh_size * i);
-}
-
-let elf_getph :: ELF64_ProgHeader*(ELF64_FileHeader* fh, usz i) {
-	return ELF64_ProgHeader*:(usz:fh + fh.ph_offs + fh.ph_size * i);
-}
-
-let elf_getstr :: u8[](u8* strtab, usz offs) {
-	u8* str = strtab + offs;
-	return str[0..cstrlen(str)];
-}
-
-let dlopen :: ELF64_FileHeader*(u8[] libname) {
-	isz fd;
-	if &fd->file_openr(libname) {
-		print("Failed to open file\n");
-		return null;
-	}
-
-	stat_t st;
-	fd->fstat(&st);
-
-	u8* elf_data = malloc(st.st_size);
-	fd->read(elf_data[0..st.st_size]);
-	fd->close();
-
-	let fh = ELF64_FileHeader*:elf_data;
-	if !elf_verify_magic(fh) {
-		print("ELF magic invalid\n");
-		return null;
-	}
-
-	ELF64_SectHeader* strtab = elf_getsh(fh, fh.strtab_index);
-	u8* strtab_start = elf_data + strtab.offs;
-
-	ELF64_SectHeader* got = null;
-
-	ELF64_Sym[] dynsym = null[0..0];
-
-	for usz i..fh.sh_count {
-		let sh = elf_getsh(fh, i);
-		u8[] name = elf_getstr(strtab_start, sh.name);
-
-		if sh.type == ELFSH_DYNSYM {
-			dynsym = (ELF64_Sym*:elf_data + sh.offs)[0..sh.size/sizeof(ELF64_Sym)];
-		}
-		if sh.type == ELFSH_PROGBITS && streq(name, ".got") {
-			got = sh;
-		}
-	}
-
-	if !got {
-		print("Failed to find GOT\n");
-		mfree(elf_data);
-		return null;
-	}
-
-	u8[] interp = null[0..0];
-	ELF64_Dyn* dyn = null;
-
-	for usz i..fh.ph_count {
-		let ph = elf_getph(fh, i);
-
-		if ph.type == ELFPH_INTERP {
-			interp = (elf_data + ph.offs)[0..ph.mem_size];
-		}
-		if ph.type == ELFPH_DYNAMIC {
-			dyn = ELF64_Dyn*:elf_data + ph.offs;
-		}
-	}
-
-	if !dyn {
-		print("No dynamic section found\n");
-		mfree(elf_data);
-		return null;
-	}
-
-	u8* dynstr = null;
-	ELF64_RelAdd* rela_ptr = null;
-	usz relasz = 0, relaent = 0;
-
-	while dyn && dyn.type != ELFDYN_NULL {
-		if dyn.type == ELFDYN_STRTAB {
-			dynstr = elf_data + dyn.val;
-		}
-		if dyn.type == ELFDYN_RELA {
-			rela_ptr = ELF64_RelAdd*:(elf_data + dyn.val);
-		}
-		if dyn.type == ELFDYN_RELASZ {
-			relasz = dyn.val;
-		}
-		if dyn.type == ELFDYN_RELAENT {
-			relaent = dyn.val;
-		}
-
-		print("DYN ");
-		print_i64(dyn.type);
-		print(" 0x");
-		print_h64(dyn.val);
-		print("\n");
-		dyn += sizeof(ELF64_Dyn);
-	}
-
-	ELF64_RelAdd* rela = rela_ptr;
-	usz rela_count = relasz / relaent;
-	for usz i..rela_count {
-		print("RELA 0x");
-		print_h64(rela.offs);
-		print(" ");
-		print_i64(rela.info & ELFREL64_TYPE_MASK);
-		print(" '");
-
-		u32 sym = rela.info >> ELFREL64_SYM_SHIFT;
-		print(elf_getstr(dynstr, dynsym[sym].name));
-		print("' ");
-
-		print_i64(rela.addend);
-		print("\n");
-
-		rela += relaent;
-	}
-
-	for usz i..dynsym.count {
-		print("SYM ");
-		print_i64(i);
-		print(" '");
-		print(elf_getstr(dynstr, dynsym[i].name));
-		print("'\n");
-	}
-
-	return fh;
-}
 
 let hton16 :: u16(u16 v) {
 	return (v >> 8u) | ((v & 0xFF) << 8u);
@@ -361,13 +219,219 @@ let ipv4_dnslookup :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 	return 1;
 }
 
-let main :: u64() {
-	u8[] libname = "/usr/lib/ld-linux-x86-64.so.2";
+let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
+	for usz i..fh.magic.count {
+		if fh.magic[i] != ELFMAGIC[i] {
+			return 0;
+		}
+	}
+	return 1;
+}
 
-	void* lib = dlopen(libname);
-	if !lib {
+let elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
+	return ELF64_SectHeader*:(usz:fh + fh.sh_offs + fh.sh_size * i);
+}
+
+let elf_getph :: ELF64_ProgHeader*(ELF64_FileHeader* fh, usz i) {
+	return ELF64_ProgHeader*:(usz:fh + fh.ph_offs + fh.ph_size * i);
+}
+
+let elf_getstr :: u8[](u8* strtab, usz offs) {
+	u8* str = strtab + offs;
+	return str[0..cstrlen(str)];
+}
+
+def DynLibrary :: struct {
+	u8* data;
+	ELF64_FileHeader* fh;
+	u8* strtab;
+	u8* strtab_dyn;
+	ELF64_Sym[] syms;
+}
+
+let dlopen :: u8(u8[] libname, DynLibrary* out) {
+	isz fd;
+	if &fd->file_openr(libname) {
+		print("Failed to open file\n");
+		return 1;
+	}
+
+	stat_t st;
+	fd->fstat(&st);
+
+	u8* elf_data = malloc(st.st_size);
+	fd->read(elf_data[0..st.st_size]);
+	fd->close();
+
+	let fh = ELF64_FileHeader*:elf_data;
+	if !elf_verify_magic(fh) {
+		print("ELF magic invalid\n");
+		return 1;
+	}
+
+	ELF64_SectHeader* strtab = elf_getsh(fh, fh.strtab_index);
+	u8* strtab_start = elf_data + strtab.offs;
+
+	ELF64_SectHeader* got = null;
+
+	ELF64_Sym[] dynsym = null[0..0];
+
+	for usz i..fh.sh_count {
+		let sh = elf_getsh(fh, i);
+		u8[] name = elf_getstr(strtab_start, sh.name);
+
+		if sh.type == ELFSH_DYNSYM {
+			dynsym = (ELF64_Sym*:elf_data + sh.offs)[0..sh.size/sizeof(ELF64_Sym)];
+		}
+		if sh.type == ELFSH_PROGBITS && streq(name, ".got") {
+			got = sh;
+		}
+	}
+
+	if !got {
+		print("Failed to find GOT\n");
+		mfree(elf_data);
+		return 1;
+	}
+
+	print("GOT: 0x");
+	print_h64(got.offs);
+	print("\n");
+
+	u8[] interp = null[0..0];
+	ELF64_Dyn* dyn = null;
+
+	for usz i..fh.ph_count {
+		let ph = elf_getph(fh, i);
+
+		if ph.type == ELFPH_INTERP {
+			interp = (elf_data + ph.offs)[0..ph.mem_size];
+		}
+		if ph.type == ELFPH_DYNAMIC {
+			dyn = ELF64_Dyn*:elf_data + ph.offs;
+		}
+	}
+
+	if !dyn {
+		print("No dynamic section found\n");
+		mfree(elf_data);
+		return 1;
+	}
+
+	u8* dynstr = null;
+	ELF64_RelAdd* rela_ptr = null;
+	usz relasz = 0, relaent = 0;
+
+	while dyn && dyn.type != ELFDYN_NULL {
+		if dyn.type == ELFDYN_STRTAB {
+			dynstr = elf_data + dyn.val;
+		}
+		if dyn.type == ELFDYN_RELA {
+			rela_ptr = ELF64_RelAdd*:(elf_data + dyn.val);
+		}
+		if dyn.type == ELFDYN_RELASZ {
+			relasz = dyn.val;
+		}
+		if dyn.type == ELFDYN_RELAENT {
+			relaent = dyn.val;
+		}
+
+		print("DYN ");
+		print_i64(dyn.type);
+		print(" 0x");
+		print_h64(dyn.val);
+		print("\n");
+		dyn += sizeof(ELF64_Dyn);
+	}
+
+	ELF64_RelAdd* rela = rela_ptr;
+	usz rela_count = relasz / relaent;
+	for usz i..rela_count {
+		print("RELA 0x");
+		print_h64(rela.offs);
+		print(" ");
+
+		u32 reltype = rela.info & ELFREL64_TYPE_MASK;
+		u8 unkn = 1;
+
+		if reltype == ELFREL_X64_REL32 {
+			unkn = 0;
+			print("REL32");
+		}
+		if reltype == ELFREL_X64_64 {
+			unkn = 0;
+			print("64");
+		}
+		if reltype == ELFREL_X64_TPOFF64 {
+			unkn = 0;
+			print("TPOFF64");
+		}
+		if reltype == ELFREL_X64_GLOB_DAT {
+			unkn = 0;
+			print("GLOB_DAT");
+		}
+		if reltype == ELFREL_X64_IREL32 {
+			unkn = 0;
+			print("IREL32");
+		}
+
+		if unkn {
+			print("UNKN");
+			print_i64(reltype);
+		}
+		print(" '");
+
+		u32 sym = rela.info >> ELFREL64_SYM_SHIFT;
+		print(elf_getstr(dynstr, dynsym[sym].name));
+		print("' ");
+
+		print_i64(rela.addend);
+		print("\n");
+
+		rela += relaent;
+	}
+
+	for usz i..dynsym.count {
+// 		print("SYM ");
+// 		print_i64(i);
+// 		print(" '");
+// 		print(elf_getstr(dynstr, dynsym[i].name));
+// 		print("'\n");
+	}
+
+	out.data = elf_data;
+	out.fh = fh;
+	out.syms = dynsym;
+	out.strtab = strtab_start;
+	out.strtab_dyn = dynstr;
+	return 0;
+}
+
+let dlsym :: void*(DynLibrary* lib, u8[] name) {
+	for usz i..lib.syms.count {
+		if streq(name, elf_getstr(lib.strtab_dyn, lib.syms[i].name)) {
+			return lib.data + lib.syms[i].val;
+		}
+	}
+	return null;
+}
+
+let main :: u64() {
+// 	u8[] libname = "/usr/lib/ld-linux-x86-64.so.2";
+	u8[] libname = "/usr/lib/libc.so.6";
+// 	u8[] libname = "/usr/lib/libdl.so.2";
+
+	DynLibrary lib;
+	if dlopen(libname, &lib) {
 		print("failed to load library\n");
 	}
+
+	let strlen_hnd = usz(u8*): dlsym(&lib, "strlen");
+	if !strlen_hnd {
+		print("Failed to load symbol\n");
+	}
+
+	strlen_hnd("ASDF\x00".data);
 
 	exit(69);
 

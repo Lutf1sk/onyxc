@@ -128,6 +128,9 @@ u64	ELFREL_X64_NONE		:: 0,	// No relocation
 	ELFREL_X64_PC16		:: 13,	// Sign-extended PC relative 16-bit
 	ELFREL_X64_8		:: 14,	// Zero-extended direct 8-bit
 	ELFREL_X64_PC8		:: 15,	// Sign-extended PC relative 8-bit
+	ELFREL_X64_DTPMOD64	:: 16,	// ID of module containing symbol
+	ELFREL_X64_DTPOFF64	:: 17,	// Offset in module's TLS block
+	ELFREL_X64_TPOFF64	:: 18,	// Offset in initial TLS block
 
 	ELFREL_X64_IREL32	:: 37,	// 32-bit adjust indirectly by program base
 	ELFREL_X64_REL64	:: 38,	// 64-bit adjust by program base

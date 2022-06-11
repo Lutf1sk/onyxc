@@ -67,7 +67,6 @@ u32 sresv(amd64_ctx_t* cx, usz size, usz align) {
 
 static
 void prepass_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
-	icode_t* ir_arr = seg->data;
 	icode_t* ir = &((icode_t*)seg->data)[i];
 
 	#define UPD(r) (cx->reg_lifetimes[r] = i)
