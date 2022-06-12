@@ -102,19 +102,27 @@ let time_msec :: u64() {
 	return time_nsec() / 1000000;
 }
 
+// bitmath.nyx
+
+let is_pow2 :: u8(usz n) {
+	return ~(n & (n - 1));
+}
+
+let pad :: usz(usz val, usz align) {
+	usz align_mask = align - 1;
+	return ((val & align_mask) ^ align_mask) + 1;
+}
+
+let alignf :: usz(usz val, usz align) {
+	usz align_mask = align - 1;
+	return (val + align_mask) & ~align_mask;
+}
+
+let alignb :: usz(usz val, usz align) {
+	return val & ~(align - 1);
+}
+
 // mem.nyx
-
-let malloc :: void*(usz size) {
-	isz addr = isz:mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-	if (addr < 0) {
-		return null;
-	}
-	return void*:addr;
-}
-
-let mfree :: void(void* mem) {
-	munmap(usz:mem, 0);
-}
 
 let mcopy :: void(void* dst, void* src, usz bytes) {
 	u8* dst_it = dst;
@@ -130,6 +138,117 @@ let mset8 :: void(void* dst, u8 v, usz bytes) {
 	while bytes-- {
 		*it++ = v;
 	}
+}
+
+let vmem_alloc :: void*(usz size) {
+	isz addr = isz:mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	if (addr < 0) {
+		return null;
+	}
+	return void*:addr;
+}
+
+let vmem_free :: void(void* mem, usz size) {
+	munmap(usz:mem, size);
+}
+
+usz VMEM_BLOCK_SIZE :: 4096;
+usz ALLOC_DEFAULT_ALIGN :: 16;
+
+def Allocator :: struct {
+	void*(void*, usz) alloc;
+	void*(void*, void*, usz) realloc;
+	void(void*, void*) free;
+	usz(void*, void*) size;
+	void* usr;
+}
+
+def Arena :: struct {
+	void* base;
+	usz size;
+	void* top;
+	Allocator interf;
+}
+
+let amalloc :: void*(Arena* arena, usz size) {
+	void* start = void*:alignf(usz:arena.top, ALLOC_DEFAULT_ALIGN);
+	void* new_top = start + ALLOC_DEFAULT_ALIGN + size;
+	void* top_max = arena.base + arena.size;
+
+	if new_top > top_max {
+		return null;
+	}
+	*usz*:new_top = size;
+	arena.top = new_top;
+	return start + ALLOC_DEFAULT_ALIGN;
+}
+
+let amrealloc :: void*(Arena* arena, void* ptr, usz new_size) {
+	usz old_size = *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
+
+	if arena.top == ptr + old_size {
+		void* top_max = arena.base + arena.size;
+		*usz*:(ptr - ALLOC_DEFAULT_ALIGN) = new_size;
+		if ptr + new_size > top_max {
+			return null;
+		}
+		return ptr;
+	}
+
+	void* new_ptr = amalloc(arena, new_size);
+	if !new_ptr {
+		return null;
+	}
+	mcopy(new_ptr, ptr, old_size);
+	return new_ptr;
+}
+
+let amfree :: void(Arena* arena, void* ptr) {
+	usz old_size = *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
+	if arena.top == ptr + old_size {
+		arena.top = ptr - ALLOC_DEFAULT_ALIGN;
+	}
+}
+
+let amsize :: usz(Arena* arena, void* ptr) {
+	return *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
+}
+
+let amsave :: void*(Arena* arena) {
+	return arena.top;
+}
+
+let amrestore :: void(Arena* arena, void* old) {
+	arena.top = old;
+}
+
+let amcreate :: Arena*(usz size) {
+	if size < usz:sizeof(Arena) {
+		return null;
+	}
+
+	size = alignf(size, VMEM_BLOCK_SIZE);
+
+	void* base = vmem_alloc(size);
+	if !base {
+		return null;
+	}
+
+	Arena* arena = base;
+	arena.base = base;
+	arena.size = size;
+	arena.top = base;
+	arena.interf.alloc = void*(void*, usz): amalloc;
+	arena.interf.realloc = void*(void*, void*, usz): amrealloc;
+	arena.interf.free = void(void*, void*): amfree;
+	arena.interf.size = usz(void*, void*): amsize;
+	arena.interf.usr = arena;
+	amalloc(arena, sizeof(Arena)); // Reserve an area covering the header
+	return arena;
+}
+
+let amdestroy :: void(Arena* arena) {
+	vmem_free(arena.base, arena.size);
 }
 
 // str.nyx

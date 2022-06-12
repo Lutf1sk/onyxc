@@ -369,6 +369,12 @@ amd64_op_t ops[] = {
 	OP("pop", 2,
 		VAR1(RM16, VFLAG_OPSIZE|VFLAG_OP_EXT, { 0, 0x8F }),	// POP r/m16
 		VAR1(RM64, VFLAG_OP_EXT, { 0, 0x8F })),				// POP r/m64
+
+	OP("not", 4,
+		VAR1(RM8|VARG_DST, VFLAG_OP_EXT, { 2, 0xF6 }),					// NOT r/m8
+		VAR1(RM16|VARG_DST, VFLAG_OPSIZE|VFLAG_OP_EXT, { 2, 0xF7 }),	// NOT r/m16
+		VAR1(RM32|VARG_DST, VFLAG_OP_EXT, { 2, 0xF7 }),					// NOT r/m32
+		VAR1(RM64|VARG_DST, VFLAG_REX_W|VFLAG_OP_EXT, { 2, 0xF7 })),	// NOT r/m64
 };
 
 void zero_reg(amd64_ctx_t* cx, u8 mreg) {

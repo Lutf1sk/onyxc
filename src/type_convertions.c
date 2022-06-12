@@ -64,11 +64,8 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 
 	expr_t* old = *expr;
 
-	if ((is_int(type) || is_uint(type) || is_float(type) || is_bool(type) ||
-		type->stype == TP_PTR || type->stype == TP_FUNC)
-		&&
-		(is_int(old->type) || is_uint(old->type) || is_float(old->type) || is_bool(old->type) ||
-		old->type->stype == TP_PTR || old->type->stype == TP_FUNC))
+	if ((is_int_any_sign_or_ptr(old->type) || is_float(type) || is_bool(type)) &&
+		(is_int_any_sign_or_ptr(old->type) || is_float(old->type) || is_bool(old->type)))
 	{
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_CONVERT, type, (*expr)->tk);

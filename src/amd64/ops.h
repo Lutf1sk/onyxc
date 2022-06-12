@@ -75,6 +75,8 @@
 #define X64_PUSH 56
 #define X64_POP 57
 
+#define X64_NOT 58
+
 #define VARG_8		0b00000000
 #define VARG_16		0b00000001
 #define VARG_32		0b00000010

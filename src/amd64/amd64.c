@@ -282,6 +282,7 @@ void convert_icode(amd64_ctx_t* cx, seg_ent_t* seg, usz i) {
 #define GENERIC1(x) emit_instr(cx, (x), 1, init_new_reg(cx, ir->dst, ir->regs[0], ir->size, i))
 
 	case IR_NEG: GENERIC1(X64_NEG); break;
+	case IR_NOT: GENERIC1(X64_NOT); break;
 	case IR_INC: GENERIC1(X64_INC); break;
 	case IR_DEC: GENERIC1(X64_DEC); break;
 
