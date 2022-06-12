@@ -163,6 +163,100 @@ def Allocator :: struct {
 	void* usr;
 }
 
+def Pool :: struct {
+	void* base;
+	usz chunk_size;
+	usz chunk_count;
+	usz size;
+	void* head;
+	Allocator interf;
+}
+
+let _pmalloc_if :: void*(Pool* pool, usz size) {
+	void** head = pool.head;
+	if !head || size > pool.chunk_size {
+		return null;
+	}
+	pool.head = *head;
+	return head;
+}
+
+let _pmrealloc_if :: void*(Pool* pool, void* ptr, usz new_size) {
+	if new_size > pool.chunk_size {
+		return null;
+	}
+	return ptr;
+}
+
+let _pmsize_if :: usz(Pool* pool, void* ptr) {
+	return pool.chunk_size;
+}
+
+let pmalloc :: void*(Pool* pool) {
+	void** head = pool.head;
+	if !head {
+		return null;
+	}
+	pool.head = *head;
+	return head;
+}
+
+let pmfree :: void(Pool* pool, void* ptr) {
+	*void**:ptr = pool.head;
+	pool.head = ptr;
+}
+
+let pmreset :: void(Pool* pool) {
+	void** last = &pool.head;
+	void* it = pool.base;
+	for usz i..pool.chunk_count {
+		*last = it;
+		last = it;
+		it += pool.chunk_size;
+	}
+	*last = null;
+}
+
+let pmcreatem :: Pool*(void* mem, usz size, usz chunk_size) {
+	usz headersz = alignf(sizeof(Pool), ALLOC_DEFAULT_ALIGN);
+
+	if size < headersz || !chunk_size {
+		return null;
+	}
+
+	if chunk_size < usz:sizeof(usz) {
+		chunk_size = sizeof(usz);
+	}
+
+	Pool* pool = mem;
+	pool.base = mem + headersz;
+	pool.chunk_size = chunk_size;
+	pool.size = size;
+	pool.chunk_count = (size - headersz) / chunk_size;
+	pool.interf.alloc = void*(void*, usz): _pmalloc_if;
+	pool.interf.realloc = void*(void*, void*, usz): _pmrealloc_if;
+	pool.interf.free = void(void*, void*): pmfree;
+	pool.interf.size = usz(void*, void*): _pmsize_if;
+	pool.interf.usr = pool;
+
+	pmreset(pool);
+	return pool;
+}
+
+let pmcreate :: Pool*(usz size, usz chunk_size) {
+	size = alignf(size, VMEM_BLOCK_SIZE);
+
+	void* base = vmem_alloc(size);
+	if !base {
+		return null;
+	}
+	return pmcreatem(base, size, chunk_size);
+}
+
+let pmdestroy :: void(Pool* pool) {
+	vmem_free(pool.base, pool.size);
+}
+
 def Arena :: struct {
 	void* base;
 	usz size;
@@ -222,22 +316,15 @@ let amrestore :: void(Arena* arena, void* old) {
 	arena.top = old;
 }
 
-let amcreate :: Arena*(usz size) {
+let amcreatem :: Arena*(void* mem, usz size) {
 	if size < usz:sizeof(Arena) {
 		return null;
 	}
 
-	size = alignf(size, VMEM_BLOCK_SIZE);
-
-	void* base = vmem_alloc(size);
-	if !base {
-		return null;
-	}
-
-	Arena* arena = base;
-	arena.base = base;
+	Arena* arena = mem;
+	arena.base = mem;
 	arena.size = size;
-	arena.top = base;
+	arena.top = mem;
 	arena.interf.alloc = void*(void*, usz): amalloc;
 	arena.interf.realloc = void*(void*, void*, usz): amrealloc;
 	arena.interf.free = void(void*, void*): amfree;
@@ -245,6 +332,16 @@ let amcreate :: Arena*(usz size) {
 	arena.interf.usr = arena;
 	amalloc(arena, sizeof(Arena)); // Reserve an area covering the header
 	return arena;
+}
+
+let amcreate :: Arena*(usz size) {
+	size = alignf(size, VMEM_BLOCK_SIZE);
+
+	void* base = vmem_alloc(size);
+	if !base {
+		return null;
+	}
+	return amcreatem(base, size);
 }
 
 let amdestroy :: void(Arena* arena) {

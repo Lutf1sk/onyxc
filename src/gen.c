@@ -562,7 +562,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		usz child_count = 2;
 		ival_t* children = lt_arena_reserve(cx->arena, child_count * sizeof(ival_t));
-		ival_t addr = icode_gen_expr(cx, expr->child_1);
+		ival_t addr = gen_const_expr(cx, expr->child_1);
 		if (addr.stype == IVAL_COM)
 			addr = gen_static_compound(cx, expr->child_1->type, &addr);
  		LT_ASSERT(addr.stype == (IVAL_SEG | IVAL_REF));

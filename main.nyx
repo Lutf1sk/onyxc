@@ -240,6 +240,8 @@ def DynLibrary :: struct {
 	ELF64_Sym[] syms;
 }
 
+DynLibrary*[] open_libs = DynLibrary*[128]{};
+
 let elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
 	return ELF64_SectHeader*:fh + fh.sh_offs + fh.sh_size * i;
 }
@@ -364,7 +366,7 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 			initarr.data = void*:elf_data + dyn.val;
 		}
 		if dyn.type == ELFDYN_INIT_ARRAYSZ {
-			initarr.count = dyn.val / sizeof(void());
+			initarr.count = dyn.val / sizeof(void*);
 		}
 		dyn += sizeof(ELF64_Dyn);
 	}
@@ -478,14 +480,14 @@ let main :: u64() {
 		print("failed to load LibC\n");
 	}
 
-// 	void*(usz) func_hnd = dlsym(&lib, "malloc");
-// 	if !func_hnd {
-// 		print("Failed to load symbol\n");
-// 	}
+	void*(usz) func_hnd = dlsym(libc, "malloc");
+	if !func_hnd {
+		print("Failed to load symbol\n");
+	}
 
-// 	print("func: 0x");
-// 	print_h64(usz:func_hnd(0));
-// 	print("\n");
+	print("func: 0x");
+	print_h64(usz:func_hnd(0));
+	print("\n");
 
 	exit(69);
 
