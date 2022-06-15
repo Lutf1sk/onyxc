@@ -19,6 +19,21 @@ let cstrlen :: usz(u8* str) {
 	return usz:(it - str);
 }
 
+let filename_from_path :: u8[](u8[] path) {
+	if !path.count {
+		return null[0..0];
+	}
+
+	usz i = path.count - 1;
+	while i && path[i] != '/' {
+		i--;
+	}
+	if i {
+		++i;
+	}
+	return (path.data + i)[0..path.count - i];
+}
+
 let file_openw :: u8(isz* fdp, u8[] path) {
 	u8[PATH_MAX] path_nt;
 	cstr(path, path_nt);
@@ -161,6 +176,15 @@ def Allocator :: struct {
 	void(void*, void*) free;
 	usz(void*, void*) size;
 	void* usr;
+}
+
+let malloc_init :: void[](Allocator* alc, void[] arr) {
+	void* data = alc.alloc(alc.usr, arr.count);
+	if !data {
+		return null[0..0];
+	}
+	mcopy(data, arr.data, arr.count);
+	return data[0..arr.count];
 }
 
 def Pool :: struct {

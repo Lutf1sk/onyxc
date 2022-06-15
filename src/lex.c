@@ -6,6 +6,7 @@
 #include <lt/str.h>
 #include <lt/mem.h>
 #include <lt/io.h>
+#include <lt/ctype.h>
 
 lex_ctx_t* lex_file(lt_arena_t* arena, char* path, tk_t* path_tk) {
 	// Read source file
@@ -219,13 +220,13 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 						++it;
 				}
 				else
-					goto parse_decimal_end;
+					goto parse_noprefix_end;
 			}
-			else { // Decimal
+			else { // No prefix
 				while (is_digit(data[it]))
 					++it;
 				c = data[it];
-			parse_decimal_end:
+			parse_noprefix_end:
 				if (c == '.' && is_digit(data[it + 1])) { // Float
 					++it;
 					while (is_digit(data[it]))
@@ -234,7 +235,8 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 						++it;
 				}
 				else {
-					if (data[it] == 'u' || data[it] == 'U' || data[it] == 'i' || data[it] == 'I' || data[it] == 'f' || data[it] == 'F')
+					c = lt_to_lower(data[it]);
+					if (c == 'u' || c == 'i' || c == 'f' || c == 'k' || c == 'm' || c == 'g' || c == 't')
 						++it;
 				}
 			}

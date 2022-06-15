@@ -230,6 +230,11 @@ let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
 	return 1;
 }
 
+def DynLibList :: struct {
+	void* lib;
+	void* next;
+}
+
 def DynLibrary :: struct {
 	u8[] name;
 	u8* img_base;
@@ -238,9 +243,10 @@ def DynLibrary :: struct {
 	u8* strtab;
 	u8* strtab_sym;
 	ELF64_Sym[] syms;
-}
 
-DynLibrary*[] open_libs = DynLibrary*[128]{};
+	usz ref_count;
+	void* deps;
+}
 
 let elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
 	return ELF64_SectHeader*:fh + fh.sh_offs + fh.sh_size * i;
@@ -279,19 +285,108 @@ let elf_map_sections :: void(ELF64_FileHeader* fh, u8* img_base) {
 	}
 }
 
+let elf_find_symdef :: ELF64_Sym*(DynLibrary* lib, u8[] name) {
+	ELF64_Sym* weak = null;
 
+	for usz i..lib.syms.count {
+		ELF64_Sym* sym = &lib.syms[i];
+		u8 binding = sym.info & ELFSYM_BIND_MASK;
+		u8[] symname = elf_getstr(lib.strtab_sym, sym.name);
+		if streq(name, symname) {
+			if binding == ELFSYM_GLOBAL || binding == ELFSYM_LOCAL {
+				return sym;
+			}
+			if (binding == ELFSYM_WEAK) {
+				weak = sym;
+			}
+		}
+	}
+
+	DynLibList* lit = lib.deps;
+	while lit {
+		DynLibrary* lib = lit.lib;
+
+		for usz i..lib.syms.count {
+			ELF64_Sym* sym = &lib.syms[i];
+			u8 binding = sym.info & ELFSYM_BIND_MASK;
+			if binding == ELFSYM_GLOBAL {
+				u8[] symname = elf_getstr(lib.strtab_sym, sym.name);
+				if streq(name, symname) {
+					return sym;
+				}
+			}
+		}
+		lit = lit.next;
+	}
+
+	return weak;
+}
+
+Pool* dlib_pool = null;
+Pool* dlib_list_pool = null;
+
+void* dlib_list_head = null;
+
+let list_find_dlib :: DynLibrary*(void* head, u8[] name) {
+	DynLibList* it = head;
+	while it {
+		if streq((DynLibrary*:it.lib).name, name) {
+			return it.lib;
+		}
+		it = it.next;
+	}
+	return null;
+}
+
+let list_insert_dlib :: void(void** head, DynLibrary* lib) {
+	DynLibList* new_entry = pmalloc(dlib_list_pool);
+	new_entry.lib = lib;
+	new_entry.next = *head;
+	*head = new_entry;
+}
+
+DynLibrary*(u8[], Allocator*) dlopen_p = null;
 
 let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
-	isz fd;
-	if &fd->file_openr(libname) {
-		print("Failed to open file\n");
+	if !dlib_pool {
+		dlib_pool = pmcreate(4096, sizeof(DynLibrary));
+		dlib_list_pool = pmcreate(8192, sizeof(DynLibrary));
+		if !dlib_pool || !dlib_list_pool {
+			print("failed to map pool\n");
+			return null;
+		}
+	}
+
+	DynLibrary* lib = list_find_dlib(dlib_list_head, libname);
+	if lib {
+		return lib;
+	}
+
+	u8[] libpath_pfx :: "/usr/lib/";
+	usz libpath_len = libpath_pfx.count + libname.count;
+	u8[] libpath = alc.alloc(alc.usr, libpath_len)[0..libpath_len];
+	if !libpath.data {
+		print("allocation failed\n");
 		return null;
 	}
+	mcopy(libpath.data, libpath_pfx.data, libpath_pfx.count);
+	mcopy(libpath.data + libpath_pfx.count, libname.data, libname.count);
+
+	isz fd;
+	if &fd->file_openr(libpath) {
+		print("failed to open file\n");
+		return null;
+	}
+	alc.free(alc.usr, libpath.data);
 
 	stat_t st;
 	fd->fstat(&st);
 
 	u8* elf_data = alc.alloc(alc.usr, st.st_size);
+	if !elf_data {
+		print("allocation failed\n");
+		return null;
+	}
 	fd->read(elf_data[0..st.st_size]);
 	fd->close();
 
@@ -330,12 +425,17 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	}
 
 	if !dyn_start {
-		print("No dynamic section found\n");
+		print("no dynamic section found\n");
 		alc.free(alc.usr, elf_data);
 		return null;
 	}
 
 	u8* base = alc.alloc(alc.usr, elf_img_size(fh));
+	if !base {
+		print("allocation failed\n");
+		alc.free(alc.usr, elf_data);
+		return null;
+	}
 	elf_map_sections(fh, base);
 
 	u8* strtab_sym = null;
@@ -344,6 +444,8 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 
 	void() init = null;
 	void*[] initarr = null[0..0];
+
+	isz soname_offs = -1;
 
 	ELF64_Dyn* dyn = dyn_start;
 	while dyn && dyn.type != ELFDYN_NULL {
@@ -368,28 +470,53 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		if dyn.type == ELFDYN_INIT_ARRAYSZ {
 			initarr.count = dyn.val / sizeof(void*);
 		}
-		dyn += sizeof(ELF64_Dyn);
-	}
-	dyn = dyn_start;
-	while dyn && dyn.type != ELFDYN_NULL {
-		if dyn.type == ELFDYN_NEEDED {
-			print("NEEDED: ");
-			print(elf_getstr(strtab_sym, dyn.val));
-			print("\n");
+		if dyn.type == ELFDYN_SONAME {
+			soname_offs = dyn.val;
 		}
 		dyn += sizeof(ELF64_Dyn);
 	}
 
-	print_h64(usz:syms.data);
+	u8[] soname = null[0..0];
+	if soname_offs >= 0 {
+		soname = elf_getstr(strtab_sym, soname_offs);
+	}
+	else {
+		soname = malloc_init(alc, libname);
+	}
+
+	print("SONAME: ");
+	print(soname);
 	print("\n");
+
+	lib = pmalloc(dlib_pool);
+	lib.name = soname;
+	lib.img_base = base;
+	lib.data = elf_data;
+	lib.fh = fh;
+	lib.strtab = strtab;
+	lib.strtab_sym = strtab_sym;
+	lib.syms = syms;
+	lib.ref_count = 1;
+	lib.deps = null;
+
+	dyn = dyn_start;
+	while dyn && dyn.type != ELFDYN_NULL {
+		if dyn.type == ELFDYN_NEEDED {
+			DynLibrary* dep = dlopen_p(elf_getstr(strtab_sym, dyn.val), alc);
+			if !dep {
+				print("Failed to load dependency\n");
+			}
+			list_insert_dlib(&lib.deps, dep);
+		}
+		dyn += sizeof(ELF64_Dyn);
+	}
+
+	list_insert_dlib(&dlib_list_head, lib);
 
 	ELF64_RelAdd* rela = rela_ptr;
 	usz rela_count = relasz / relaent;
 
 	for usz i..rela_count {
-		print("RELA 0x");
-		print_h64(rela.offs);
-
 		u32 reltype = rela.info & ELFREL64_TYPE_MASK;
 		u32 relsym = rela.info >> ELFREL64_SYM_SHIFT;
 
@@ -399,37 +526,54 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 
 		if reltype == ELFREL_X64_NONE {
 			unkn = 0;
-			print(" NONE");
 		}
 		if reltype == ELFREL_X64_64 {
 			unkn = 0;
-			print(" 64");
-			*u64*:patch_ptr = usz:base + syms[relsym].val + rela.addend;
+			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
+			ELF64_Sym* sym = elf_find_symdef(lib, symname);
+			if (!sym) {
+				print("undefined reference to ");
+				print(symname);
+				print("\n");
+			}
+			*u64*:patch_ptr = usz:base + sym.val + rela.addend;
 		}
 		if reltype == ELFREL_X64_RELATIVE {
 			unkn = 0;
-			print(" RELATIVE");
 			*u64*:patch_ptr = usz:base + rela.addend;
 		}
 		if reltype == ELFREL_X64_GLOB_DAT {
 			unkn = 0;
-			print(" GLOB_DAT");
-			*u64*:patch_ptr = usz:base + syms[relsym].val;
+			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
+			ELF64_Sym* sym = elf_find_symdef(lib, symname);
+			if (!sym) {
+				print("undefined reference to ");
+				print(symname);
+				print("\n");
+			}
+			else {
+				*u64*:patch_ptr = usz:base + sym.val;
+			}
+		}
+		if reltype == ELFREL_X64_IRELATIVE {
+			unkn = 0;
+		}
+		if reltype == ELFREL_X64_TPOFF64 {
+			unkn = 0;
+			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
+			ELF64_Sym* sym = elf_find_symdef(lib, symname);
+			if (!sym) {
+				print("undefined reference to ");
+				print(symname);
+				print("\n");
+			}
 		}
 
 		if unkn {
-			print(" UNKN");
+			print("Unknown relocation type: ");
 			print_i64(reltype);
+			print("\n");
 		}
-
-		if relsym < 0xFF00 {
-			print(" '");
-			print(elf_getstr(strtab_sym, syms[relsym].name));
-			print("'");
-		}
-		print(" 0x");
-		print_h64(rela.addend);
-		print("\n");
 
 		rela += relaent;
 	}
@@ -444,18 +588,18 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 // 		print("'\n");
 // 	}
 
-	if init {
-		init();
-	}
+// 	if init {
+// 		init();
+// 	}
 
-	if initarr.data {
-		for usz i..initarr.count {
-			void() func = initarr[i] + void*:base;
-			func();
-		}
-	}
+// 	if initarr.data {
+// 		for usz i..initarr.count {
+// 			void() func = initarr[i] + void*:elf_data;
+// 			func();
+// 		}
+// 	}
 
-	return void*:1;
+	return lib;
 }
 
 let dlsym :: void*(DynLibrary* lib, u8[] name) {
@@ -468,26 +612,28 @@ let dlsym :: void*(DynLibrary* lib, u8[] name) {
 }
 
 let main :: u64() {
-	Arena* arena = amcreate(1024*1024);
+	dlopen_p = dlopen;
 
-	DynLibrary* rtld_lib = dlopen("/usr/lib/ld-linux-x86-64.so.2", &arena.interf);
-	if !rtld_lib {
-		print("failed to load RTLD\n");
-	}
+	Arena* arena = amcreate(32M);
 
-	DynLibrary* libc = dlopen("/usr/lib/libc.so.6", &arena.interf);
+// 	DynLibrary* rtld_lib = dlopen("ld-linux-x86-64.so.2", &arena.interf);
+// 	if !rtld_lib {
+// 		print("failed to load RTLD\n");
+// 	}
+
+	DynLibrary* libc = dlopen("libvulkan.so", &arena.interf);
 	if !libc {
-		print("failed to load LibC\n");
+		print("failed to load library\n");
 	}
 
-	void*(usz) func_hnd = dlsym(libc, "malloc");
-	if !func_hnd {
-		print("Failed to load symbol\n");
-	}
+// 	void*(usz) func_hnd = dlsym(libc, "malloc");
+// 	if !func_hnd {
+// 		print("Failed to load symbol\n");
+// 	}
 
-	print("func: 0x");
-	print_h64(usz:func_hnd(0));
-	print("\n");
+// 	print("func: 0x");
+// 	print_h64(usz:func_hnd(0));
+// 	print("\n");
 
 	exit(69);
 
