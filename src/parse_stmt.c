@@ -157,6 +157,28 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 	}
 }
 
+stmt_t* parse_if(parse_ctx_t* cx) {
+	tk_t* tk = consume(cx);
+	stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+	*new = STMT(STMT_IF);
+	new->expr = parse_expr(cx, NULL);
+
+	if (!is_number(new->expr->type))
+		ferr("result of "A_BOLD"'if'"A_RESET" condition must be a valid number", *tk);
+
+	new->child = parse_compound(cx);
+
+	tk = peek(cx, 0);
+	if (tk->stype == TK_KW_ELSE) {
+		consume(cx);
+		new->child_2 = parse_compound(cx);
+	}
+	else if (tk->stype == TK_KW_ELIF)
+		new->child_2 = parse_if(cx);
+
+	return new;
+}
+
 typedef
 struct file_id {
 	u64 dev;
@@ -279,25 +301,10 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
-	case TK_KW_IF: consume(cx); {
+	case TK_KW_IF: {
 		if (!cx->curr_func_type)
 			goto outside_func;
-
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
-		*new = STMT(STMT_IF);
-		new->expr = parse_expr(cx, NULL);
-
-		if (!is_number(new->expr->type))
-			ferr("result of "A_BOLD"'if'"A_RESET" condition must be a valid number", tk);
-
-		new->child = parse_compound(cx);
-
-		if (peek(cx, 0)->stype != TK_KW_ELSE)
-			return new;
-
-		consume(cx);
-		new->child_2 = parse_compound(cx);
-		return new;
+		return parse_if(cx);
 	}
 
 	case TK_KW_WHILE: consume(cx); {

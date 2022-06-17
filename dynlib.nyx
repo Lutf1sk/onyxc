@@ -200,7 +200,7 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		if ph.type == ELFPH_INTERP {
 			interp = (elf_data + ph.offs)[0..ph.mem_size];
 		}
-		if ph.type == ELFPH_DYNAMIC {
+		elif ph.type == ELFPH_DYNAMIC {
 			dyn_start = ELF64_Dyn*:elf_data + ph.offs;
 		}
 	}
@@ -233,25 +233,25 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		if dyn.type == ELFDYN_STRTAB {
 			strtab_sym = elf_data + dyn.val;
 		}
-		if dyn.type == ELFDYN_RELA {
+		elif dyn.type == ELFDYN_RELA {
 			rela_ptr = ELF64_RelAdd*:(elf_data + dyn.val);
 		}
-		if dyn.type == ELFDYN_RELASZ {
+		elif dyn.type == ELFDYN_RELASZ {
 			relasz = dyn.val;
 		}
-		if dyn.type == ELFDYN_RELAENT {
+		elif dyn.type == ELFDYN_RELAENT {
 			relaent = dyn.val;
 		}
-		if dyn.type == ELFDYN_INIT {
+		elif dyn.type == ELFDYN_INIT {
 			init = void*:base + dyn.val;
 		}
-		if dyn.type == ELFDYN_INIT_ARRAY {
+		elif dyn.type == ELFDYN_INIT_ARRAY {
 			initarr.data = void*:elf_data + dyn.val;
 		}
-		if dyn.type == ELFDYN_INIT_ARRAYSZ {
+		elif dyn.type == ELFDYN_INIT_ARRAYSZ {
 			initarr.count = dyn.val / sizeof(void*);
 		}
-		if dyn.type == ELFDYN_SONAME {
+		elif dyn.type == ELFDYN_SONAME {
 			soname_offs = dyn.val;
 		}
 		dyn += sizeof(ELF64_Dyn);
@@ -301,15 +301,12 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		u32 reltype = rela.info & ELFREL64_TYPE_MASK;
 		u32 relsym = rela.info >> ELFREL64_SYM_SHIFT;
 
-		u8 unkn = 1;
-
 		void* patch_ptr = base + rela.offs;
 
 		if reltype == ELFREL_X64_NONE {
-			unkn = 0;
+			// Do nothing
 		}
-		if reltype == ELFREL_X64_64 {
-			unkn = 0;
+		elif reltype == ELFREL_X64_64 {
 			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
 			ELF64_Sym* sym = elf_find_symdef(lib, symname);
 			if (!sym) {
@@ -319,12 +316,10 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 			}
 			*u64*:patch_ptr = usz:base + sym.val + rela.addend;
 		}
-		if reltype == ELFREL_X64_RELATIVE {
-			unkn = 0;
+		elif reltype == ELFREL_X64_RELATIVE {
 			*u64*:patch_ptr = usz:base + rela.addend;
 		}
-		if reltype == ELFREL_X64_GLOB_DAT {
-			unkn = 0;
+		elif reltype == ELFREL_X64_GLOB_DAT {
 			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
 			ELF64_Sym* sym = elf_find_symdef(lib, symname);
 			if (!sym) {
@@ -336,11 +331,10 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 				*u64*:patch_ptr = usz:base + sym.val;
 			}
 		}
-		if reltype == ELFREL_X64_IRELATIVE {
-			unkn = 0;
+		elif reltype == ELFREL_X64_IRELATIVE {
+			// !!
 		}
-		if reltype == ELFREL_X64_TPOFF64 {
-			unkn = 0;
+		elif reltype == ELFREL_X64_TPOFF64 {
 			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
 			ELF64_Sym* sym = elf_find_symdef(lib, symname);
 			if (!sym) {
@@ -349,8 +343,7 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 				print("\n");
 			}
 		}
-
-		if unkn {
+		else {
 			print("Unknown relocation type: ");
 			print_i64(reltype);
 			print("\n");
