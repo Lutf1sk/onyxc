@@ -95,15 +95,15 @@
 #define VFLAG_OP_EXT	0b0001
 #define VFLAG_REX_W		0b0010
 #define VFLAG_OPSIZE	0b0100
-#define VFLAG_OI		0b1000
+#define VFLAG_REGOP		0b1000
 
 typedef
 struct amd64_var {
-	u8 args[2];
+	u8 args[4];
 	u8 flags;
 	u8 arg_count;
 
-	u8 instr[8];
+	u8 instr[4];
 } amd64_var_t;
 
 typedef

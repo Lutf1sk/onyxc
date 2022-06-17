@@ -178,7 +178,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				u8 reg = mi->mrm.reg_rm & 0b111;
 				u8 rm = (mi->mrm.reg_rm >> 4) & 0b111;
 
-				b8 oi = var->flags & VFLAG_OI;
+				b8 oi = var->flags & VFLAG_REGOP;
 				b8 modrm = 0;
 				b8 imm = 0;
 				u8 imm_size = 0;
