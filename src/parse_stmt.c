@@ -201,7 +201,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 			u32 h = hash(&fid, sizeof(fid));
 
 			if (!hashtab_find_fid(&file_tab, h, &fid)) {
-				lt_printf("Inserting '%s', hash %hd\n", path, h);
 				file_id_t* fid_p = lt_arena_reserve(cx->arena, sizeof(file_id_t));
 				*fid_p = fid;
 				hashtab_insert(&file_tab, h, fid_p);
@@ -212,8 +211,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 				it = &(*it)->child;
 			}
-			else
-				lt_printf("Found '%s', hash %hd\n", path, h);
 
 			if (peek(cx, 0)->stype != TK_COMMA) {
 				consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after import statement"));

@@ -181,7 +181,7 @@ amd64_op_t ops[] = {
 		VAR1(RM32|VARG_DST, VFLAG_OP_EXT, { 1, 0xFF }),					// DEC r/m32
 		VAR1(RM64|VARG_DST, VFLAG_REX_W|VFLAG_OP_EXT, { 1, 0xFF })),	// DEC r/m64
 
-	OP("mov", 12,
+	OP("mov", 16,
 		VAR2(RM8|VARG_DST,	REG8, 0, { 0x88 }),				// MOV r/m8, reg8
 		VAR2(RM16|VARG_DST,	REG16, VFLAG_OPSIZE, { 0x89 }),	// MOV r/m16, reg16
 		VAR2(RM32|VARG_DST,	REG32, 0, { 0x89 }),			// MOV r/m32, reg32
@@ -355,7 +355,7 @@ amd64_op_t ops[] = {
 
 		VAR2(RM8,	UIMM8, VFLAG_OP_EXT, { 0, 0xF6 }),					// TEST r/m8, uimm8
 		VAR2(RM16,	UIMM16, VFLAG_OPSIZE|VFLAG_OP_EXT, { 0, 0xF7 }),	// TEST r/m16, uimm16
-		VAR2(RM32,	UIMM32, VFLAG_OP_EXT, { 0, 0xF7 }),				// TEST r/m32, uimm32
+		VAR2(RM32,	UIMM32, VFLAG_OP_EXT, { 0, 0xF7 }),					// TEST r/m32, uimm32
 		VAR2(RM64,	SIMM32, VFLAG_REX_W|VFLAG_OP_EXT, { 0, 0xF7 })),	// TEST r/m64, simm32
 
 	OP("push", 5,
