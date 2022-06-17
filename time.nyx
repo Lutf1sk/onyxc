@@ -1,0 +1,16 @@
+import "unix.nyx";
+
+let time_nsec :: u64() {
+	timespec_t ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts.tv_sec * 1000000000 + ts.tv_nsec;
+}
+
+let time_usec :: u64() {
+	return time_nsec() / 1000;
+}
+
+let time_msec :: u64() {
+	return time_nsec() / 1000000;
+}
+

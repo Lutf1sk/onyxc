@@ -1,0 +1,37 @@
+import "unix.nyx";
+
+let hton16 :: u16(u16 v) {
+	return (v >> 8u) | ((v & 0xFF) << 8u);
+}
+
+let hton32 :: u32(u32 v) {
+	return	((v & 0x000000FF) << 24u) |
+			((v & 0x0000FF00) << 8u) |
+			((v & 0x00FF0000) >> 8u) |
+			((v & 0xFF000000) >> 24u);
+}
+
+// let hton64 :: u64(u64 v) {
+// 	return	((v & 0x00000000000000FF) << 56u) |
+// 			((v & 0x000000000000FF00) << 40u) |
+// 			((v & 0x0000000000FF0000) << 24u) |
+// 			((v & 0x00000000FF000000) << 8u) |
+// 			((v & 0x000000FF00000000) >> 8u) |
+// 			((v & 0x0000FF0000000000) >> 24u) |
+// 			((v & 0x00FF000000000000) >> 40u) |
+// 			((v & 0xFF00000000000000) >> 56u);
+// }
+
+let recv :: isz(isz sock, void[] buf) {
+	void* it = buf.data, end = it + buf.count;
+	while it < end {
+		isz res = sock->read(it[0..usz:(end - it)]);
+		if res <= 0 {
+			return res;
+		}
+
+		it += res;
+	}
+	return buf.count;
+}
+

@@ -1,0 +1,50 @@
+import "str.nyx", "net.nyx";
+
+let ipv4_parse_addr :: u8(u8[] str, sockaddr_in_t* out) {
+	u8[][5] nums;
+	usz j = 0;
+
+	u8* num_start = str.data;
+	for usz i..str.count {
+		u8 c = str[i];
+		if c == '.' {
+			if j >= 3u {
+				return 1;
+			}
+			nums[j++] = num_start[0..usz:(i - (num_start - str.data))];
+			num_start = str.data + i + 1;
+		}
+		if c == ':' {
+			if j != 3u {
+				return 1;
+			}
+			nums[j++] = num_start[0..usz:(i - (num_start - str.data))];
+			num_start = str.data + i + 1;
+		}
+	}
+	if j < 3u {
+		return 1;
+	}
+	nums[j] = num_start[0..usz:(str.count - (num_start - str.data))];
+
+	u32 addr = 0;
+	for usz i..4 {
+		u64 v;
+		if stou(nums[i], &v) || v > 0xFF {
+			return 1;
+		}
+		addr |= v << i * 8;
+	}
+
+	if j == 4u {
+		u64 v;
+		if stou(nums[4], &v) || v > 0xFFFF {
+			return 1;
+		}
+		out.sin_port = hton16(v);
+	}
+
+	out.sin_addr = addr;
+	return 0;
+}
+

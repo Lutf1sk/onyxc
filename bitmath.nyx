@@ -1,0 +1,19 @@
+
+let is_pow2 :: u8(usz n) {
+	return ~(n & (n - 1));
+}
+
+let pad :: usz(usz val, usz align) {
+	usz align_mask = align - 1;
+	return ((val & align_mask) ^ align_mask) + 1;
+}
+
+let alignf :: usz(usz val, usz align) {
+	usz align_mask = align - 1;
+	return (val + align_mask) & ~align_mask;
+}
+
+let alignb :: usz(usz val, usz align) {
+	return val & ~(align - 1);
+}
+

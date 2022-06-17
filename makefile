@@ -5,8 +5,9 @@ OBJS = \
 	src/main.o \
 	src/tk.o \
 	src/err.o \
-	src/interm.o \
 	src/gen.o \
+	src/hashtab.o \
+	src/interm.o \
 	src/exec.o \
 	src/lex.o \
 	src/expr_ast.o \

@@ -73,3 +73,141 @@ def DNS_RsrcRecord :: struct {
 	u16 rdlen;
 }
 
+import "net.nyx", "unix.nyx";
+
+let dns_encode_name :: isz(u8[] domain, u8[] out) {
+	u8* q_it = out.data, q_max = q_it + out.count;
+	u8* substr = domain.data;
+	for usz i..domain.count {
+		if domain[i] == '.' {
+			usz substr_len = i - usz:(substr - domain.data);
+			u8* q_it_next = q_it + substr_len + 1;
+			if !substr_len || substr_len > 63u || q_it_next >= q_max {
+				return -1;
+			}
+			*q_it++ = substr_len;
+			for usz j..substr_len {
+				*q_it++ = substr[j];
+			}
+
+			q_it = q_it_next;
+			substr = domain.data + i + 1;
+		}
+	}
+
+	usz substr_len = domain.count - usz:(substr - domain.data);
+	u8* q_it_next = q_it + substr_len + 2;
+	if !substr_len || substr_len > 63u || q_it_next >= q_max {
+		return -1;
+	}
+	*q_it++ = substr_len;
+	for usz j..substr_len {
+		*q_it++ = substr[j];
+	}
+
+	*q_it++ = 0;
+	return usz:(q_it - out.data);
+}
+
+let dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
+	sockaddr_in_t saddr;
+	mset8(&saddr, 0, sizeof(sockaddr_in_t));
+	saddr.sin_family = AF_INET;
+	saddr.sin_port = hton16(53);
+
+	if ipv4_parse_addr(dns_host, &saddr) {
+		return 1;
+	}
+
+	isz sock = socket(AF_INET, SOCK_STREAM, 0);
+	if sock < 0 {
+		return 1;
+	}
+
+	if sock->connect(void*:&saddr, sizeof(sockaddr_in_t)) < 0 {
+		sock->close();
+		return 1;
+	}
+
+	DNS_Header dh;
+	mset8(&dh, 0, sizeof(DNS_Header));
+	dh.flags = hton16(DNSH_QUERY | DNSH_STANDARD | DNSH_RD);
+	dh.qdcount = hton16(1);
+
+	DNS_Question dq;
+	dq.qtype = hton16(DNST_A);
+	dq.qclass = hton16(DNSC_IN);
+
+	u8[256] question;
+	isz qlen = dns_encode_name(domain, question);
+	if qlen < 0 {
+		sock->close();
+		return 1;
+	}
+
+	u16 msglen = hton16(sizeof(DNS_Header) + qlen + sizeof(DNS_Question));
+	sock->write((&msglen)[0..1]);
+	sock->write((&dh)[0..1]);
+	sock->write(question[0..qlen]);
+	sock->write((&dq)[0..1]);
+
+	// Receive message length
+	if sock->recv((&msglen)[0..1]) <= 0 {
+		sock->close();
+		return 1;
+	}
+	msglen = hton16(msglen);
+
+	// Receive message body
+	u8[4096] buf;
+	if sock->recv(buf[0..msglen]) <= 0 || msglen < u32:sizeof(DNS_Header) {
+		sock->close();
+		return 1;
+	}
+
+	sock->close();
+
+	DNS_Header* rh = void*:buf.data;
+	rh.flags = hton16(rh.flags);
+	rh.qdcount = hton16(rh.qdcount);
+	rh.ancount = hton16(rh.ancount);
+	rh.nscount = hton16(rh.nscount);
+	rh.arcount = hton16(rh.arcount);
+
+	u16 rcode = rh.flags & DNSH_RCODE_MASK;
+	if rcode != DNSH_NO_ERROR {
+		return 1;
+	}
+
+	void* section_start = buf.data + sizeof(DNS_Header);
+	u8* it = section_start;
+
+	// TODO: Prevent out-of-bounds writes
+
+	for usz i..rh.qdcount {
+		while *it { it++; } // QNAME
+		it += sizeof(DNS_Question);
+	}
+
+	for usz i..rh.ancount {
+		while *it { it++; } // NAME
+		let rr = DNS_RsrcRecord*:it;
+		rr.type = hton16(rr.type);
+		rr.class = hton16(rr.class);
+		rr.ttl = hton16(rr.ttl);
+		rr.rdlen = hton16(rr.rdlen);
+
+		it += sizeof(DNS_RsrcRecord);
+
+		if rr.type == DNST_A && rr.class == DNSC_IN {
+			out.sin_addr = *u32*:it;
+			return 0;
+		}
+
+		it += rr.rdlen; // RDATA
+	}
+
+	return 1;
+}
+
+

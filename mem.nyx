@@ -1,0 +1,235 @@
+import "unix.nyx", "bitmath.nyx";
+
+let mcopy :: void(void* dst, void* src, usz bytes) {
+	u8* dst_it = dst;
+	u8* src_it = src;
+
+	while bytes-- {
+		*dst_it++ = *src_it++;
+	}
+}
+
+let mset8 :: void(void* dst, u8 v, usz bytes) {
+	u8* it = dst;
+	while bytes-- {
+		*it++ = v;
+	}
+}
+
+let vmem_alloc :: void*(usz size) {
+	isz addr = isz:mmap(0, size, PROT_READ|PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+	if (addr < 0) {
+		return null;
+	}
+	return void*:addr;
+}
+
+let vmem_free :: void(void* mem, usz size) {
+	munmap(usz:mem, size);
+}
+
+usz VMEM_BLOCK_SIZE :: 4096;
+usz ALLOC_DEFAULT_ALIGN :: 16;
+
+def Allocator :: struct {
+	void*(void*, usz) alloc;
+	void*(void*, void*, usz) realloc;
+	void(void*, void*) free;
+	usz(void*, void*) size;
+	void* usr;
+}
+
+let malloc_init :: void[](Allocator* alc, void[] arr) {
+	void* data = alc.alloc(alc.usr, arr.count);
+	if !data {
+		return null[0..0];
+	}
+	mcopy(data, arr.data, arr.count);
+	return data[0..arr.count];
+}
+
+def Pool :: struct {
+	void* base;
+	usz chunk_size;
+	usz chunk_count;
+	usz size;
+	void* head;
+	Allocator interf;
+}
+
+let _pmalloc_if :: void*(Pool* pool, usz size) {
+	void** head = pool.head;
+	if !head || size > pool.chunk_size {
+		return null;
+	}
+	pool.head = *head;
+	return head;
+}
+
+let _pmrealloc_if :: void*(Pool* pool, void* ptr, usz new_size) {
+	if new_size > pool.chunk_size {
+		return null;
+	}
+	return ptr;
+}
+
+let _pmsize_if :: usz(Pool* pool, void* ptr) {
+	return pool.chunk_size;
+}
+
+let pmalloc :: void*(Pool* pool) {
+	void** head = pool.head;
+	if !head {
+		return null;
+	}
+	pool.head = *head;
+	return head;
+}
+
+let pmfree :: void(Pool* pool, void* ptr) {
+	*void**:ptr = pool.head;
+	pool.head = ptr;
+}
+
+let pmreset :: void(Pool* pool) {
+	void** last = &pool.head;
+	void* it = pool.base;
+	for usz i..pool.chunk_count {
+		*last = it;
+		last = it;
+		it += pool.chunk_size;
+	}
+	*last = null;
+}
+
+let pmcreatem :: Pool*(void* mem, usz size, usz chunk_size) {
+	usz headersz = alignf(sizeof(Pool), ALLOC_DEFAULT_ALIGN);
+
+	if size < headersz || !chunk_size {
+		return null;
+	}
+
+	if chunk_size < usz:sizeof(usz) {
+		chunk_size = sizeof(usz);
+	}
+
+	Pool* pool = mem;
+	pool.base = mem + headersz;
+	pool.chunk_size = chunk_size;
+	pool.size = size;
+	pool.chunk_count = (size - headersz) / chunk_size;
+	pool.interf.alloc = void*(void*, usz): _pmalloc_if;
+	pool.interf.realloc = void*(void*, void*, usz): _pmrealloc_if;
+	pool.interf.free = void(void*, void*): pmfree;
+	pool.interf.size = usz(void*, void*): _pmsize_if;
+	pool.interf.usr = pool;
+
+	pmreset(pool);
+	return pool;
+}
+
+let pmcreate :: Pool*(usz size, usz chunk_size) {
+	size = alignf(size, VMEM_BLOCK_SIZE);
+
+	void* base = vmem_alloc(size);
+	if !base {
+		return null;
+	}
+	return pmcreatem(base, size, chunk_size);
+}
+
+let pmdestroy :: void(Pool* pool) {
+	vmem_free(pool.base, pool.size);
+}
+
+def Arena :: struct {
+	void* base;
+	usz size;
+	void* top;
+	Allocator interf;
+}
+
+let amalloc :: void*(Arena* arena, usz size) {
+	void* start = void*:alignf(usz:arena.top, ALLOC_DEFAULT_ALIGN);
+	void* new_top = start + ALLOC_DEFAULT_ALIGN + size;
+	void* top_max = arena.base + arena.size;
+
+	if new_top > top_max {
+		return null;
+	}
+	*usz*:new_top = size;
+	arena.top = new_top;
+	return start + ALLOC_DEFAULT_ALIGN;
+}
+
+let amrealloc :: void*(Arena* arena, void* ptr, usz new_size) {
+	usz old_size = *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
+
+	if arena.top == ptr + old_size {
+		void* top_max = arena.base + arena.size;
+		*usz*:(ptr - ALLOC_DEFAULT_ALIGN) = new_size;
+		if ptr + new_size > top_max {
+			return null;
+		}
+		return ptr;
+	}
+
+	void* new_ptr = amalloc(arena, new_size);
+	if !new_ptr {
+		return null;
+	}
+	mcopy(new_ptr, ptr, old_size);
+	return new_ptr;
+}
+
+let amfree :: void(Arena* arena, void* ptr) {
+	usz old_size = *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
+	if arena.top == ptr + old_size {
+		arena.top = ptr - ALLOC_DEFAULT_ALIGN;
+	}
+}
+
+let amsize :: usz(Arena* arena, void* ptr) {
+	return *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
+}
+
+let amsave :: void*(Arena* arena) {
+	return arena.top;
+}
+
+let amrestore :: void(Arena* arena, void* old) {
+	arena.top = old;
+}
+
+let amcreatem :: Arena*(void* mem, usz size) {
+	if size < usz:sizeof(Arena) {
+		return null;
+	}
+
+	Arena* arena = mem;
+	arena.base = mem;
+	arena.size = size;
+	arena.top = mem;
+	arena.interf.alloc = void*(void*, usz): amalloc;
+	arena.interf.realloc = void*(void*, void*, usz): amrealloc;
+	arena.interf.free = void(void*, void*): amfree;
+	arena.interf.size = usz(void*, void*): amsize;
+	arena.interf.usr = arena;
+	amalloc(arena, sizeof(Arena)); // Reserve an area covering the header
+	return arena;
+}
+
+let amcreate :: Arena*(usz size) {
+	size = alignf(size, VMEM_BLOCK_SIZE);
+
+	void* base = vmem_alloc(size);
+	if !base {
+		return null;
+	}
+	return amcreatem(base, size);
+}
+
+let amdestroy :: void(Arena* arena) {
+	vmem_free(arena.base, arena.size);
+}
+

@@ -157,6 +157,20 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 	}
 }
 
+typedef
+struct file_id {
+	u64 dev;
+	u64 inode;
+} file_id_t;
+
+#include "hashtab.h"
+hashtab_t file_tab;
+
+file_id_t* hashtab_find_fid(hashtab_t* htab, u32 hash, file_id_t* fid)
+	HASHTAB_FIND_IMPL(htab, hash, file_id_t* it, (it->dev == fid->dev && it->inode == fid->inode))
+
+#include <sys/stat.h>
+
 stmt_t* parse_stmt(parse_ctx_t* cx) {
 	tk_t tk = *peek(cx, 0);
 	switch (tk.stype) {
@@ -179,18 +193,33 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 			path[len] = 0;
 			LT_ASSERT(len < 4096);
 
-			// TODO: "include guards"
+			struct stat st;
+			if (stat(path, &st) < 0)
+				ferr("failed to open '%s'", *path_tk, path);
 
-			cx->lex = lex_file(cx->arena, path, path_tk);
-			*it = parse(cx);
-			cx->lex = old_lex_cx;
+			file_id_t fid = { st.st_dev, st.st_ino };
+			u32 h = hash(&fid, sizeof(fid));
+
+			if (!hashtab_find_fid(&file_tab, h, &fid)) {
+				lt_printf("Inserting '%s', hash %hd\n", path, h);
+				file_id_t* fid_p = lt_arena_reserve(cx->arena, sizeof(file_id_t));
+				*fid_p = fid;
+				hashtab_insert(&file_tab, h, fid_p);
+
+				cx->lex = lex_file(cx->arena, path, path_tk);
+				*it = parse(cx);
+				cx->lex = old_lex_cx;
+
+				it = &(*it)->child;
+			}
+			else
+				lt_printf("Found '%s', hash %hd\n", path, h);
 
 			if (peek(cx, 0)->stype != TK_COMMA) {
 				consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after import statement"));
 				return stmt;
 			}
 			consume(cx);
-			it = &(*it)->child;
 		}
 
 	case TK_KW_LET: consume(cx);
