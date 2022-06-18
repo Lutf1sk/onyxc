@@ -1,7 +1,0 @@
-
-def struc :: struct { u64 val1, val2; }
-
-let main :: i32() {
-	return struc { 35, 8 }.val1 + struc { 10, 34 }.val2;
-}
-

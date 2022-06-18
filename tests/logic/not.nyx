@@ -1,6 +1,0 @@
-
-let main :: i32() {
-	i32 a = 1, b = 0, c = 1;
-	return !a + !!!b + !!c;
-}
-

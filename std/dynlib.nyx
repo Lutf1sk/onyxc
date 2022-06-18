@@ -1,6 +1,6 @@
 // https://refspecs.linuxfoundation.org/elf/gabi4+/ch5.dynamic.html
 
-import "unix.nyx", "elf.nyx", "mem.nyx", "str.nyx";
+import "std/unix.nyx", "std/elf.nyx", "std/mem.nyx", "std/str.nyx";
 
 let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
 	for usz i..fh.magic.count {

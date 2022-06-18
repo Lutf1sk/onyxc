@@ -3,7 +3,7 @@ A compiler for the Onyx language, written in C with no external dependencies.
 
 See [syntax.md](syntax.md) for example snippets.
 
-Use ```make all``` to build and ```make test``` to run the (very hacked together and temporary) tests.
+Use ```make all``` to build.
 
 ## Planned features
 - [X] C-like syntax

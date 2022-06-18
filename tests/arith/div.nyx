@@ -1,7 +1,0 @@
-
-let main :: i32() {
-	i32 a = 6900, b = 50;
-	u32 ua = 2, ub = 4;
-	return a / b / (ub / ua);
-}
-

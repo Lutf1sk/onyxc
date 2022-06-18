@@ -1,6 +1,0 @@
-
-let main :: i32() {
-	i32 a = 6969, b = 6900;
-	return a % b;
-}
-

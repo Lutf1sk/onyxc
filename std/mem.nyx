@@ -1,4 +1,4 @@
-import "unix.nyx", "bitmath.nyx";
+import "std/unix.nyx", "std/bitmath.nyx";
 
 let mcopy :: void(void* dst, void* src, usz bytes) {
 	u8* dst_it = dst;

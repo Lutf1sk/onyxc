@@ -1,5 +1,0 @@
-
-let main :: i32() {
-	return 64 | 5;
-}
-

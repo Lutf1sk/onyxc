@@ -73,7 +73,7 @@ def DNS_RsrcRecord :: struct {
 	u16 rdlen;
 }
 
-import "net.nyx", "unix.nyx";
+import "std/net.nyx";
 
 let dns_encode_name :: isz(u8[] domain, u8[] out) {
 	u8* q_it = out.data, q_max = q_it + out.count;

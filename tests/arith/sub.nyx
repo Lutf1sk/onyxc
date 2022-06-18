@@ -1,9 +1,0 @@
-
-let main :: i32() {
-	i32 v = 420;
-
-	i32 a = 1, b = 2, c = -69;
-	u32 ua = 1, ub = 200, uc = 216;
-	return v - a - b - c - ua - ub - uc;
-}
-

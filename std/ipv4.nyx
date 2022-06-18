@@ -1,4 +1,4 @@
-import "str.nyx", "net.nyx";
+import "std/str.nyx", "std/net.nyx";
 
 let ipv4_parse_addr :: u8(u8[] str, sockaddr_in_t* out) {
 	u8[][5] nums;

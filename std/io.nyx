@@ -1,4 +1,4 @@
-import "unix.nyx", "str.nyx";
+import "std/unix.nyx", "std/str.nyx";
 
 let filename_from_path :: u8[](u8[] path) {
 	if !path.count {

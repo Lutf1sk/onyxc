@@ -1,4 +1,4 @@
-import "io.nyx", "mem.nyx", "dynlib.nyx";
+import "std/io.nyx", "std/mem.nyx", "std/dynlib.nyx";
 
 let main :: u64() {
 	dlopen_p = dlopen;

@@ -1,4 +1,4 @@
-import "unix.nyx";
+import "std/unix.nyx";
 
 let time_nsec :: u64() {
 	timespec_t ts;

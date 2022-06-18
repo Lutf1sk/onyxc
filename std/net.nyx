@@ -1,4 +1,4 @@
-import "unix.nyx";
+import "std/unix.nyx";
 
 let hton16 :: u16(u16 v) {
 	return (v >> 8u) | ((v & 0xFF) << 8u);
