@@ -143,7 +143,7 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		return lib;
 	}
 
-	u8[] libpath_pfx :: "/usr/lib/";
+	u8[] libpath_pfx :: "/usr/lib64/";
 	usz libpath_len = libpath_pfx.count + libname.count;
 	u8[] libpath = alc.alloc(alc.usr, libpath_len)[0..libpath_len];
 	if !libpath.data {
@@ -154,7 +154,7 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	mcopy(libpath.data + libpath_pfx.count, libname.data, libname.count);
 
 	isz fd;
-	if &fd->file_openr(libpath) {
+	if &fd->fopenr(libpath) {
 		print("failed to open file\n");
 		return null;
 	}
@@ -330,9 +330,15 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 			else {
 				*u64*:patch_ptr = usz:base + sym.val;
 			}
+			print("Created GOT entry for '");
+			print(symname);
+			print("'\n");
 		}
 		elif reltype == ELFREL_X64_IRELATIVE {
-			// !!
+			*u64*:patch_ptr = (u64():base + u64():rela.addend)();
+			print("Loaded 0x");
+			print_h64(*u64*:patch_ptr);
+			print("\n");
 		}
 		elif reltype == ELFREL_X64_TPOFF64 {
 			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
@@ -342,6 +348,13 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 				print(symname);
 				print("\n");
 			}
+			print("Thread local variable '");
+			print(symname);
+			print("' offset 0x");
+			print_h64(rela.addend);
+			print("\n");
+
+			*u64*:patch_ptr = usz:base + sym.val + rela.addend;
 		}
 		else {
 			print("Unknown relocation type: ");

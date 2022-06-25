@@ -1,19 +1,69 @@
 import "std/io.nyx", "std/mem.nyx", "std/dynlib.nyx";
 
+def TK :: enum u32 {
+	EOF,
+	IDENT,
+	STR, CHAR,
+	INT, FLOAT,
+
+	DOT, DDOT,
+	COLON, DCOLON,
+	PLUS, DPLUS, PLUSEQ,
+	MINUS, DMINUS, MINUSEQ, MINUSGREATER,
+	ASTERISK, ASTERISKEQ,
+	SLASH, SLASHEQ,
+	CARET, DCARET, CARETEQ,
+	AMPERSAND, DAMPERSAND, AMPERSANDEQ,
+	PIPE, DPIPE, PIPEEQ,
+	EQUAL, DEQUAL,
+	LESSER, DLESSER, LESSEREQ, DLESSEREQ,
+	GREATER, DGREATER, GREATEREQ, DGREATEREQ,
+
+	LPAREN, RPAREN,
+	LBRACKET, RBRACKET,
+	LBRACE, RBRACE,
+
+	KW_BREAK, KW_CONTINUE,
+	KW_FOR, KW_WHILE,
+	KW_SWITCH, KW_CASE,
+	KW_IF, KW_ELIF, KW_ELSE,
+	KW_LET,
+	KW_DEF, KW_STRUCT, KW_ENUM, KW_EXPLICIT, KW_IMPLICIT,
+	KW_RETURN,
+	KW_IMPORT, KW_INCLUDE,
+	KW_SIZEOF, KW_ALIGNOF,
+	KW_NULL,
+
+	KW_SYSCALL,
+};
+
+def Token :: struct {
+	u32 type;
+	u32 file;
+	u8[] str;
+}
+
+let tokenize :: Token[]() {
+	
+}
+
 let main :: u64() {
 	dlopen_p = dlopen;
+	Arena* arena = amcreate(64M);
 
-	Arena* arena = amcreate(32M);
+	u8[] in_path = "main.nyx";
 
-// 	DynLibrary* rtld_lib = dlopen("ld-linux-x86-64.so.2", &arena.interf);
-// 	if !rtld_lib {
-// 		print("failed to load RTLD\n");
-// 	}
-
-	DynLibrary* libc = dlopen("libvulkan.so", &arena.interf);
-	if !libc {
-		print("failed to load library\n");
+	isz in_f;
+	if &in_f -> fopenr(in_path) {
+		print("Failed to open '");
+		print(in_path);
+		print("'\n");
+		exit(1);
 	}
+
+	u8* in_data = amalloc(arena, 0);
+
+// 	Token[] tks = tokenize();
 
 	exit(0);
 }

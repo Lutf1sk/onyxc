@@ -121,7 +121,6 @@ int main(int argc, char** argv) {
 		char* in_path = in_files[file_index];
 
 		lt_arena_t* arena = lt_arena_alloc(LT_MB(128));
-
 		lex_ctx_t* lex_cx = lex_file(arena, in_path, NULL);
 
 		// Create symtab and add primitives

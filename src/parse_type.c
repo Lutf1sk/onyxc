@@ -20,6 +20,58 @@ type_t* parse_type(parse_ctx_t* cx) {
 		base = sym->type;
 	}	break;
 
+	case TK_KW_ENUM: consume(cx); {
+		tk_t* type_tk = peek(cx, 0);
+
+		type_t* type = parse_type(cx);
+		if (type->stype == TP_VOID)
+			ferr("enum cannot be of type "A_BOLD"'void'"A_RESET, *type_tk);
+
+		consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET" after "A_BOLD"'enum'"A_RESET));
+
+		b8 auto_increment = is_int_any_sign(type);
+		u64 auto_val = 0;
+
+		while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
+			tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
+			lstr_t ident = ident_tk->str;
+
+			if (!symtab_definable(cx->symtab, ident))
+				ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET"", *ident_tk, ident);
+
+			sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+			*sym = SYM(SYM_VAR, ident);
+			sym->type = type;
+			sym->flags = SYMFL_CONST;
+
+			if (peek(cx, 0)->stype == TK_DOUBLE_COLON) {
+				consume(cx);
+				tk_t* tk = peek(cx, 0);
+				expr_t* expr = parse_expr(cx, type);
+				if (!type_convert_implicit(cx, type, &expr))
+					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
+							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, type));
+
+				sym->val = gen_const_expr(cx->gen_cx, expr);
+				if (auto_increment)
+					auto_val = sym->val.uint_val + 1;
+			}
+			else if (auto_increment)
+				sym->val = IMMI(auto_val++);
+			else
+				ferr("non-integer enum values must be explicitly initialized", *ident_tk);
+
+			symtab_insert(cx->symtab, ident, sym);
+
+			if (peek(cx, 0)->stype != TK_COMMA)
+				break;
+			consume(cx);
+		}
+
+		consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
+		base = type;
+	}	break;
+
 	case TK_KW_STRUCT: consume(cx); {
 		type_t* struc = lt_arena_reserve(cx->arena, sizeof(type_t));
 		*struc = TYPE(TP_STRUCT, NULL);

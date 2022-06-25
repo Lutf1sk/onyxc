@@ -15,29 +15,29 @@ let filename_from_path :: u8[](u8[] path) {
 	return (path.data + i)[0..path.count - i];
 }
 
-let file_openw :: u8(isz* fdp, u8[] path) {
+let fopenw :: u8(isz* fdp, u8[] path) {
 	u8[PATH_MAX] path_nt;
 	cstr(path, path_nt);
 	*fdp = open(path_nt.data, O_WRONLY|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
 	return *fdp < 0;
 }
 
-let file_openr :: u8(isz* fdp, u8[] path) {
+let fopenr :: u8(isz* fdp, u8[] path) {
 	u8[PATH_MAX] path_nt;
 	cstr(path, path_nt);
 	*fdp = open(path_nt.data, O_RDONLY, 0);
 	return *fdp < 0;
 }
 
-let file_close :: void(isz fd) {
+let fclose :: void(isz fd) {
 	close(fd);
 }
 
-let file_write :: void(isz fd, u8[] data) {
+let fwrite :: void(isz fd, u8[] data) {
 	write(fd, data);
 }
 
-let file_read :: usz(isz fd, u8[] data) {
+let fread :: usz(isz fd, u8[] data) {
 	return read(fd, data);
 }
 

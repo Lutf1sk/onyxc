@@ -62,6 +62,7 @@ tk_stype_t identifier_type(lstr_t str) {
 		if (lt_lstr_eq(str, CLSTR("explicit"))) return TK_KW_EXPLICIT;
 		if (lt_lstr_eq(str, CLSTR("else"))) return TK_KW_ELSE;
 		if (lt_lstr_eq(str, CLSTR("elif"))) return TK_KW_ELIF;
+		if (lt_lstr_eq(str, CLSTR("enum"))) return TK_KW_ENUM;
 		break;
 
 	case 'f':
