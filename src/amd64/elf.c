@@ -77,9 +77,10 @@ usz write(elf_ctx_t* cx, void* mem, usz size, usz align) {
 }
 
 static
-b8 elf_resolve_lbls(elf_ctx_t* cx, amd64_lbl_t* lbl, u32 i) {
-	if (!lbl || lbl->i != i)
-		return 0;
+void elf_resolve_lbls(elf_ctx_t* cx, amd64_lbl_t** cx_lbl, u32 i) {
+	amd64_lbl_t* lbl = find_lbl(*cx_lbl, i);
+	if (!lbl)
+		lbl = new_lbl(cx->arena, cx_lbl, i);
 
 	lbl->m_i = cx->bin_size;
 	for (usz i = 0; i < lbl->ref_count; ++i) {
@@ -90,14 +91,20 @@ b8 elf_resolve_lbls(elf_ctx_t* cx, amd64_lbl_t* lbl, u32 i) {
 		val += lbl->m_i;
 		memcpy(ptr, &val, sizeof(u32));
 	}
-
-	return 1;
 }
 
 #define LOAD_ADDR 0x70000000
 
 static
-void write_lbl(elf_ctx_t* cx, amd64_lbl_t* lbl, usz offs, u64* imm_val) {
+void write_lbl(elf_ctx_t* cx, amd64_lbl_t** cx_lbl, usz offs, u64* imm_val) {
+	u64 lbl_i = *imm_val;
+
+	amd64_lbl_t* lbl = find_lbl(*cx_lbl, lbl_i);
+	if (!lbl) {
+		lbl = new_lbl(cx->arena, cx_lbl, lbl_i);
+		lbl->m_i = 0;
+	}
+
 	if (lbl->m_i)
 		*imm_val = LOAD_ADDR + lbl->m_i;
 	else {
@@ -150,10 +157,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 			seg->load_at = load_addr;
 			cx->seg[seg->origin].load_at = load_addr;
 
-			cx->lbl = NULL;
-			for (amd64_lbl_t* it = seg->lbl; it; it = it->next)
-				new_lbl(cx, it->m_i);
-			cx->lbl_it = cx->lbl;
+			cx->lbl_it = cx->lbl = NULL;
 
 			amd64_instr_t* instrs = seg->data;
 			usz instr_count = seg->size;
@@ -162,12 +166,14 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 				fh.entry = load_addr;
 
 			for (usz i = 0; i < instr_count; ++i) {
-				if (elf_resolve_lbls(&elf_cx, cx->lbl_it, i))
-					cx->lbl_it = cx->lbl_it->next;
-
 				u8 instr[16], *it = instr;
 
 				amd64_instr_t* mi = &instrs[i];
+				if (mi->op == X64_IR_LBL) {
+					elf_resolve_lbls(&elf_cx, &cx->lbl, mi->imm.index);
+					continue;
+				}
+
 				for (usz i = 0; mi->prefix[i] && i < sizeof(mi->prefix); ++i)
 					*it++ = mi->prefix[i];
 
@@ -251,7 +257,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 						u64 disp_offs = elf_cx.bin_size + (it - instr);
 
 						if (mi->disp_flags & MI_LBL) {
-							write_lbl(&elf_cx, find_lbl(cx, mi->mrm.disp), disp_offs, &disp_val);
+							write_lbl(&elf_cx, &cx->lbl, disp_offs, &disp_val);
 							disp_val += mi->mrm.disp2;
 						}
 						if (mi->disp_flags & MI_SEG) {
@@ -281,7 +287,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 					u64 imm_offs = elf_cx.bin_size + (it - instr);
 
 					if (mi->imm_flags & MI_LBL) {
-						write_lbl(&elf_cx, find_lbl(cx, mi->imm.index), imm_offs, &imm_val);
+						write_lbl(&elf_cx, &cx->lbl, imm_offs, &imm_val);
 						imm_val += mi->imm.disp;
 					}
 					if (mi->imm_flags & MI_SEG) {

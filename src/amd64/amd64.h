@@ -37,6 +37,7 @@ typedef
 struct amd64_ctx {
 	lt_arena_t* arena;
 
+	isz curr_ifunc;
 	isz curr_func;
 
 	seg_ent_t* seg;
@@ -56,6 +57,8 @@ struct amd64_ctx {
 	usz cconv;
 
 	usz getarg_offs;
+
+	usz i;
 } amd64_ctx_t;
 
 void amd64_gen(amd64_ctx_t* cx);

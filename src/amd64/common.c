@@ -71,12 +71,6 @@ usz emit(amd64_ctx_t* cx, amd64_instr_t mi) {
 		ent->data = realloc(ent->data, (ent->size + AMD64_BLOCK_SIZE) * sizeof(amd64_instr_t));
 
 	((amd64_instr_t*)ent->data)[ent->size] = mi;
-
-	if (mi.imm_flags & MI_LBL)
-		add_lbl_ref(cx, find_lbl(cx, mi.imm.index), ent->size);
-	if (mi.disp_flags & MI_LBL)
-		add_lbl_ref(cx, find_lbl(cx, mi.imm.index), -ent->size);
-
 	return ent->size++;
 }
 
@@ -159,7 +153,10 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 
 			case IREG_LBL:
 			case IREG_SEG:
-				min_bytes = 4; // This assumes that no labels/segments have offsets greater than 2GiB
+				if (var->args[i] & VARG_REL)
+					min_bytes = 4; // This assumes that no labels/segments have offsets greater than 2GiB
+				else
+					min_bytes = 8;
 			case IREG_IMM:
 				if (vbytes < min_bytes)
 					goto next_var;
@@ -179,10 +176,11 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 	}
 
 	if (best_match < 0) {
-		lt_printf("Invalid operands to '%S' ", op->str);
+		lt_printf("%uz:%uz Invalid operands to '%S' ", cx->curr_ifunc, cx->i, op->str);
 		for (usz i = 0; i < arg_count; ++i)
-			lt_printf("(type:%ud,size:%ud)", args[i].type, args[i].size);
+			lt_printf("(type:%ud,size:%ud) ", args[i].type, args[i].size);
 		lt_printc('\n');
+		LT_BREAKPOINT();
 		LT_ASSERT_NOT_REACHED();
 		return;
 	}

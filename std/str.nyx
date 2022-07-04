@@ -10,6 +10,7 @@ let cstr :: u8*(u8[] path, u8[] out) {
 	out[path.count] = 0;
 	return out.data;
 }
+
 let cstrlen :: usz(u8* str) {
 	u8* it = str;
 	while *it {

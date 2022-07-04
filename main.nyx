@@ -43,8 +43,8 @@ def Token :: struct {
 	u8[] str;
 }
 
-let tokenize :: Token[]() {
-	
+let tokenize :: Token[](u8[] data) {
+
 }
 
 let main :: u64() {
@@ -54,16 +54,28 @@ let main :: u64() {
 	u8[] in_path = "main.nyx";
 
 	isz in_f;
-	if &in_f -> fopenr(in_path) {
+	if fopenr(&in_f, in_path) {
 		print("Failed to open '");
 		print(in_path);
 		print("'\n");
 		exit(1);
 	}
 
-	u8* in_data = amalloc(arena, 0);
+	stat_t st;
+	if fstat(in_f, &st) < 0 {
+		print("fstat() failed\n");
+		exit(1);
+	}
 
-// 	Token[] tks = tokenize();
+	u8[] in_data = amalloc(arena, 0)[0..st.st_size];
+	if read(in_f, in_data) != in_data.count {
+		print("read() failed\n");
+		exit(1);
+	}
+
+	print(in_data);
+
+	Token[] tks = tokenize(in_data);
 
 	exit(0);
 }

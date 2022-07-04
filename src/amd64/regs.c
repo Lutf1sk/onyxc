@@ -50,7 +50,7 @@ u8 reg_alloc(amd64_ctx_t* cx, u32 ireg) {
 			return i;
 		}
 	}
-	LT_ASSERT_NOT_REACHED();
+// 	LT_ASSERT_NOT_REACHED();
 	return REG_A;
 }
 

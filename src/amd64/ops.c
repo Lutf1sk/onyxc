@@ -386,30 +386,41 @@ amd64_op_t ops[] = {
 	OP("setz", 1,
 		VAR1(RM8|VARG_DST, 0, { 0x0F, 0x94 })),
 
-	// Incomplete! (https://www.felixcloutier.com/x86/jcc)
-	OP("ja", 1,
+	OP("ja", 2,
+		VAR1(REL8, 0, { 0x77 }),
 		VAR1(REL32, 0, { 0x0F, 0x87 })),
-	OP("jae", 1,
+	OP("jae", 2,
+		VAR1(REL8, 0, { 0x73 }),
 		VAR1(REL32, 0, { 0x0F, 0x83 })),
-	OP("jb", 1,
+	OP("jb", 2,
+		VAR1(REL8, 0, { 0x72 }),
 		VAR1(REL32, 0, { 0x0F, 0x82 })),
-	OP("jbe", 1,
+	OP("jbe", 2,
+		VAR1(REL8, 0, { 0x76 }),
 		VAR1(REL32, 0, { 0x0F, 0x86 })),
-	OP("je", 1,
+	OP("je", 2,
+		VAR1(REL8, 0, { 0x74 }),
 		VAR1(REL32, 0, { 0x0F, 0x84 })),
-	OP("jg", 1,
+	OP("jg", 2,
+		VAR1(REL8, 0, { 0x7F }),
 		VAR1(REL32, 0, { 0x0F, 0x8F })),
-	OP("jge", 1,
+	OP("jge", 2,
+		VAR1(REL8, 0, { 0x7D }),
 		VAR1(REL32, 0, { 0x0F, 0x8D })),
-	OP("jl", 1,
+	OP("jl", 2,
+		VAR1(REL8, 0, { 0x7C }),
 		VAR1(REL32, 0, { 0x0F, 0x8C })),
-	OP("jle", 1,
+	OP("jle", 2,
+		VAR1(REL8, 0, { 0x7E }),
 		VAR1(REL32, 0, { 0x0F, 0x8E })),
-	OP("jne", 1,
+	OP("jne", 2,
+		VAR1(REL8, 0, { 0x75 }),
 		VAR1(REL32, 0, { 0x0F, 0x85 })),
-	OP("jnz", 1,
+	OP("jnz", 2,
+		VAR1(REL8, 0, { 0x75 }),
 		VAR1(REL32, 0, { 0x0F, 0x85 })),
-	OP("jz", 1,
+	OP("jz", 2,
+		VAR1(REL8, 0, { 0x74 }),
 		VAR1(REL32, 0, { 0x0F, 0x84 })),
 
 	OP("cmp", 15,
@@ -482,6 +493,8 @@ amd64_op_t ops[] = {
 		VAR1(RM16|VARG_DST, OPSZ|OPXT,	{ 2, 0xF7 }),	// NOT r/m16
 		VAR1(RM32|VARG_DST, OPXT,		{ 2, 0xF7 }),	// NOT r/m32
 		VAR1(RM64|VARG_DST, REXW|OPXT,	{ 2, 0xF7 })),	// NOT r/m64
+
+	OP("ir_lbl", 0),
 };
 
 void zero_reg(amd64_ctx_t* cx, u8 mreg) {

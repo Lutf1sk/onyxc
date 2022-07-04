@@ -48,24 +48,37 @@ usz new_data_seg(gen_ctx_t* cx, seg_ent_t new_ent) {
 	return cx->seg_count++;
 }
 
+#define LBL_COUNT (cx->seg[cx->curr_func].lbls)
+
+static
+usz lalloc(gen_ctx_t* cx) {
+	LT_ASSERT(cx->curr_func != -1);
+	return ++LBL_COUNT;
+}
+
+static
+void ldefine(gen_ctx_t* cx, usz lbl) {
+	emit(cx, ICODE(IR_LBL, ISZ_64, 0, .uint_val = lbl));
+}
+
 #define REG_COUNT (cx->seg[cx->curr_func].regs)
 
 static
-u32 alloc_reg(gen_ctx_t* cx) {
+u32 ralloc(gen_ctx_t* cx) {
 	LT_ASSERT(cx->curr_func != -1);
 	return ++REG_COUNT;
 }
 
 static
 u32 immi_reg(gen_ctx_t* cx, usz size, u64 v) {
-	u32 reg = alloc_reg(cx);
+	u32 reg = ralloc(cx);
 	emit(cx, ICODE(IR_INT, size, reg, .uint_val = v));
 	return reg;
 }
 
 static
 u32 ref_reg(gen_ctx_t* cx, usz size, u32 ref) {
-	u32 reg = alloc_reg(cx);
+	u32 reg = ralloc(cx);
 	emit(cx, ICODE2(IR_LOAD, size, reg, ref));
 	return reg;
 }
@@ -77,15 +90,15 @@ u32 ival_reg(gen_ctx_t* cx, usz size, ival_t v) {
 	case IVAL_IMM: return immi_reg(cx, size, v.uint_val);
 
 	case IVAL_SEG: {
-		u32 reg = alloc_reg(cx);
+		u32 reg = ralloc(cx);
 		emit(cx, ICODE2(IR_SEG, size, reg, v.uint_val));
 		return reg;
 	}
 
 	case IVAL_SEG | IVAL_REF: {
-		u32 ptr = alloc_reg(cx);
+		u32 ptr = ralloc(cx);
 		emit(cx, ICODE2(IR_SEG, ISZ_64, ptr, v.uint_val));
-		u32 reg = alloc_reg(cx);
+		u32 reg = ralloc(cx);
 		emit(cx, ICODE2(IR_LOAD, size, reg, ptr));
 		return reg;
 	}
@@ -103,7 +116,7 @@ u32 ival_ptr(gen_ctx_t* cx, ival_t v) {
 	switch (v.stype) {
 	case IVAL_SEG:
 	case IVAL_SEG | IVAL_REF: {
-		u32 reg = alloc_reg(cx);
+		u32 reg = ralloc(cx);
 		emit(cx, ICODE2(IR_SEG, ISZ_64, reg, v.uint_val));
 		return reg;
 	}
@@ -208,7 +221,7 @@ ival_t gen_assign(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 static
 u32 reg_add_immi(gen_ctx_t* cx, u32 reg, u64 v) {
-	u32 new_reg = alloc_reg(cx);
+	u32 new_reg = ralloc(cx);
 	u32 immi = immi_reg(cx, ISZ_64, v);
 	emit(cx, ICODE3(IR_ADD, ISZ_64, new_reg, reg, immi));
 	return new_reg;
@@ -257,7 +270,7 @@ ival_t gen_##name(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) { \
 	\
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2); \
 	\
-	u32 dst = alloc_reg(cx); \
+	u32 dst = ralloc(cx); \
 	emit(cx, ICODE3(instr, size, dst, r1, r2)); \
 	return REG(dst); \
 }
@@ -270,7 +283,7 @@ static
 ival_t gen_negate(gen_ctx_t* cx, usz size, ival_t a) {
 	if (a.stype == IVAL_IMM)
 		return IMMI(-a.uint_val);
-	u32 r = ival_reg(cx, size, a), dst = alloc_reg(cx);
+	u32 r = ival_reg(cx, size, a), dst = ralloc(cx);
 	emit(cx, ICODE2(IR_NEG, size, dst, r));
 	return REG(dst);
 }
@@ -287,7 +300,7 @@ ival_t gen_add(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
-	u32 dst = alloc_reg(cx);
+	u32 dst = ralloc(cx);
 	emit(cx, ICODE3(IR_ADD, size, dst, r1, r2));
 	return REG(dst);
 }
@@ -304,7 +317,7 @@ ival_t gen_sub(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
-	u32 dst = alloc_reg(cx);
+	u32 dst = ralloc(cx);
 	emit(cx, ICODE3(IR_SUB, size, dst, r1, r2));
 	return REG(dst);
 }
@@ -317,7 +330,7 @@ ival_t gen_##name(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) { \
  \
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, ISZ_8, a2); \
  \
-	u32 dst = alloc_reg(cx); \
+	u32 dst = ralloc(cx); \
 	emit(cx, ICODE3(instr, size, dst, r1, r2)); \
 	return REG(dst); \
 }
@@ -347,7 +360,7 @@ ival_t gen_imul(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
-	u32 dst = alloc_reg(cx);
+	u32 dst = ralloc(cx);
 	emit(cx, ICODE3(IR_IMUL, size, dst, r1, r2));
 	return REG(dst);
 }
@@ -372,7 +385,7 @@ ival_t gen_umul(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
-	u32 dst = alloc_reg(cx);
+	u32 dst = ralloc(cx);
 	emit(cx, ICODE3(IR_UMUL, size, dst, r1, r2));
 	return REG(dst);
 }
@@ -397,7 +410,7 @@ ival_t gen_idiv(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
-	u32 dst = alloc_reg(cx);
+	u32 dst = ralloc(cx);
 	emit(cx, ICODE3(IR_IDIV, size, dst, r1, r2));
 	return REG(dst);
 }
@@ -422,7 +435,7 @@ ival_t gen_udiv(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
-	u32 dst = alloc_reg(cx);
+	u32 dst = ralloc(cx);
 	emit(cx, ICODE3(IR_UDIV, size, dst, r1, r2));
 	return REG(dst);
 }
@@ -434,7 +447,7 @@ ival_t gen_irem(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
-	u32 dst = alloc_reg(cx);
+	u32 dst = ralloc(cx);
 	emit(cx, ICODE3(IR_IREM, size, dst, r1, r2));
 	return REG(dst);
 }
@@ -446,7 +459,7 @@ ival_t gen_urem(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 
 	u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
 
-	u32 dst = alloc_reg(cx);
+	u32 dst = ralloc(cx);
 	emit(cx, ICODE3(IR_UREM, size, dst, r1, r2));
 	return REG(dst);
 }
@@ -464,7 +477,7 @@ ival_t gen_static_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
 
 static
 ival_t gen_stack_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
-	u32 reg = alloc_reg(cx);
+	u32 reg = ralloc(cx);
 	emit(cx, ICODE3(IR_SRESV, ISZ_64, reg, type_bytes(type), type_align(type)));
 	ival_gen_comp(cx, type, *v, reg);
 	return REF(reg);
@@ -481,7 +494,7 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 
 		if (expr) {
 			ival_t val = icode_gen_expr(cx, expr);
-			u32 reg = alloc_reg(cx);
+			u32 reg = ralloc(cx);
 			sym->val = REF(reg);
 			emit(cx, ICODE3(IR_SRESV, ISZ_64, reg, size, align));
 
@@ -491,7 +504,7 @@ void gen_sym_def(gen_ctx_t* cx, sym_t* sym, expr_t* expr) {
 			gen_assign(cx, size, sym->val, val);
 		}
 		else {
-			sym->val = REF(alloc_reg(cx));
+			sym->val = REF(ralloc(cx));
 			emit(cx, ICODE3(IR_SRESV, ISZ_64, sym->val.reg, size, align));
 		}
 	}
@@ -629,7 +642,7 @@ static
 ival_t gen_ptr_view(gen_ctx_t* cx, ival_t v, ival_t start_index, usz elem_size, ival_t count) {
 	ival_t ptr = gen_add(cx, ISZ_64, v, gen_imul(cx, ISZ_64, start_index, IMMI(elem_size)));
 
-	u32 view_start = alloc_reg(cx);
+	u32 view_start = ralloc(cx);
 	emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
 
 	gen_assign(cx, ISZ_64, REF(view_start), ptr);
@@ -686,7 +699,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 // 			count = IMMI(expr->child_1->type->child_count);
 			return gen_ptr_view(cx, v, IMMI(0), 0, IMMI(expr->child_1->type->child_count));
 		}
-// 		u32 view_start = alloc_reg(cx);
+// 		u32 view_start = ralloc(cx);
 // 		emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
 
 // 		gen_assign(cx, ISZ_64, REF(view_start), ptr);
@@ -702,7 +715,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size = count * elem_size;
 		LT_ASSERT(cx->curr_func != -1);
 
-		usz arr_start = alloc_reg(cx);
+		usz arr_start = ralloc(cx);
 		emit(cx, ICODE3(IR_SRESV, ISZ_64, arr_start, size, type_align(expr->type)));
 
 		expr_t* it = expr->child_1;
@@ -724,7 +737,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz count = expr->type->child_count;
 		LT_ASSERT(cx->curr_func != -1);
 
-		u32 struct_start = alloc_reg(cx);
+		u32 struct_start = ralloc(cx);
 		emit(cx, ICODE3(IR_SRESV, ISZ_64, struct_start, size, type_align(expr->type)));
 
 		usz stack_it = 0;
@@ -793,7 +806,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_CONVERT: {
 		usz to = type_bytes(expr->type), from = type_bytes(expr->child_1->type);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (a1.stype == IVAL_IMM)
+		if (a1.stype == IVAL_IMM || a1.stype == IVAL_SEG)
 			return a1;
 
 		if (expr->type->stype == TP_ARRAY_VIEW && expr->child_1->type->stype == TP_ARRAY_VIEW) {\
@@ -832,7 +845,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		}
 		else
 			LT_ASSERT_NOT_REACHED();
-		u32 r1 = ival_reg(cx, from, a1), dst = alloc_reg(cx);
+		u32 r1 = ival_reg(cx, from, a1), dst = ralloc(cx);
 		emit(cx, ICODE2(op, from, dst, r1));
 		return REG(dst);
 	}
@@ -846,7 +859,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size = type_bytes(expr->type);
 
 		u32 ptr = ival_ptr(cx, a);
-		u32 dst = alloc_reg(cx), val = ref_reg(cx, size, ptr);
+		u32 dst = ralloc(cx), val = ref_reg(cx, size, ptr);
 
 		emit(cx, ICODE2(IR_INC, size, dst, val));
 		emit(cx, ICODE2(IR_STOR, size, ptr, dst));
@@ -859,7 +872,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size = type_bytes(expr->type);
 
 		u32 ptr = ival_ptr(cx, a);
-		u32 dst = alloc_reg(cx), val = ref_reg(cx, size, ptr);
+		u32 dst = ralloc(cx), val = ref_reg(cx, size, ptr);
 
 		emit(cx, ICODE2(IR_DEC, size, dst, val));
 		emit(cx, ICODE2(IR_STOR, size, ptr, dst));
@@ -872,7 +885,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size = type_bytes(expr->type);
 
 		u32 ptr = ival_ptr(cx, a);
-		u32 tmp = alloc_reg(cx), val = ref_reg(cx, size, ptr);
+		u32 tmp = ralloc(cx), val = ref_reg(cx, size, ptr);
 
 		emit(cx, ICODE2(IR_INC, size, tmp, val));
 		emit(cx, ICODE2(IR_STOR, size, ptr, tmp));
@@ -885,7 +898,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size = type_bytes(expr->type);
 
 		u32 ptr = ival_ptr(cx, a);
-		u32 tmp = alloc_reg(cx), val = ref_reg(cx, size, ptr);
+		u32 tmp = ralloc(cx), val = ref_reg(cx, size, ptr);
 
 		emit(cx, ICODE2(IR_DEC, size, tmp, val));
 		emit(cx, ICODE2(IR_STOR, size, ptr, tmp));
@@ -897,7 +910,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		if (a.stype == IVAL_IMM)
 			return IMMI(!a.uint_val);
 		usz size = type_bytes(expr->type);
-		u32 r = ival_reg(cx, size, a), dst = alloc_reg(cx);
+		u32 r = ival_reg(cx, size, a), dst = ralloc(cx);
 		emit(cx, ICODE2(IR_NOT, size, dst, r));
 		return REG(dst);
 	}
@@ -921,12 +934,12 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		if (expr->type->stype == TP_VOID)
 			;
 		else if (ret_size > 8) {
-			u32 reg = alloc_reg(cx);
+			u32 reg = ralloc(cx);
 			emit(cx, ICODE3(IR_SRESV, ISZ_64, reg, ret_size, ret_align));
 			ret_val = REF(reg);
 		}
 		else
-			ret_val = REG(alloc_reg(cx));
+			ret_val = REG(ralloc(cx));
 
 		usz arg_count = expr->child_1->type->child_count;
 		u32* arg_regs = lt_arena_reserve(cx->arena, arg_count * sizeof(u32));
@@ -1105,15 +1118,17 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size1 = type_bytes(expr->child_1->type);
 		usz size2 = type_bytes(expr->child_2->type);
 
+		usz lbl = lalloc(cx);
+
 		u32 r1 = ival_reg(cx, size1, icode_gen_expr(cx, expr->child_1));
-		u32 trg = alloc_reg(cx);
-		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .int_val = lbl));
 		emit(cx, ICODE2(IR_CJMPZ, size1, trg, r1));
 
 		u32 r2 = ival_reg(cx, size2, icode_gen_expr(cx, expr->child_2));
 		emit(cx, ICODE2(IR_CSETNZ, size2, dst, r2));
 
-		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+		ldefine(cx, lbl);
 		return REG(dst);
 	}
 
@@ -1124,29 +1139,31 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz size1 = type_bytes(expr->child_1->type);
 		usz size2 = type_bytes(expr->child_2->type);
 
+		usz lbl = lalloc(cx);
+
 		u32 r1 = ival_reg(cx, size1, icode_gen_expr(cx, expr->child_1));
-		u32 trg = alloc_reg(cx);
-		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .int_val = lbl));
 		emit(cx, ICODE2(IR_CJMPNZ, size1, trg, r1));
 
 		u32 r2 = ival_reg(cx, size2, icode_gen_expr(cx, expr->child_2));
 		emit(cx, ICODE2(IR_CSETNZ, size2, dst, r2));
 
-		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+		ldefine(cx, lbl);
 		return REG(dst);
 	}
 
 	case EXPR_LOGIC_NOT: {
 		usz size = type_bytes(expr->child_1->type);
 		u32 r = ival_reg(cx, size, icode_gen_expr(cx, expr->child_1));
-		u32 dst = alloc_reg(cx);
+		u32 dst = ralloc(cx);
 		emit(cx, ICODE2(IR_CSETZ, size, dst, r));
 		return REG(dst);
 	}
 
 	case EXPR_LESSER: {
 		usz size = type_bytes(expr->child_1->type);
-		u32 dst = alloc_reg(cx);
+		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
 			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
@@ -1165,7 +1182,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_GREATER: {
 		usz size = type_bytes(expr->child_1->type);
-		u32 dst = alloc_reg(cx);
+		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
 			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
@@ -1184,7 +1201,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_LESSER_OR_EQUAL: {
 		usz size = type_bytes(expr->child_1->type);
-		u32 dst = alloc_reg(cx);
+		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
 			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
@@ -1203,7 +1220,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_GREATER_OR_EQUAL: {
 		usz size = type_bytes(expr->child_1->type);
-		u32 dst = alloc_reg(cx);
+		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
 			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
@@ -1222,7 +1239,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_EQUAL: {
 		usz size = type_bytes(expr->child_1->type);
-		u32 dst = alloc_reg(cx);
+		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
 			return IMMI(a1.uint_val == a2.uint_val);
@@ -1234,7 +1251,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_NOT_EQUAL: {
 		usz size = type_bytes(expr->child_1->type);
-		u32 dst = alloc_reg(cx);
+		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM)
 			return IMMI(a1.uint_val != a2.uint_val);
@@ -1259,7 +1276,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		for (usz i = 0; i < argc; ++i)
 			emit(cx, ICODE2(IR_SETARG, ISZ_64, arg_regs[i], i));
 
-		u32 dst = alloc_reg(cx);
+		u32 dst = ralloc(cx);
 		emit(cx, ICODE2(IR_SYSCALL, ISZ_64, dst, argc));
 		return REG(dst);
 	}
@@ -1315,77 +1332,80 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
  		break;
 
 	case STMT_WHILE: {
-		usz start = CURR_IP();
 		usz size = type_bytes(stmt->expr->type);
+		usz end_lbl = lalloc(cx), start_lbl = lalloc(cx);
+
+		ldefine(cx, start_lbl);
 
 		ival_t cond_v = icode_gen_expr(cx, stmt->expr);
 		u32 cond_reg = ival_reg(cx, size, cond_v);
-		u32 trg = alloc_reg(cx);
-		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .int_val = end_lbl));
 
 		emit(cx, ICODE2(IR_CJMPZ, size, trg, cond_reg));
 
 		icode_gen_stmt(cx, stmt->child);
 
-		trg = alloc_reg(cx);
-		emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = start - CURR_IP()));
+		trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .int_val = start_lbl));
 		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 
-		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+		ldefine(cx, end_lbl);
 	}	break;
 
 	case STMT_IF: {
 		usz size = type_bytes(stmt->expr->type);
+		usz false_lbl = lalloc(cx);
 
 		ival_t cond_v = icode_gen_expr(cx, stmt->expr);
 		u32 cond_reg = ival_reg(cx, size, cond_v);
-		u32 trg = alloc_reg(cx);
-		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
-
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = false_lbl));
 		emit(cx, ICODE2(IR_CJMPZ, size, trg, cond_reg));
 		icode_gen_stmt(cx, stmt->child);
 
 		if (stmt->child_2) {
-			trg = alloc_reg(cx);
-			usz jmp2 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+			usz true_lbl = lalloc(cx);
+			trg = ralloc(cx);
+			emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = true_lbl));
 			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 
-			FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
-
+			ldefine(cx, false_lbl);
 			icode_gen_stmt(cx, stmt->child_2);
-			FUNC_INSTR(jmp2).int_val = CURR_IP() - jmp2;
+			ldefine(cx, true_lbl);
 		}
 		else
-			FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+			ldefine(cx, false_lbl);
 	}	break;
 
 	case STMT_FOR: {
+		usz end_lbl = lalloc(cx), start_lbl = lalloc(cx);
+
 		usz it_size = type_bytes(stmt->sym->type);
 
 		gen_sym_def(cx, stmt->sym, stmt->sym->expr);
 
-		usz eval_ip = CURR_IP();
-
+		ldefine(cx, start_lbl);
 		ival_t end = icode_gen_expr(cx, stmt->expr);
 		u32 end_reg = ival_reg(cx, it_size, end);
 
 		u32 it_reg = ival_reg(cx, it_size, stmt->sym->val);
 
-		u32 trg = alloc_reg(cx);
-		usz jmp1 = emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = 0));
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = end_lbl));
 		emit(cx, ICODE3(IR_CJMPAE, it_size, trg, it_reg, end_reg));
 
 		icode_gen_stmt(cx, stmt->child);
 
-		u32 new_it = alloc_reg(cx);
+		u32 new_it = ralloc(cx);
 		emit(cx, ICODE2(IR_INC, it_size, new_it, it_reg));
 		emit(cx, ICODE2(IR_STOR, it_size, stmt->sym->val.reg, new_it));
 
-		trg = alloc_reg(cx);
-		emit(cx, ICODE(IR_IPO, ISZ_64, trg, .int_val = eval_ip - CURR_IP()));
+		trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = start_lbl));
 		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 
-		FUNC_INSTR(jmp1).int_val = CURR_IP() - jmp1;
+		ldefine(cx, end_lbl);
 	}	break;
 
 	default:

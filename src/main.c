@@ -218,18 +218,16 @@ int main(int argc, char** argv) {
 			for (usz i = 0; i < icode_count; ++i) {
 				icode_t ic = icode[i];
 
-				lt_printf("\t%S\t%S\t", icode_size_str(ic.size), icode_op_str(ic.op));
+				lt_printf("%uz\t%S\t%S\t", i, icode_size_str(ic.size), icode_op_str(ic.op));
 
-				if (!ic.dst) {
-					lt_printc('\n');
-					continue;
-				}
-				lt_printf(A_BOLD"r%iq "A_RESET, ic.dst);
+				if (ic.dst)
+					lt_printf(A_BOLD"r%iq "A_RESET, ic.dst);
 				switch (ic.op) {
 				case IR_INT: lt_printf("0x%hq\n", ic.uint_val); break;
 				case IR_FLOAT: lt_printf("FLOAT\n"); break;
 				case IR_SRESV: lt_printf("%ud %ud\n", ic.regs[0], ic.regs[1]); break;
-				case IR_IPO: lt_printf("%iq\n", ic.int_val); break;
+				case IR_GETLBL: lt_printf("%iq\n", ic.int_val); break;
+				case IR_LBL: lt_printf("%ud\n", ic.uint_val); break;
 				case IR_SEG: lt_printf("%ud\n", ic.regs[0]); break;
 				case IR_CALL: lt_printf("r%ud %ud\n", ic.regs[0], ic.regs[1]); break;
 				case IR_SYSCALL: lt_printf("%ud\n", ic.regs[0]); break;
@@ -250,13 +248,12 @@ int main(int argc, char** argv) {
 		case TRG_AMD64: {
 			amd64_ctx_t x64;
 			x64.arena = arena;
-			x64.curr_func = -1;
 			x64.seg = gen_cx.seg;
 			x64.seg_count = gen_cx.seg_count;
 
 			amd64_gen(&x64);
 
-#if 0
+#if 1
 			// Print machine code
 			for (usz i = 0; i < x64.seg_count; ++i) {
 				if (x64.seg[i].stype != SEG_MCODE)

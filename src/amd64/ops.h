@@ -77,6 +77,8 @@
 
 #define X64_NOT 58
 
+#define X64_IR_LBL 59
+
 #define VARG_8		0b00000000
 #define VARG_16		0b00000001
 #define VARG_32		0b00000010
