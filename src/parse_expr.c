@@ -18,10 +18,12 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			type_t* old_func_type = cx->curr_func_type;
 			cx->curr_func_type = type;
 
-			stmt_t* compound = parse_func_body(cx);
+			symtab_t* lbltab = lt_arena_reserve(cx->arena, sizeof(symtab_t));
+			stmt_t* compound = parse_func_body(cx, lbltab);
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 			*new = EXPR(EXPR_LAMBDA, type, tk);
 			new->stmt = compound;
+			new->label_symtab = lbltab;
 
 			cx->curr_func_type = old_func_type;
 			return new;

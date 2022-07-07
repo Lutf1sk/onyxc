@@ -20,9 +20,14 @@
 
 #define POP_SCOPE() (cx->symtab = cx->symtab->parent)
 
-stmt_t* parse_func_body(parse_ctx_t* cx) {
+stmt_t* parse_func_body(parse_ctx_t* cx, symtab_t* label_symtab) {
 	consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET));
 	PUSH_SCOPE();
+
+	symtab_t* label_symtab_old = cx->label_symtab;
+	cx->label_symtab = label_symtab;
+	memset(cx->label_symtab, 0, sizeof(symtab_t));
+
 	type_t** param_types = cx->curr_func_type->children;
 	lstr_t* param_names = cx->curr_func_type->child_names;
 	sym_t** param_syms = cx->curr_func_type->child_syms;
@@ -51,6 +56,8 @@ stmt_t* parse_func_body(parse_ctx_t* cx) {
 		*current = new;
 		current = &new->next;
 	}
+
+	cx->label_symtab = label_symtab_old;
 
 	POP_SCOPE();
 	consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
@@ -365,9 +372,18 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
-	case TK_KW_STRUCT: {
+	case TK_KW_STRUCT:
 		return parse_let(cx, parse_type(cx));
-	}	break;
+
+	case TK_KW_GOTO: consume(cx); {
+		if (!cx->curr_func_type)
+			goto outside_func;
+
+		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*new = STMT(STMT_GOTO);
+		new->tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected a label name"));
+		return new;
+	}
 
 	default: {
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
@@ -375,8 +391,25 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		if (tk.stype == TK_IDENTIFIER) {
 			sym_t* sym = symtab_find(cx->symtab, tk.str);
-			if (!sym)
+			if (!sym) {
+				consume(cx);
+				if (peek(cx, 0)->stype == TK_COLON) {
+					if (!cx->curr_func_type)
+						goto outside_func;
+
+					consume(cx);
+					sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+					*sym = SYM(SYM_LABEL, tk.str);
+					symtab_insert(cx->label_symtab, tk.str, sym);
+					sym->lbl = cx->label_symtab->count;
+
+					*new = STMT(STMT_LABEL);
+					new->sym = sym;
+					return new;
+				}
+
 				ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, tk, tk.str);
+			}
 
 			if (sym->stype == SYM_TYPE) {
 				type_t* type = parse_type(cx);

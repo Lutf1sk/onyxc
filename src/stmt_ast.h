@@ -16,7 +16,9 @@
 	STMT_OP(BREAK) \
 	STMT_OP(CONTINUE) \
 	STMT_OP(COMPOUND) \
-	STMT_OP(EXPR)
+	STMT_OP(EXPR) \
+	STMT_OP(LABEL) \
+	STMT_OP(GOTO)
 
 typedef enum stmt_stype {
 #define STMT_OP(x) STMT_##x,
@@ -32,9 +34,10 @@ typedef struct stmt {
 	expr_t* expr;
 	type_t* type;
 	sym_t* sym;
+	tk_t* tk;
 } stmt_t;
 
-#define STMT_INIT(stype) { (stype), NULL, NULL, NULL, NULL, NULL, NULL }
+#define STMT_INIT(stype) { (stype), NULL, NULL, NULL, NULL, NULL, NULL, NULL }
 #define STMT(stype) ((stmt_t)STMT_INIT(stype))
 
 #endif

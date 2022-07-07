@@ -15,6 +15,7 @@ typedef
 enum sym_stype {
 	SYM_VAR,
 	SYM_TYPE,
+	SYM_LABEL,
 } sym_stype_t;
 
 typedef
@@ -34,9 +35,10 @@ struct sym {
 	type_t* type;
 	expr_t* expr;
 	ival_t val;
+	usz lbl;
 } sym_t;
 
-#define SYM_INIT(stype, name) { (stype), 0, (name), NULL, NULL, {} }
+#define SYM_INIT(stype, name) { (stype), 0, (name), NULL, NULL, {}, 0 }
 #define SYM(stype, name) ((sym_t)SYM_INIT(stype, name))
 
 typedef
@@ -50,6 +52,7 @@ struct sympool {
 
 typedef
 struct symtab {
+	usz count;
 	symtab_t* parent;
 	u32 counts[256];
 	sympool_t pools[256];

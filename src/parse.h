@@ -8,7 +8,7 @@
 
 typedef struct parse_ctx {
 	type_t* curr_func_type;
-	symtab_t* symtab;
+	symtab_t* symtab, *label_symtab;
 	lt_arena_t* arena;
 
 	lex_ctx_t* lex;
@@ -36,7 +36,7 @@ extern operator_t pfx_operators[];
 typedef stmt_t* (*parse_pfn)(parse_ctx_t* cx);
 
 // parse_stmt.c
-stmt_t* parse_func_body(parse_ctx_t* cx);
+stmt_t* parse_func_body(parse_ctx_t* cx, symtab_t* label_symtab);
 stmt_t* parse_compound(parse_ctx_t* cx);
 stmt_t* parse_stmt(parse_ctx_t* cx);
 extern parse_pfn parse;

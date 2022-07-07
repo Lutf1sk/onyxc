@@ -7,6 +7,7 @@
 #include "segment.h"
 #include "tk.h"
 #include "err.h"
+#include "textattrib.h"
 
 #include <lt/io.h>
 #include <lt/mem.h>
@@ -534,6 +535,8 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 		cx->curr_func = new_func;
 
 		cx->seg[cx->curr_func].name = CLSTR("@LAMDA");
+		cx->seg[cx->curr_func].label_symtab = expr->label_symtab;
+		cx->seg[cx->curr_func].lbls = expr->label_symtab->count;
 
 		emit(cx, ICODE0(IR_ENTER, ISZ_64));
 		sym_t** args = expr->type->child_syms;
@@ -541,8 +544,8 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 		usz stack_size = 0;
 		for (isz i = arg_count - 1; i >= 0; stack_size += type_bytes(expr->type->children[i--])) {
 			sym_t* sym = args[i];
-			if (!sym /*|| !(sym->flags & SYMFL_ACCESSED)*/)
-				continue;
+// 			if (!sym /*|| !(sym->flags & SYMFL_ACCESSED)*/)
+// 				continue;
 			gen_sym_def(cx, sym, NULL);
 			emit(cx, ICODE2(IR_GETARG, type_bytes(sym->type), sym->val.reg, i));
 		}
@@ -1327,7 +1330,6 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		break;
 	}
 
-
  	case STMT_DEF:
  		break;
 
@@ -1406,6 +1408,20 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 
 		ldefine(cx, end_lbl);
+	}	break;
+
+	case STMT_LABEL:
+		ldefine(cx, stmt->sym->lbl);
+		break;
+
+	case STMT_GOTO: {
+		sym_t* sym = symtab_find(cx->seg[cx->curr_func].label_symtab, stmt->tk->str);
+		if (!sym)
+			ferr(A_BOLD"'%S'"A_RESET" is not a valid label", *stmt->tk, stmt->tk->str);
+
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = sym->lbl));
+		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 	}	break;
 
 	default:

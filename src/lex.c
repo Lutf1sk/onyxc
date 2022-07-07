@@ -69,6 +69,10 @@ tk_stype_t identifier_type(lstr_t str) {
 		if (lt_lstr_eq(str, CLSTR("for"))) return TK_KW_FOR;
 		break;
 
+	case 'g':
+		if (lt_lstr_eq(str, CLSTR("goto"))) return TK_KW_GOTO;
+		break;
+
 	case 'i':
 		if (lt_lstr_eq(str, CLSTR("implicit"))) return TK_KW_IMPLICIT;
 		if (lt_lstr_eq(str, CLSTR("import"))) return TK_KW_IMPORT;

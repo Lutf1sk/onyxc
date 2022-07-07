@@ -167,6 +167,7 @@ int main(int argc, char** argv) {
 		memset(&parse_cx, 0, sizeof(parse_cx));
 		parse_cx.arena = arena;
 		parse_cx.symtab = &symtab;
+		parse_cx.label_symtab = NULL;
 		parse_cx.lex = lex_cx;
 		parse_cx.gen_cx = &gen_cx;
 		stmt_t* root = parse(&parse_cx);

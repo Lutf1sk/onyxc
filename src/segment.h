@@ -30,9 +30,10 @@ struct seg_ent {
 	u32 origin;
 	amd64_lbl_t* lbl;
 	fwd_ref_t* ref;
+	symtab_t* label_symtab;
 } seg_ent_t;
 
-#define SEG_ENT_INIT(stype, name, size, data) { (stype), (name), (size), (data), NULL, 0, 0, 0, 0, NULL, NULL }
+#define SEG_ENT_INIT(stype, name, size, data) { (stype), (name), (size), (data), NULL, 0, 0, 0, 0, NULL, NULL, NULL }
 #define SEG_ENT(stype, name, size, data) ((seg_ent_t)SEG_ENT_INIT(stype, name, size, data))
 
 #endif

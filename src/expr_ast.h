@@ -92,12 +92,13 @@ typedef struct expr {
 		stmt_t* stmt;
 		lstr_t str_val;
 	};
+	symtab_t* label_symtab;
 	type_t* type;
 	tk_t* tk;
 	struct expr* next;
 } expr_t;
 
-#define EXPR_INIT(stype, type, tk) { (stype), NULL, NULL, {}, (type), (tk), NULL }
+#define EXPR_INIT(stype, type, tk) { (stype), NULL, NULL, {}, NULL, (type), (tk), NULL }
 #define EXPR(stype, type, tk) ((expr_t)EXPR_INIT(stype, type, tk))
 
 #endif

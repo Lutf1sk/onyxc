@@ -76,5 +76,6 @@ void symtab_insert(symtab_t* tab, lstr_t name, sym_t* sym) {
 // 	}
 
 	pool_append(pool, &tab->counts[index], name, sym);
+	tab->count++;
 }
 
