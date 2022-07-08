@@ -385,6 +385,22 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
+	case TK_KW_BREAK: {
+		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*new = STMT(STMT_BREAK);
+		new->tk = consume(cx);
+		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after break"));
+		return new;
+	}
+
+	case TK_KW_CONTINUE: {
+		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*new = STMT(STMT_CONTINUE);
+		new->tk = consume(cx);
+		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after continue"));
+		return new;
+	}
+
 	default: {
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 		usz start_it = cx->lex->it;

@@ -13,6 +13,9 @@ struct gen_ctx {
 	seg_ent_t* seg;
 
 	lt_arena_t* arena;
+
+	usz cont_lbl;
+	usz break_lbl;
 } gen_ctx_t;
 
 usz new_code_seg(gen_ctx_t* cx, type_t* type);

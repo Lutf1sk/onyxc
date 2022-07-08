@@ -1337,6 +1337,11 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		usz size = type_bytes(stmt->expr->type);
 		usz end_lbl = lalloc(cx), start_lbl = lalloc(cx);
 
+		usz old_break = cx->break_lbl;
+		usz old_cont = cx->cont_lbl;
+		cx->break_lbl = end_lbl;
+		cx->cont_lbl = start_lbl;
+
 		ldefine(cx, start_lbl);
 
 		ival_t cond_v = icode_gen_expr(cx, stmt->expr);
@@ -1353,6 +1358,9 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 
 		ldefine(cx, end_lbl);
+
+		cx->break_lbl = old_break;
+		cx->cont_lbl = old_cont;
 	}	break;
 
 	case STMT_IF: {
@@ -1383,6 +1391,11 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	case STMT_FOR: {
 		usz end_lbl = lalloc(cx), start_lbl = lalloc(cx);
 
+		usz old_break = cx->break_lbl;
+		usz old_cont = cx->cont_lbl;
+		cx->break_lbl = end_lbl;
+		cx->cont_lbl = start_lbl;
+
 		usz it_size = type_bytes(stmt->sym->type);
 
 		gen_sym_def(cx, stmt->sym, stmt->sym->expr);
@@ -1408,6 +1421,25 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 
 		ldefine(cx, end_lbl);
+
+		cx->break_lbl = old_break;
+		cx->cont_lbl = old_cont;
+	}	break;
+
+	case STMT_BREAK: {
+		if (!cx->break_lbl)
+			ferr("break must only be used inside of a loop", *stmt->tk);
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = cx->break_lbl));
+		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
+	}	break;
+
+	case STMT_CONTINUE: {
+		if (!cx->cont_lbl)
+			ferr("continue must only be used inside of a loop", *stmt->tk);
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = cx->cont_lbl));
+		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 	}	break;
 
 	case STMT_LABEL:
