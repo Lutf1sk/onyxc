@@ -1476,7 +1476,7 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 			usz lbl_case = lalloc(cx);
 
 			for (expr_t* expr_it = case_it->expr; expr_it; expr_it = expr_it->next) {
-				u32 case_reg = ival_reg(cx, type_bytes(expr_it->type), icode_gen_expr(cx, expr_it));
+				u32 case_reg = ival_reg(cx, type_bytes(expr_it->type), gen_const_expr(cx, expr_it));
 
 				u32 trg = ralloc(cx);
 				emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = lbl_case));
