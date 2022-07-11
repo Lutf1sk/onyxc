@@ -56,6 +56,7 @@ tk_stype_t identifier_type(lstr_t str) {
 
 	case 'd':
 		if (lt_lstr_eq(str, CLSTR("def"))) return TK_KW_DEF;
+		if (lt_lstr_eq(str, CLSTR("default"))) return TK_KW_DEFAULT;
 		break;
 
 	case 'e':

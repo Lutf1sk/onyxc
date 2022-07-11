@@ -401,6 +401,54 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
+	case TK_KW_SWITCH: consume(cx); {
+		tk_t* sw_tk = peek(cx, 0);
+
+		stmt_t* sw = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*sw = STMT(STMT_SWITCH);
+		sw->expr = parse_expr(cx, NULL);
+
+		if (!is_number(sw->expr->type))
+			ferr("switch type "A_BOLD"'%S'"A_RESET" is not a valid number", *sw_tk,
+					type_to_reserved_str(cx->arena, sw->expr->type));
+
+		stmt_t** case_it = &sw->child;
+
+	parse_case:
+		stmt_t* sw_case = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+
+		if (peek(cx, 0)->stype == TK_KW_DEFAULT) {
+			*sw_case = STMT(STMT_DEFAULT);
+			consume(cx);
+			sw_case->child = parse_compound(cx);
+		}
+		else {
+			*sw_case = STMT(STMT_CASE);
+			consume_type(cx, TK_KW_CASE, CLSTR(", expected switch case"));
+			expr_t** expr_it = &sw_case->expr;
+
+		parse_case_expr:
+			expr_t* expr = parse_expr(cx, sw->expr->type);
+
+			*expr_it = expr;
+			expr_it = &expr->next;
+			if (peek(cx, 0)->stype == TK_COMMA) {
+				consume(cx);
+				goto parse_case_expr;
+			}
+			sw_case->child = parse_compound(cx);
+		}
+
+		*case_it = sw_case;
+		case_it = &sw_case->next;
+		if (peek(cx, 0)->stype == TK_COMMA) {
+			consume(cx);
+			goto parse_case;
+		}
+		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after switch statement"));
+		return sw;
+	}
+
 	default: {
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 		usz start_it = cx->lex->it;

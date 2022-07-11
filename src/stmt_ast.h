@@ -18,7 +18,10 @@
 	STMT_OP(COMPOUND) \
 	STMT_OP(EXPR) \
 	STMT_OP(LABEL) \
-	STMT_OP(GOTO)
+	STMT_OP(GOTO) \
+	STMT_OP(CASE) \
+	STMT_OP(DEFAULT) \
+	STMT_OP(SWITCH)
 
 typedef enum stmt_stype {
 #define STMT_OP(x) STMT_##x,

@@ -1456,6 +1456,62 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 	}	break;
 
+	case STMT_SWITCH: {
+		u32 cond = ival_reg(cx, type_bytes(stmt->expr->type), icode_gen_expr(cx, stmt->expr));
+		usz lbl_end = lalloc(cx);
+
+		usz* case_lbls = lt_arena_reserve(cx->arena, sizeof(usz));
+
+		stmt_t* default_ = NULL;
+
+		// TODO: check for duplicate cases
+
+		usz case_count = 0;
+		for (stmt_t* case_it = stmt->child; case_it; case_it = case_it->next) {
+			if (case_it->stype == STMT_DEFAULT) {
+				default_ = case_it;
+				continue;
+			}
+
+			usz lbl_case = lalloc(cx);
+
+			for (expr_t* expr_it = case_it->expr; expr_it; expr_it = expr_it->next) {
+				u32 case_reg = ival_reg(cx, type_bytes(expr_it->type), icode_gen_expr(cx, expr_it));
+
+				u32 trg = ralloc(cx);
+				emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = lbl_case));
+				emit(cx, ICODE3(IR_CJMPE, ISZ_64, trg, cond, case_reg));
+			}
+
+			case_lbls[case_count++] = lbl_case;
+		}
+
+		if (default_) {
+			icode_gen_stmt(cx, default_->child);
+
+			u32 trg = ralloc(cx);
+			emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = lbl_end));
+			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
+		}
+
+		case_count = 0;
+		for (stmt_t* case_it = stmt->child; case_it; case_it = case_it->next) {
+			if (case_it->stype == STMT_DEFAULT)
+				continue;
+
+			usz lbl_case = lalloc(cx);
+
+			ldefine(cx, case_lbls[case_count++]);
+			icode_gen_stmt(cx, case_it->child);
+
+			u32 trg = ralloc(cx);
+			emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = lbl_end));
+			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
+		}
+
+		ldefine(cx, lbl_end);
+	}	break;
+
 	default:
 		lt_ferrf("Unhandled statement type '%S'\n", stmt_type_str(stmt->stype));
 		break;

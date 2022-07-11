@@ -51,6 +51,23 @@ let main :: u64() {
 	dlopen_p = dlopen;
 	Arena* arena = amcreate(64M);
 
+	u8 i = 5;
+
+	switch i
+	case 0, 1, 2 {
+		print("Case 1 - ");
+		print_i64(i);
+		print("\n");
+	},
+	case 3, 4 {
+		print("Case 2 - ");
+		print_i64(i);
+		print("\n");
+	},
+	default {
+		print("Unhandled case\n");
+	};
+
 	u8[] in_path = "main.nyx";
 
 	isz in_f;
@@ -77,7 +94,7 @@ let main :: u64() {
 	}
 	fclose(in_f);
 
-	print(invw);
+// 	print(invw);
 	Token[] tks = tokenize(invw);
 
 	amdestroy(arena);
