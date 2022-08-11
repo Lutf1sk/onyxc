@@ -104,8 +104,8 @@ let tokenize :: Token[](u8[] data) {
 
 		switch ctype_tab[*it]
 		case ALPHA {
-			while it < end && is_alpha8(*it) {
-				++it;
+			while it < end && (is_alpha8(*it) || is_digit8(*it) || *it == '_') {
+				void:++it;
 			}
 			goto emit;
 		},
@@ -117,6 +117,7 @@ let tokenize :: Token[](u8[] data) {
 		},
 		case SPACE {
 			++it;
+			continue;
 		},
 		default {};
 
@@ -125,8 +126,12 @@ let tokenize :: Token[](u8[] data) {
 			print("Unhandled symbol '");
 			print(tk_start[0..usz:(it - tk_start)]);
 			print("'\n");
+			continue;
 		};
 	emit:
+		print("[");
+		print(tk_start[0..usz:(it - tk_start)]);
+		print("]\n");
 	}
 }
 

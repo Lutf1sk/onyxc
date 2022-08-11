@@ -79,10 +79,6 @@ let stoi :: u8(u8[] str, i64* out) {
 	return 0;
 }
 
-let is_digit :: u8(u8 c) {
-	return c >= '0' && c <= '9';
-}
-
 let streq :: u8(u8[] s1, u8[] s2) {
 	if s1.count != s2.count {
 		return 0;

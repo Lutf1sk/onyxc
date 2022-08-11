@@ -302,19 +302,23 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		if (sym->stype == SYM_TYPE) {
 			type_t* init_type = parse_type(cx);
 
-			tk_t* tk = peek(cx, 0);
-			if (tk->stype == TK_COLON) {
+			tk_t* next_tk = peek(cx, 0);
+			if (next_tk->stype == TK_COLON) {
 				consume(cx);
+
+				if (init_type->stype == TP_VOID)
+					ferr("cannot cast to "A_BOLD"'void'"A_RESET, *tk);
+
 				expr_t* expr = parse_expr_unary(cx, NULL, 0xFFFF);
 				if (!type_convert_explicit(cx, init_type, &expr))
-					ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
+					ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *next_tk,
 							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
 				return expr;
 			}
 
 			expr_t* new = parse_expr_primary(cx, init_type);
 			if (type && !type_convert_implicit(cx, type, &new))
-				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
+				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *next_tk,
 						type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type));
 			return new;
 		}
