@@ -70,27 +70,6 @@ CTYPE[256] ctype_tab :: {
 	ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA,	// 104..111
 	ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA,	// 112..119
 	ALPHA, ALPHA, ALPHA, NONE, NONE, NONE, NONE, NONE,		// 120..127
-
-
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 0..7
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 8..15
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 16..23
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 24..31
-
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 32..39
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 40..47
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 48..55
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 56..63
-
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 64..71
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 72..79
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 80..87
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 88..95
-
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 96..103
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 104..111
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 112..119
-	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 120..127
 };
 
 let is_alpha8 :: u8(u8 c) {
@@ -123,20 +102,31 @@ let tokenize :: Token[](u8[] data) {
 	while it < end {
 		u8* tk_start = it;
 
-		switch ctype_tab[*it++]
+		switch ctype_tab[*it]
 		case ALPHA {
 			while it < end && is_alpha8(*it) {
 				++it;
 			}
+			goto emit;
 		},
 		case DIGIT {
 			while it < end && is_digit8(*it) {
 				++it;
 			}
+			goto emit;
 		},
+		case SPACE {
+			++it;
+		},
+		default {};
+
+		switch *it++
 		default {
-			print("Unhandled case\n");
+			print("Unhandled symbol '");
+			print(tk_start[0..usz:(it - tk_start)]);
+			print("'\n");
 		};
+	emit:
 	}
 }
 

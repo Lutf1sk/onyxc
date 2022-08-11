@@ -1460,7 +1460,7 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		u32 cond = ival_reg(cx, type_bytes(stmt->expr->type), icode_gen_expr(cx, stmt->expr));
 		usz lbl_end = lalloc(cx);
 
-		usz* case_lbls = lt_arena_reserve(cx->arena, sizeof(usz));
+		usz* case_lbls = lt_arena_reserve(cx->arena, sizeof(usz) * 32); // !!
 
 		stmt_t* default_ = NULL;
 
@@ -1498,8 +1498,6 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		for (stmt_t* case_it = stmt->child; case_it; case_it = case_it->next) {
 			if (case_it->stype == STMT_DEFAULT)
 				continue;
-
-			usz lbl_case = lalloc(cx);
 
 			ldefine(cx, case_lbls[case_count++]);
 			icode_gen_stmt(cx, case_it->child);
