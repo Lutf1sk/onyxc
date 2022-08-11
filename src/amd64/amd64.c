@@ -220,15 +220,27 @@ void convert_icode(amd64_ctx_t* cx) {
 		x64_mov(cx, tmp_dst, src);
 	}	break;
 
-	case IR_TOU8: x64_movzx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg0); dst->size = ISZ_8; break;
-	case IR_TOU16: x64_movzx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg0); dst->size = ISZ_16; break;
-	case IR_TOU32: x64_movzx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg0); dst->size = ISZ_32; break;
-	case IR_TOU64: x64_movzx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg0); dst->size = ISZ_64; break;
+	#define TOU(s) { \
+		init_new_reg(cx, ir->dst, ir->regs[0], ir->size); \
+		dst->size = (s); \
+		x64_movzx(cx, *dst, *reg0); \
+	}
 
-	case IR_TOI8: x64_movsx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg0); dst->size = ISZ_8; break;
-	case IR_TOI16: x64_movsx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg0); dst->size = ISZ_16; break;
-	case IR_TOI32: x64_movsx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg0); dst->size = ISZ_32; break;
-	case IR_TOI64: x64_movsx(cx, *init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg0); dst->size = ISZ_64; break;
+	#define TOI(s) { \
+		init_new_reg(cx, ir->dst, ir->regs[0], ir->size); \
+		dst->size = (s); \
+		x64_movsx(cx, *dst, *reg0); \
+	}
+
+	case IR_TOU8: TOU(ISZ_8) break;
+	case IR_TOU16: TOU(ISZ_16) break;
+	case IR_TOU32: TOU(ISZ_32) break;
+	case IR_TOU64: TOU(ISZ_64) break;
+
+	case IR_TOI8: TOI(ISZ_8) break;
+	case IR_TOI16: TOI(ISZ_16) break;
+	case IR_TOI32: TOI(ISZ_32) break;
+	case IR_TOI64: TOI(ISZ_64) break;
 
 #define GENERIC2(x) { \
 	amd64_ireg_t args[2] = {*init_new_reg(cx, ir->dst, ir->regs[0], ir->size), *reg1}; \
@@ -546,11 +558,11 @@ void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr) {
 	amd64_var_t* var = &op->vars[instr->var];
 
 	if (!op->var_count) {
-		lt_printf("0 %S", op->str);
+		lt_printf("  %S", op->str);
 		return;
 	}
 
-	lt_printf("%ud %S ", var->arg_count, op->str);
+	lt_printf("  %S ",  op->str);
 
 	u8 reg = instr->mrm.reg_rm & 0b1111;
 	u8 rm = instr->mrm.reg_rm >> 4;

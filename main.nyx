@@ -43,30 +43,106 @@ def Token :: struct {
 	u8[] str;
 }
 
-let tokenize :: Token[](u8[] data) {
+def CTYPE :: enum u8 {
+	NONE	:: 0x00,
+	ALPHA	:: 0x01,
+	DIGIT	:: 0x02,
+	SPACE	:: 0x04,
+};
 
+CTYPE[256] ctype_tab :: {
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,			// 0..7
+	NONE, SPACE, SPACE, SPACE, NONE, SPACE, NONE, NONE,		// 8..15
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,			// 16..23
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,			// 24..31
+
+	SPACE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,		// 32..39
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,			// 40..47
+	DIGIT, DIGIT, DIGIT, DIGIT, DIGIT, DIGIT, DIGIT, DIGIT,	// 48..55
+	DIGIT, DIGIT, NONE, NONE, NONE, NONE, NONE, NONE,		// 56..63
+
+	NONE, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA,	// 64..71
+	ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA,	// 72..79
+	ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA,	// 80..87
+	ALPHA, ALPHA, ALPHA, NONE, NONE, NONE, NONE, NONE,		// 88..95
+
+	NONE, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA,	// 96..103
+	ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA,	// 104..111
+	ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA,	// 112..119
+	ALPHA, ALPHA, ALPHA, NONE, NONE, NONE, NONE, NONE,		// 120..127
+
+
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 0..7
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 8..15
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 16..23
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 24..31
+
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 32..39
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 40..47
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 48..55
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 56..63
+
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 64..71
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 72..79
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 80..87
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 88..95
+
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 96..103
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 104..111
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 112..119
+	NONE, NONE, NONE, NONE, NONE, NONE, NONE, NONE,	// 120..127
+};
+
+let is_alpha8 :: u8(u8 c) {
+	return ctype_tab[c] & ALPHA;
+}
+
+let is_alpha32 :: u8(u32 c) {
+	return c < ctype_tab.count && ctype_tab[c] & ALPHA;
+}
+
+let is_digit8 :: u8(u8 c) {
+	return ctype_tab[c] & DIGIT;
+}
+
+let is_digit32 :: u8(u32 c) {
+	return c < ctype_tab.count && ctype_tab[c] & DIGIT;
+}
+
+let is_space8 :: u8(u8 c) {
+	return ctype_tab[c] & SPACE;
+}
+
+let is_space32 :: u8(u32 c) {
+	return c < ctype_tab.count && ctype_tab[c] & SPACE;
+}
+
+let tokenize :: Token[](u8[] data) {
+	u8* it = data.data, end = data.data + data.count;
+
+	while it < end {
+		u8* tk_start = it;
+
+		switch ctype_tab[*it++]
+		case ALPHA {
+			while it < end && is_alpha8(*it) {
+				++it;
+			}
+		},
+		case DIGIT {
+			while it < end && is_digit8(*it) {
+				++it;
+			}
+		},
+		default {
+			print("Unhandled case\n");
+		};
+	}
 }
 
 let main :: u64() {
 	dlopen_p = dlopen;
 	Arena* arena = amcreate(64M);
-
-	u8 i = 5;
-
-	switch i
-	case 0, 1, 2 {
-		print("Case 1 - ");
-		print_i64(i);
-		print("\n");
-	},
-	case 3, 4 {
-		print("Case 2 - ");
-		print_i64(i);
-		print("\n");
-	},
-	default {
-		print("Unhandled case\n");
-	};
 
 	u8[] in_path = "main.nyx";
 
