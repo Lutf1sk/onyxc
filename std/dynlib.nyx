@@ -130,8 +130,8 @@ DynLibrary*(u8[], Allocator*) dlopen_p = null;
 
 let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	if !dlib_pool {
-		dlib_pool = pmcreate(4096, sizeof(DynLibrary));
-		dlib_list_pool = pmcreate(8192, sizeof(DynLibrary));
+		dlib_pool = pmcreate(null, 4096, sizeof(DynLibrary));
+		dlib_list_pool = pmcreate(null, 8192, sizeof(DynLibrary));
 		if !dlib_pool || !dlib_list_pool {
 			print("failed to map pool\n");
 			return null;

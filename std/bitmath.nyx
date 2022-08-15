@@ -1,19 +1,55 @@
 
-let is_pow2 :: u8(usz n) {
-	return ~(n & (n - 1));
+// UNSAFE - 'n' must not be zero
+let is_pow2_unsafe :: u8(usz n) {
+	return !(n & (n - 1));
 }
 
-let pad :: usz(usz val, usz align) {
+let is_pow2 :: u8(usz n) {
+	if !n {
+		return 0;
+	}
+	return !(n & (n - 1));
+}
+
+// UNSAFE - 'align' must be non-zero and a power of two
+let pad_unsafe :: usz(usz val, usz align) {
 	usz align_mask = align - 1;
 	return ((val & align_mask) ^ align_mask) + 1;
 }
 
-let alignf :: usz(usz val, usz align) {
+let pad :: usz(usz val, usz align) {
+	if !align {
+		return val;
+	}
+	usz align_mask = align - 1;
+	return ((val & align_mask) ^ align_mask) + 1;
+}
+
+// UNSAFE - 'align' must be non-zero and a power of two
+let alignf_unsafe :: usz(usz val, usz align) {
 	usz align_mask = align - 1;
 	return (val + align_mask) & ~align_mask;
 }
 
+let alignf :: usz(usz val, usz align) {
+	// TODO: assert(is_pow2(align))
+	if !align {
+		return val;
+	}
+	usz align_mask = align - 1;
+	return (val + align_mask) & ~align_mask;
+}
+
+// UNSAFE - 'align' must be non-zero and a power of two
+let alignb_unsafe :: usz(usz val, usz align) {
+	return val & ~(align - 1);
+}
+
 let alignb :: usz(usz val, usz align) {
+	// TODO: assert(is_pow2(align))
+	if !align {
+		return val;
+	}
 	return val & ~(align - 1);
 }
 

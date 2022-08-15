@@ -54,6 +54,7 @@ def Pool :: struct {
 	usz chunk_count;
 	usz size;
 	void* head;
+	Allocator* parent;
 	Allocator interf;
 }
 
@@ -102,7 +103,7 @@ let pmreset :: void(Pool* pool) {
 	*last = null;
 }
 
-let pmcreatem :: Pool*(void* mem, usz size, usz chunk_size) {
+let pmcreatem :: Pool*(Allocator* parent, void* mem, usz size, usz chunk_size) {
 	usz headersz = alignf(sizeof(Pool), ALLOC_DEFAULT_ALIGN);
 
 	if size < headersz || !chunk_size {
@@ -118,6 +119,7 @@ let pmcreatem :: Pool*(void* mem, usz size, usz chunk_size) {
 	pool.chunk_size = chunk_size;
 	pool.size = size;
 	pool.chunk_count = (size - headersz) / chunk_size;
+	pool.parent = parent;
 	pool.interf.alloc = void*(void*, usz): _pmalloc_if;
 	pool.interf.realloc = void*(void*, void*, usz): _pmrealloc_if;
 	pool.interf.free = void(void*, void*): pmfree;
@@ -128,24 +130,36 @@ let pmcreatem :: Pool*(void* mem, usz size, usz chunk_size) {
 	return pool;
 }
 
-let pmcreate :: Pool*(usz size, usz chunk_size) {
-	size = alignf(size, VMEM_BLOCK_SIZE);
-
-	void* base = vmem_alloc(size);
+let pmcreate :: Pool*(Allocator* parent, usz size, usz chunk_size) {
+	void* base = null;
+	if !parent {
+		size = alignf(size, VMEM_BLOCK_SIZE);
+		base = vmem_alloc(size);
+	}
+	else {
+		size = alignf(size, ALLOC_DEFAULT_ALIGN);
+		base = parent.alloc(parent.usr, size);
+	}
 	if !base {
 		return null;
 	}
-	return pmcreatem(base, size, chunk_size);
+	return pmcreatem(parent, base, size, chunk_size);
 }
 
 let pmdestroy :: void(Pool* pool) {
-	vmem_free(pool.base, pool.size);
+	if pool.parent {
+		pool.parent.free(pool.parent.usr, pool);
+	}
+	else {
+		vmem_free(pool.base, pool.size);
+	}
 }
 
 def Arena :: struct {
 	void* base;
 	usz size;
 	void* top;
+	Allocator* parent;
 	Allocator interf;
 }
 
@@ -201,7 +215,7 @@ let amrestore :: void(Arena* arena, void* old) {
 	arena.top = old;
 }
 
-let amcreatem :: Arena*(void* mem, usz size) {
+let amcreatem :: Arena*(Allocator* parent, void* mem, usz size) {
 	if size < usz:sizeof(Arena) {
 		return null;
 	}
@@ -210,6 +224,7 @@ let amcreatem :: Arena*(void* mem, usz size) {
 	arena.base = mem;
 	arena.size = size;
 	arena.top = mem;
+	arena.parent = parent;
 	arena.interf.alloc = void*(void*, usz): amalloc;
 	arena.interf.realloc = void*(void*, void*, usz): amrealloc;
 	arena.interf.free = void(void*, void*): amfree;
@@ -219,17 +234,28 @@ let amcreatem :: Arena*(void* mem, usz size) {
 	return arena;
 }
 
-let amcreate :: Arena*(usz size) {
-	size = alignf(size, VMEM_BLOCK_SIZE);
-
-	void* base = vmem_alloc(size);
+let amcreate :: Arena*(Allocator* parent, usz size) {
+	void* base = null;
+	if !parent {
+		size = alignf(size, VMEM_BLOCK_SIZE);
+		base = vmem_alloc(size);
+	}
+	else {
+		size = alignf(size, ALLOC_DEFAULT_ALIGN);
+		base = parent.alloc(parent.usr, size);
+	}
 	if !base {
 		return null;
 	}
-	return amcreatem(base, size);
+	return amcreatem(parent, base, size);
 }
 
 let amdestroy :: void(Arena* arena) {
-	vmem_free(arena.base, arena.size);
+	if arena.parent {
+		arena.parent.free(arena.parent.usr, arena);
+	}
+	else {
+		vmem_free(arena.base, arena.size);
+	}
 }
 

@@ -1116,44 +1116,56 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	// Logical
 	case EXPR_LOGIC_AND: {
 		usz size = type_bytes(expr->type);
-		u32 dst = immi_reg(cx, size, 0);
+		u32 zero = immi_reg(cx, size, 0);
+		u32 one = immi_reg(cx, size, 1);
+
+		u32 dst = ralloc(cx);
+		emit(cx, ICODE3(IR_SRESV, ISZ_64, dst, size, type_align(expr->type)));
+		emit(cx, ICODE2(IR_STOR, size, dst, zero));
+
+		usz false_lbl = lalloc(cx);
+		u32 false_reg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, false_reg, .int_val = false_lbl));
 
 		usz size1 = type_bytes(expr->child_1->type);
-		usz size2 = type_bytes(expr->child_2->type);
-
-		usz lbl = lalloc(cx);
-
 		u32 r1 = ival_reg(cx, size1, icode_gen_expr(cx, expr->child_1));
-		u32 trg = ralloc(cx);
-		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .int_val = lbl));
-		emit(cx, ICODE2(IR_CJMPZ, size1, trg, r1));
+		emit(cx, ICODE2(IR_CJMPZ, size1, false_reg, r1));
 
+		usz size2 = type_bytes(expr->child_2->type);
 		u32 r2 = ival_reg(cx, size2, icode_gen_expr(cx, expr->child_2));
-		emit(cx, ICODE2(IR_CSETNZ, size2, dst, r2));
+		emit(cx, ICODE2(IR_CJMPZ, size2, false_reg, r2));
 
-		ldefine(cx, lbl);
-		return REG(dst);
+		emit(cx, ICODE2(IR_STOR, size, dst, one));
+
+		ldefine(cx, false_lbl);
+		return REF(dst);
 	}
 
 	case EXPR_LOGIC_OR: {
 		usz size = type_bytes(expr->type);
+		u32 zero = immi_reg(cx, size, 0);
+		u32 one = immi_reg(cx, size, 1);
+
 		u32 dst = immi_reg(cx, size, 1);
+		emit(cx, ICODE3(IR_SRESV, ISZ_64, dst, size, type_align(expr->type)));
+		emit(cx, ICODE2(IR_STOR, size, dst, one));
+
+		usz true_lbl = lalloc(cx);
+		u32 true_reg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, true_reg, .int_val = true_lbl));
 
 		usz size1 = type_bytes(expr->child_1->type);
-		usz size2 = type_bytes(expr->child_2->type);
-
-		usz lbl = lalloc(cx);
-
 		u32 r1 = ival_reg(cx, size1, icode_gen_expr(cx, expr->child_1));
-		u32 trg = ralloc(cx);
-		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .int_val = lbl));
-		emit(cx, ICODE2(IR_CJMPNZ, size1, trg, r1));
+		emit(cx, ICODE2(IR_CJMPNZ, size1, true_reg, r1));
 
+		usz size2 = type_bytes(expr->child_2->type);
 		u32 r2 = ival_reg(cx, size2, icode_gen_expr(cx, expr->child_2));
-		emit(cx, ICODE2(IR_CSETNZ, size2, dst, r2));
+		emit(cx, ICODE2(IR_CJMPNZ, size2, true_reg, r2));
 
-		ldefine(cx, lbl);
-		return REG(dst);
+		emit(cx, ICODE2(IR_STOR, size, dst, zero));
+
+		ldefine(cx, true_lbl);
+		return REF(dst);
 	}
 
 	case EXPR_LOGIC_NOT: {
@@ -1460,7 +1472,7 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		u32 cond = ival_reg(cx, type_bytes(stmt->expr->type), icode_gen_expr(cx, stmt->expr));
 		usz lbl_end = lalloc(cx);
 
-		usz* case_lbls = lt_arena_reserve(cx->arena, sizeof(usz) * 32); // !!
+		usz* case_lbls = lt_arena_reserve(cx->arena, sizeof(usz) * 64); // !!
 
 		stmt_t* default_ = NULL;
 

@@ -6,6 +6,8 @@ def TK :: enum u32 {
 	STR, CHAR,
 	INT, FLOAT,
 
+	COMMA,
+	SEMICOLON,
 	DOT, DDOT,
 	COLON, DCOLON,
 	PLUS, DPLUS, PLUSEQ,
@@ -18,14 +20,16 @@ def TK :: enum u32 {
 	EQUAL, DEQUAL,
 	LESSER, DLESSER, LESSEREQ, DLESSEREQ,
 	GREATER, DGREATER, GREATEREQ, DGREATEREQ,
+	EXCLAMATION, EXCLAMATIONEQ,
 
 	LPAREN, RPAREN,
 	LBRACKET, RBRACKET,
 	LBRACE, RBRACE,
 
 	KW_BREAK, KW_CONTINUE,
+	KW_GOTO,
 	KW_FOR, KW_WHILE,
-	KW_SWITCH, KW_CASE,
+	KW_SWITCH, KW_CASE, KW_DEFAULT,
 	KW_IF, KW_ELIF, KW_ELSE,
 	KW_LET,
 	KW_DEF, KW_STRUCT, KW_ENUM, KW_EXPLICIT, KW_IMPLICIT,
@@ -40,6 +44,7 @@ def TK :: enum u32 {
 def Token :: struct {
 	u32 type;
 	u32 file;
+	u32 row, col;
 	u8[] str;
 }
 
@@ -96,23 +101,110 @@ let is_space32 :: u8(u32 c) {
 	return c < ctype_tab.count && ctype_tab[c] & SPACE;
 }
 
-let tokenize :: Token[](u8[] data) {
-	u8* it = data.data, end = data.data + data.count;
+def LexCtx :: struct {
+	Allocator* alc;
+	u8[] src;
+	Token[] out;
+	u8[] err_str;
+}
+
+usz INITIAL_COUNT :: 64;
+
+let find_keyword :: CTYPE(u8[] str) {
+	if str.count < 2u {
+		return IDENT;
+	}
+	switch str[0]
+	case 'a' {
+		if streq(str, "alignof") { return KW_ALIGNOF; }
+	},
+	case 'b' {
+		if streq(str, "break") { return KW_BREAK; }
+	},
+	case 'c' {
+		if streq(str, "continue") { return KW_CONTINUE; }
+		if streq(str, "case") { return KW_CASE; }
+	},
+	case 'd' {
+		if streq(str, "def") { return KW_DEF; }
+		if streq(str, "default") { return KW_DEFAULT; }
+	},
+	case 'e' {
+		if streq(str, "explicit") { return KW_EXPLICIT; }
+		if streq(str, "else") { return KW_ELSE; }
+		if streq(str, "elif") { return KW_ELIF; }
+		if streq(str, "enum") { return KW_ENUM; }
+	},
+	case 'f' {
+		if streq(str, "for") { return KW_FOR; }
+	},
+	case 'g' {
+		if streq(str, "goto") { return KW_GOTO; }
+	},
+	case 'i' {
+		if streq(str, "implicit") { return KW_IMPLICIT; }
+		if streq(str, "import") { return KW_IMPORT; }
+		if streq(str, "if") { return KW_IF; }
+	},
+	case 'l' {
+		if streq(str, "let") { return KW_LET; }
+	},
+	case 'n' {
+		if streq(str, "null") { return KW_NULL; }
+	},
+	case 'r' {
+		if streq(str, "return") { return KW_RETURN; }
+	},
+	case 's' {
+		if streq(str, "switch") { return KW_SWITCH; }
+		if streq(str, "struct") { return KW_STRUCT; }
+		if streq(str, "syscall") { return KW_SYSCALL; }
+		if streq(str, "sizeof") { return KW_SIZEOF; }
+	},
+	case 'w' {
+		if streq(str, "while") { return KW_WHILE; }
+	},
+	default { return IDENT; };
+}
+
+let emit_tk :: void(LexCtx* cx, TK type, u8[] str) {
+	if cx.out.count >= INITIAL_COUNT && is_pow2_unsafe(cx.out.count) {
+		cx.out.data = cx.alc.realloc(cx.alc.usr, cx.out.data, cx.out.count * 2 * sizeof(Token));
+		if !cx.out.data {
+			print("Allocation failed\n");
+		}
+	}
+
+	cx.out[cx.out.count++] = Token { type, 0, 0, 0, str };
+}
+
+let lex :: u8(LexCtx* cx) {
+	cx.out.data = cx.alc.alloc(cx.alc.usr, INITIAL_COUNT * sizeof(Token));
+	if !cx.out.data {
+		print("Allocation failed\n");
+	}
+	cx.out.count = 0;
+
+	u8* it = cx.src.data, end = cx.src.data + cx.src.count;
 
 	while it < end {
 		u8* tk_start = it;
+		TK tk_type = EOF;
 
 		switch ctype_tab[*it]
 		case ALPHA {
+		parse_ident:
 			while it < end && (is_alpha8(*it) || is_digit8(*it) || *it == '_') {
-				void:++it;
+				++it;
 			}
+			tk_type = find_keyword(tk_start[0..usz:(it - tk_start)]);
 			goto emit;
 		},
 		case DIGIT {
-			while it < end && is_digit8(*it) {
+			while it < end && (is_digit8(*it) || is_alpha8(*it) || *it == '_') {
 				++it;
 			}
+			tk_type = INT;
 			goto emit;
 		},
 		case SPACE {
@@ -121,23 +213,149 @@ let tokenize :: Token[](u8[] data) {
 		},
 		default {};
 
+		usz rem = usz:(end - it)-1;
 		switch *it++
+		case '_' { goto parse_ident; },
+
+		case '(' { tk_type = LPAREN; },
+		case ')' { tk_type = RPAREN; },
+		case '[' { tk_type = LBRACKET; },
+		case ']' { tk_type = RBRACKET; },
+		case '{' { tk_type = LBRACE; },
+		case '}' { tk_type = RBRACE; },
+		case ',' { tk_type = COMMA; },
+		case ';' { tk_type = SEMICOLON; },
+
+		case '.' {
+			if rem && *it == '.' { ++it; tk_type = DDOT; }
+			else { tk_type = DOT; }
+		},
+		case ':' {
+			if rem && *it == ':' { ++it; tk_type = DCOLON; }
+			else { tk_type = COLON; }
+		},
+		case '+' {
+			if rem && *it == '+' { ++it; tk_type = DPLUS; }
+			elif rem && *it == '=' { ++it; tk_type = PLUSEQ; }
+			else { tk_type = PLUS; }
+		},
+		case '-' {
+			if rem && *it == '-' { ++it; tk_type = DMINUS; }
+			elif rem && *it == '=' { ++it; tk_type = MINUSEQ; }
+			elif rem && *it == '>' { ++it; tk_type = MINUSGREATER; }
+			else { tk_type = MINUS; }
+		},
+		case '*' {
+			if rem && *it == '=' { ++it; tk_type = ASTERISKEQ; }
+			else { tk_type = ASTERISK; }
+		},
+		case '/' {
+			if rem && *it == '/' {
+				while it < end && *it++ != '\n' {}
+				continue;
+			}
+			elif rem && *it == '=' { ++it; tk_type = SLASHEQ; }
+			else { tk_type = SLASH; }
+		},
+		case '^' {
+			if rem && *it == '^' { ++it; tk_type = DCARET; }
+			elif rem && *it == '=' { ++it; tk_type = CARETEQ; }
+			else { tk_type = CARET; }
+		},
+		case '&' {
+			if rem && *it == '&' { ++it; tk_type = DAMPERSAND; }
+			elif rem && *it == '=' { ++it; tk_type = AMPERSANDEQ; }
+			else { tk_type = AMPERSAND; }
+		},
+		case '|' {
+			if rem && *it == '|' { ++it; tk_type = DPIPE; }
+			elif rem && *it == '=' { ++it; tk_type = PIPEEQ; }
+			else { tk_type = PIPE; }
+		},
+		case '=' {
+			if rem && *it == '=' { ++it; tk_type = DEQUAL; }
+			else { tk_type = EQUAL; }
+		},
+		case '<' {
+			if rem && *it == '<' {
+				++it;
+				if rem > 1u && *it == '=' { ++it; tk_type = DLESSEREQ; }
+				else { tk_type = DLESSER; }
+			}
+			elif rem && *it == '=' { ++it; tk_type = LESSEREQ; }
+			else { tk_type = LESSER; }
+		},
+		case '>' {
+			if rem && *it == '-' {
+				++it;
+				if rem > 1u && *it == '=' { ++it; tk_type = DGREATEREQ; }
+				else { tk_type = DGREATER; }
+			}
+			elif rem && *it == '=' { ++it; tk_type = GREATEREQ; }
+			else { tk_type = GREATER; }
+		},
+		case '!' {
+			if rem && *it == '=' { ++it; tk_type = EXCLAMATIONEQ; }
+			else { tk_type = EXCLAMATION; }
+		},
+
+		case '"' {
+			while 1 {
+				if it >= end {
+					print("Unterminated string\n");
+					return 1;
+				}
+				u8 c = *it++;
+				if c == '\\' {
+					++it;
+					continue;
+				}
+				if c == '"' {
+					break;
+				}
+			}
+			tk_type = STR;
+		},
+		case '\'' {
+			while 1 {
+				if it >= end {
+					print("Unterminated character literal\n");
+					return 1;
+				}
+				u8 c = *it++;
+				if c == '\\' {
+					++it;
+					continue;
+				}
+				if c == '\'' {
+					break;
+				}
+			}
+			tk_type = CHAR;
+		},
 		default {
-			print("Unhandled symbol '");
+			print("\x1B[91m[");
 			print(tk_start[0..usz:(it - tk_start)]);
-			print("'\n");
+			print("]\x1B[0m");
 			continue;
 		};
+
 	emit:
-		print("[");
 		print(tk_start[0..usz:(it - tk_start)]);
-		print("]\n");
+		print(" ");
+		emit_tk(cx, tk_type, tk_start[0..usz:(it - tk_start)]);
+		if tk_type == SEMICOLON || tk_type == LBRACE {
+			print("\n");
+		}
 	}
+
+	return 0;
 }
 
 let main :: u64() {
 	dlopen_p = dlopen;
-	Arena* arena = amcreate(64M);
+	Arena* arena = amcreate(null, 64M);
+	Allocator* alc = &arena.interf;
 
 	u8[] in_path = "main.nyx";
 
@@ -165,8 +383,14 @@ let main :: u64() {
 	}
 	fclose(in_f);
 
-// 	print(invw);
-	Token[] tks = tokenize(invw);
+	LexCtx lcx;
+	lcx.alc = alc;
+	lcx.src = invw;
+	if lex(&lcx) {
+		print("Lexer error: ");
+		print(lcx.err_str);
+		print("\n");
+	}
 
 	amdestroy(arena);
 	exit(0);

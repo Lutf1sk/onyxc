@@ -109,7 +109,7 @@ void write_lbl(elf_ctx_t* cx, amd64_lbl_t** cx_lbl, usz offs, u64* imm_val) {
 		*imm_val = LOAD_ADDR + lbl->m_i;
 	else {
 		if (!lbl->ref_count)
-			lbl->refs = lt_arena_reserve(cx->arena, sizeof(u32) * 16); // !! Terrible, horrible stuff. Fix this
+			lbl->refs = lt_arena_reserve(cx->arena, sizeof(u32) * 32); // !! Terrible, horrible stuff. Fix this
 		*imm_val = LOAD_ADDR;
 		lbl->refs[lbl->ref_count++] = offs;
 	}
