@@ -169,6 +169,14 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 
 		case TK_SLASH: c = data[it];
 			if (c == '/') { while (data[++it] != '\n') ; }
+			else if (c == '*') {
+				while ((c = data[it++])) {
+					if (c == '*' && data[it] == '/') {
+						++it;
+						break;
+					}
+				}
+			}
 			else if (c == '=') { ++it; emit(TK_SLASH_EQUAL); }
 			else emit(TK_SLASH);
 			break;

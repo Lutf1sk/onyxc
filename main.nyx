@@ -1,4 +1,4 @@
-import "std/io.nyx", "std/mem.nyx", "std/dynlib.nyx";
+import "std/io.nyx", "std/mem.nyx";
 
 def TK :: enum u32 {
 	EOF,
@@ -254,6 +254,16 @@ let lex :: u8(LexCtx* cx) {
 				while it < end && *it++ != '\n' {}
 				continue;
 			}
+			elif rem && *it == '*' {
+				while it < end {
+					if isz:(end - it) > 2 && it[0] == '*' && it[1] == '/' {
+						it += 2;
+						break;
+					}
+					++it;
+				}
+				continue;
+			}
 			elif rem && *it == '=' { ++it; tk_type = SLASHEQ; }
 			else { tk_type = SLASH; }
 		},
@@ -353,7 +363,6 @@ let lex :: u8(LexCtx* cx) {
 }
 
 let main :: u64() {
-	dlopen_p = dlopen;
 	Arena* arena = amcreate(null, 64M);
 	Allocator* alc = &arena.interf;
 

@@ -96,7 +96,7 @@ int main(int argc, char** argv) {
 		lt_ferr(CLSTR("memory allocation failed\n"));
 	usz in_file_count = 0;
 
-	lstr_t out_path = CLSTR("a.out");
+	lstr_t out_path = CLSTR("out");
 	b8 run_mode = 0;
 	lt_arg_bool(CLSTR("run"), &run_mode);
 	lt_arg_bool(CLSTR("r"), &run_mode);
