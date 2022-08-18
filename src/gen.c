@@ -768,19 +768,19 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return gen_sub(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 
 	case EXPR_MULTIPLY:
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			return gen_imul(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 		else
 			return gen_umul(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 
 	case EXPR_DIVIDE:
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			return gen_idiv(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 		else
 			return gen_udiv(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 
 	case EXPR_MODULO:
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			return gen_irem(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 		else
 			return gen_urem(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
@@ -795,13 +795,13 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		return gen_xor(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 
 	case EXPR_BIT_SHIFT_LEFT:
-		if (is_int(expr->child_1->type))
+		if (is_int(resolve_enum(expr->child_1->type)))
 			return gen_ishl(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 		else
 			return gen_ushl(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 
 	case EXPR_BIT_SHIFT_RIGHT:
-		if (is_int(expr->child_1->type))
+		if (is_int(resolve_enum(expr->child_1->type)))
 			return gen_ishr(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
 		else
 			return gen_ushr(cx, type_bytes(expr->type), icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2));
@@ -813,14 +813,14 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			return a1;
 
 		if (expr->type->stype == TP_ARRAY_VIEW && expr->child_1->type->stype == TP_ARRAY_VIEW) {\
-			if (type_eq(expr->type, &void_view_def)) {
+			if (type_eq(resolve_enum(expr->type), &void_view_def)) {
 				usz elem_size = type_bytes(expr->child_1->type->base);
 				ival_t count_bytes = IMMI(0);
 				if (elem_size)
 					count_bytes = gen_umul(cx, ISZ_64, gen_view_count(cx, a1), IMMI(elem_size));
 				return gen_ptr_view(cx, gen_view_data(cx, a1), IMMI(0), elem_size, count_bytes);
 			}
-			else if (type_eq(expr->child_1->type, &void_view_def)) {
+			else if (type_eq(resolve_enum(expr->child_1->type), &void_view_def)) {
 				usz elem_size = type_bytes(expr->type->base);
 				ival_t count_bytes = IMMI(0);
 				if (elem_size)
@@ -830,7 +830,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		}
 
 		u32 op = IR_INVAL;
-		if (is_int(expr->type) && is_int(expr->child_1->type)) {
+		if (is_int(resolve_enum(expr->type)) && is_int(resolve_enum(expr->child_1->type))) {
 			switch (to) {
 			case ISZ_8: op = IR_TOI8; break;
 			case ISZ_16: op = IR_TOI16; break;
@@ -838,7 +838,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			case ISZ_64: op = IR_TOI64; break;
 			}
 		}
-		else if (is_number(expr->type) && is_number(expr->child_1->type)) {
+		else if (is_number(resolve_enum(expr->type)) && is_number(resolve_enum(expr->child_1->type))) {
 			switch (to) {
 			case ISZ_8: op = IR_TOU8; break;
 			case ISZ_16: op = IR_TOU16; break;
@@ -1082,27 +1082,27 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_SUBTRACT_ASSIGN:
 		OP_ASSIGN(sub)
 	case EXPR_MULTIPLY_ASSIGN:
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			OP_ASSIGN(imul)
 		else
 			OP_ASSIGN(umul)
 	case EXPR_DIVIDE_ASSIGN:
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			OP_ASSIGN(idiv)
 		else
 			OP_ASSIGN(udiv)
 	case EXPR_MODULO_ASSIGN:
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			OP_ASSIGN(irem)
 		else
 			OP_ASSIGN(urem)
 	case EXPR_BIT_SHIFT_LEFT_ASSIGN:
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			OP_ASSIGN(ishl)
 		else
 			OP_ASSIGN(ushl)
 	case EXPR_BIT_SHIFT_RIGHT_ASSIGN:
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			OP_ASSIGN(ishr)
 		else
 			OP_ASSIGN(ushr)
@@ -1181,14 +1181,14 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
-			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 				return IMMI(a1.int_val < a2.int_val);
 			else
 				return IMMI(a1.uint_val < a2.uint_val);
 		}
 
 		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			emit(cx, ICODE3(IR_CSETL, size, dst, r1, r2));
 		else
 			emit(cx, ICODE3(IR_CSETB, size, dst, r1, r2));
@@ -1200,14 +1200,14 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
-			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 				return IMMI(a1.int_val > a2.int_val);
 			else
 				return IMMI(a1.uint_val > a2.uint_val);
 		}
 
 		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			emit(cx, ICODE3(IR_CSETG, size, dst, r1, r2));
 		else
 			emit(cx, ICODE3(IR_CSETA, size, dst, r1, r2));
@@ -1219,14 +1219,14 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
-			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 				return IMMI(a1.int_val <= a2.int_val);
 			else
 				return IMMI(a1.uint_val <= a2.uint_val);
 		}
 
 		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			emit(cx, ICODE3(IR_CSETLE, size, dst, r1, r2));
 		else
 			emit(cx, ICODE3(IR_CSETBE, size, dst, r1, r2));
@@ -1238,14 +1238,14 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 		u32 dst = ralloc(cx);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1), a2 = icode_gen_expr(cx, expr->child_2);
 		if (a1.stype == IVAL_IMM && a2.stype == IVAL_IMM) {
-			if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+			if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 				return IMMI(a1.int_val >= a2.int_val);
 			else
 				return IMMI(a1.uint_val >= a2.uint_val);
 		}
 
 		u32 r1 = ival_reg(cx, size, a1), r2 = ival_reg(cx, size, a2);
-		if (is_int(expr->child_1->type) && is_int(expr->child_2->type))
+		if (is_int(resolve_enum(expr->child_1->type)) && is_int(resolve_enum(expr->child_2->type)))
 			emit(cx, ICODE3(IR_CSETGE, size, dst, r1, r2));
 		else
 			emit(cx, ICODE3(IR_CSETAE, size, dst, r1, r2));

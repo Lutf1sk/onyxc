@@ -1,0 +1,354 @@
+import "std/mem.nyx", "std/char.nyx";
+import "err.nyx";
+
+def Token :: struct {
+	u32 type;
+	u32 file;
+	u32 row, col;
+	u8[] str;
+}
+
+def LexCtx :: struct {
+	Allocator* alc;
+	u8[] src;
+	Token[] out;
+	Token* tk_it;
+	u8[] err_str;
+	void* next;
+}
+
+def TK :: enum u32 {
+	EOF,
+	IDENT,
+	STR, CHAR,
+	INT, FLOAT,
+
+	COMMA,
+	SEMICOLON,
+	DOT, DDOT,
+	COLON, DCOLON,
+	PLUS, DPLUS, PLUSEQ,
+	MINUS, DMINUS, MINUSEQ, MINUSGREATER,
+	ASTERISK, ASTERISKEQ,
+	SLASH, SLASHEQ,
+	CARET, DCARET, CARETEQ,
+	AMPERSAND, DAMPERSAND, AMPERSANDEQ,
+	PIPE, DPIPE, PIPEEQ,
+	EQUAL, DEQUAL,
+	LESSER, DLESSER, LESSEREQ, DLESSEREQ,
+	GREATER, DGREATER, GREATEREQ, DGREATEREQ,
+	EXCLAMATION, EXCLAMATIONEQ,
+
+	LPAREN, RPAREN,
+	LBRACKET, RBRACKET,
+	LBRACE, RBRACE,
+
+	KW_BREAK, KW_CONTINUE,
+	KW_GOTO,
+	KW_FOR, KW_WHILE,
+	KW_SWITCH, KW_CASE, KW_DEFAULT,
+	KW_IF, KW_ELIF, KW_ELSE,
+	KW_LET,
+	KW_DEF, KW_STRUCT, KW_ENUM, KW_EXPLICIT, KW_IMPLICIT,
+	KW_RETURN,
+	KW_IMPORT, KW_INCLUDE,
+	KW_SIZEOF, KW_ALIGNOF,
+	KW_NULL,
+	KW_SYSCALL,
+
+	MAX,
+};
+
+let tk_info :: struct { u8[] name_str; } [TK.MAX] {
+	{"EOF"},
+	{"IDENT"},
+	{"STR"}, {"CHAR"},
+	{"INT"}, {"FLOAT"},
+
+	{"COMMA"},
+	{"SEMICOLON"},
+	{"DOT"}, {"DDOT"},
+	{"COLON"}, {"DCOLON"},
+	{"PLUS"}, {"DPLUS"}, {"PLUSEQ"},
+	{"MINUS"}, {"DMINUS"}, {"MINUSEQ"}, {"MINUSGREATER"},
+	{"ASTERISK"}, {"ASTERISKEQ"},
+	{"SLASH"}, {"SLASHEQ"},
+	{"CARET"}, {"DCARET"}, {"CARETEQ"},
+	{"AMPERSAND"}, {"DAMPERSAND"}, {"AMPERSANDEQ"},
+	{"PIPE"}, {"DPIPE"}, {"PIPEEQ"},
+	{"EQUAL"}, {"DEQUAL"},
+	{"LESSER"}, {"DLESSER"}, {"LESSEREQ"}, {"DLESSEREQ"},
+	{"GREATER"}, {"DGREATER"}, {"GREATEREQ"}, {"DGREATEREQ"},
+	{"EXCLAMATION"}, {"EXCLAMATIONEQ"},
+
+	{"LPAREN"}, {"RPAREN"},
+	{"LBRACKET"}, {"RBRACKET"},
+	{"LBRACE"}, {"RBRACE"},
+
+	{"KW_BREAK"}, {"KW_CONTINUE"},
+	{"KW_GOTO"},
+	{"KW_FOR"}, {"KW_WHILE"},
+	{"KW_SWITCH"}, {"KW_CASE"}, {"KW_DEFAULT"},
+	{"KW_IF"}, {"KW_ELIF"}, {"KW_ELSE"},
+	{"KW_LET"},
+	{"KW_DEF"}, {"KW_STRUCT"}, {"KW_ENUM"}, {"KW_EXPLICIT"}, {"KW_IMPLICIT"},
+	{"KW_RETURN"},
+	{"KW_IMPORT"}, {"KW_INCLUDE"},
+	{"KW_SIZEOF"}, {"KW_ALIGNOF"},
+	{"KW_NULL"},
+	{"KW_SYSCALL"},
+};
+
+usz INITIAL_COUNT :: 1024;
+
+let find_keyword :: TK(u8[] str) {
+	if str.count < 2u {
+		return TK.IDENT;
+	}
+	switch str[0]
+	case 'a' {
+		if streq(str, "alignof") { return TK.KW_ALIGNOF; }
+	},
+	case 'b' {
+		if streq(str, "break") { return TK.KW_BREAK; }
+	},
+	case 'c' {
+		if streq(str, "continue") { return TK.KW_CONTINUE; }
+		if streq(str, "case") { return TK.KW_CASE; }
+	},
+	case 'd' {
+		if streq(str, "def") { return TK.KW_DEF; }
+		if streq(str, "default") { return TK.KW_DEFAULT; }
+	},
+	case 'e' {
+		if streq(str, "explicit") { return TK.KW_EXPLICIT; }
+		if streq(str, "else") { return TK.KW_ELSE; }
+		if streq(str, "elif") { return TK.KW_ELIF; }
+		if streq(str, "enum") { return TK.KW_ENUM; }
+	},
+	case 'f' {
+		if streq(str, "for") { return TK.KW_FOR; }
+	},
+	case 'g' {
+		if streq(str, "goto") { return TK.KW_GOTO; }
+	},
+	case 'i' {
+		if streq(str, "implicit") { return TK.KW_IMPLICIT; }
+		if streq(str, "import") { return TK.KW_IMPORT; }
+		if streq(str, "if") { return TK.KW_IF; }
+	},
+	case 'l' {
+		if streq(str, "let") { return TK.KW_LET; }
+	},
+	case 'n' {
+		if streq(str, "null") { return TK.KW_NULL; }
+	},
+	case 'r' {
+		if streq(str, "return") { return TK.KW_RETURN; }
+	},
+	case 's' {
+		if streq(str, "switch") { return TK.KW_SWITCH; }
+		if streq(str, "struct") { return TK.KW_STRUCT; }
+		if streq(str, "syscall") { return TK.KW_SYSCALL; }
+		if streq(str, "sizeof") { return TK.KW_SIZEOF; }
+	},
+	case 'w' {
+		if streq(str, "while") { return TK.KW_WHILE; }
+	},
+	default {};
+
+	return TK.IDENT;
+}
+
+let emit_tk :: ERR(LexCtx* cx, TK type, u8[] str) {
+	if cx.out.count >= INITIAL_COUNT && is_pow2_unsafe(cx.out.count) {
+		cx.out.data = cx.alc.realloc(cx.alc.usr, cx.out.data, cx.out.count * 2 * sizeof(Token));
+		if !cx.out.data {
+			cx.err_str = "Memory allocation failed";
+			return ERR.NOMEM;
+		}
+	}
+
+	cx.out[cx.out.count++] = Token { type, 0, 0, 0, str };
+	return ERR.OK;
+}
+
+let lex :: ERR(LexCtx* cx) {
+	cx.out.data = cx.alc.alloc(cx.alc.usr, INITIAL_COUNT * sizeof(Token));
+	if !cx.out.data {
+		cx.err_str = "Memory allocation failed";
+		return ERR.NOMEM;
+	}
+	cx.out.count = 0;
+
+	u8* it = cx.src.data, end = cx.src.data + cx.src.count;
+
+	while it < end {
+		u8* tk_start = it;
+		TK tk_type = TK.EOF;
+
+		switch ctype_tab[*it]
+		case CTYPE.ALPHA {
+		parse_ident:
+			while it < end && (is_alpha8(*it) || is_digit8(*it) || *it == '_') {
+				++it;
+			}
+			tk_type = find_keyword(tk_start[0..usz:(it - tk_start)]);
+			goto emit;
+		},
+		case CTYPE.DIGIT {
+			while it < end && (is_digit8(*it) || is_alpha8(*it) || *it == '_') {
+				++it;
+			}
+			tk_type = TK.INT;
+			goto emit;
+		},
+		case CTYPE.SPACE {
+			++it;
+			continue;
+		},
+		default {};
+
+		usz rem = usz:(end - it)-1;
+		switch *it++
+		case '_' { goto parse_ident; },
+
+		case '(' { tk_type = TK.LPAREN; },
+		case ')' { tk_type = TK.RPAREN; },
+		case '[' { tk_type = TK.LBRACKET; },
+		case ']' { tk_type = TK.RBRACKET; },
+		case '{' { tk_type = TK.LBRACE; },
+		case '}' { tk_type = TK.RBRACE; },
+		case ',' { tk_type = TK.COMMA; },
+		case ';' { tk_type = TK.SEMICOLON; },
+
+		case '.' {
+			if rem && *it == '.' { ++it; tk_type = TK.DDOT; }
+			else { tk_type = TK.DOT; }
+		},
+		case ':' {
+			if rem && *it == ':' { ++it; tk_type = TK.DCOLON; }
+			else { tk_type = TK.COLON; }
+		},
+		case '+' {
+			if rem && *it == '+' { ++it; tk_type = TK.DPLUS; }
+			elif rem && *it == '=' { ++it; tk_type = TK.PLUSEQ; }
+			else { tk_type = TK.PLUS; }
+		},
+		case '-' {
+			if rem && *it == '-' { ++it; tk_type = TK.DMINUS; }
+			elif rem && *it == '=' { ++it; tk_type = TK.MINUSEQ; }
+			elif rem && *it == '>' { ++it; tk_type = TK.MINUSGREATER; }
+			else { tk_type = TK.MINUS; }
+		},
+		case '*' {
+			if rem && *it == '=' { ++it; tk_type = TK.ASTERISKEQ; }
+			else { tk_type = TK.ASTERISK; }
+		},
+		case '/' {
+			if rem && *it == '/' {
+				while it < end && *it++ != '\n' {}
+				continue;
+			}
+			elif rem && *it == '*' {
+				while it < end {
+					if isz:(end - it) > 2 && it[0] == '*' && it[1] == '/' {
+						it += 2;
+						break;
+					}
+					++it;
+				}
+				continue;
+			}
+			elif rem && *it == '=' { ++it; tk_type = TK.SLASHEQ; }
+			else { tk_type = TK.SLASH; }
+		},
+		case '^' {
+			if rem && *it == '^' { ++it; tk_type = TK.DCARET; }
+			elif rem && *it == '=' { ++it; tk_type = TK.CARETEQ; }
+			else { tk_type = TK.CARET; }
+		},
+		case '&' {
+			if rem && *it == '&' { ++it; tk_type = TK.DAMPERSAND; }
+			elif rem && *it == '=' { ++it; tk_type = TK.AMPERSANDEQ; }
+			else { tk_type = TK.AMPERSAND; }
+		},
+		case '|' {
+			if rem && *it == '|' { ++it; tk_type = TK.DPIPE; }
+			elif rem && *it == '=' { ++it; tk_type = TK.PIPEEQ; }
+			else { tk_type = TK.PIPE; }
+		},
+		case '=' {
+			if rem && *it == '=' { ++it; tk_type = TK.DEQUAL; }
+			else { tk_type = TK.EQUAL; }
+		},
+		case '<' {
+			if rem && *it == '<' {
+				++it;
+				if rem > 1u && *it == '=' { ++it; tk_type = TK.DLESSEREQ; }
+				else { tk_type = TK.DLESSER; }
+			}
+			elif rem && *it == '=' { ++it; tk_type = TK.LESSEREQ; }
+			else { tk_type = TK.LESSER; }
+		},
+		case '>' {
+			if rem && *it == '-' {
+				++it;
+				if rem > 1u && *it == '=' { ++it; tk_type = TK.DGREATEREQ; }
+				else { tk_type = TK.DGREATER; }
+			}
+			elif rem && *it == '=' { ++it; tk_type = TK.GREATEREQ; }
+			else { tk_type = TK.GREATER; }
+		},
+		case '!' {
+			if rem && *it == '=' { ++it; tk_type = TK.EXCLAMATIONEQ; }
+			else { tk_type = TK.EXCLAMATION; }
+		},
+
+		case '"' {
+			while 1 {
+				if it >= end {
+					cx.err_str = "Unterminated string";
+					return ERR.LEXER;
+				}
+				u8 c = *it++;
+				if c == '\\' {
+					++it;
+					continue;
+				}
+				if c == '"' {
+					break;
+				}
+			}
+			tk_type = TK.STR;
+		},
+		case '\'' {
+			while 1 {
+				if it >= end {
+					cx.err_str = "Unterminated character literal";
+					return ERR.LEXER;
+				}
+				u8 c = *it++;
+				if c == '\\' {
+					++it;
+					continue;
+				}
+				if c == '\'' {
+					break;
+				}
+			}
+			tk_type = TK.CHAR;
+		},
+		default {
+			cx.err_str = "Unexpected symbol";
+			return ERR.LEXER;
+		};
+	emit:
+		u8[] tk_str = tk_start[0..usz:(it - tk_start)];
+		ERR err = emit_tk(cx, tk_type, tk_str);
+		if err { return err; }
+	}
+
+	return ERR.OK;
+}
+

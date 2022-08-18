@@ -79,3 +79,9 @@ void symtab_insert(symtab_t* tab, lstr_t name, sym_t* sym) {
 	tab->count++;
 }
 
+symtab_t* symtab_create(lt_arena_t* arena) {
+	symtab_t* stab = lt_arena_reserve(arena, sizeof(symtab_t));
+	memset(stab->counts, 0, sizeof(stab->counts));
+	return stab;
+}
+

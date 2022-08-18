@@ -35,6 +35,9 @@ extern operator_t pfx_operators[];
 
 typedef stmt_t* (*parse_pfn)(parse_ctx_t* cx);
 
+sym_t* parse_sym(parse_ctx_t* cx);
+sym_t* try_parse_sym(parse_ctx_t* cx, usz stype);
+
 // parse_stmt.c
 stmt_t* parse_func_body(parse_ctx_t* cx, symtab_t* label_symtab);
 stmt_t* parse_compound(parse_ctx_t* cx);
@@ -48,6 +51,7 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence);
 expr_t* parse_expr(parse_ctx_t* cx, type_t* type);
 
 // parse_type.c
-type_t* parse_type(parse_ctx_t* cx);
+type_t* parse_type(parse_ctx_t* cx, type_t* base);
+type_t* try_parse_type(parse_ctx_t* cx);
 
 #endif

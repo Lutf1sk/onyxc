@@ -13,18 +13,20 @@
 
 typedef
 enum sym_stype {
-	SYM_VAR,
-	SYM_TYPE,
-	SYM_LABEL,
+	SYM_NONE	= 0x00,
+	SYM_VAR		= 0x01,
+	SYM_TYPE	= 0x02,
+	SYM_LABEL	= 0x03,
+	SYM_NSPACE	= 0x04,
 } sym_stype_t;
 
 typedef
 enum sym_flags {
-	SYMFL_CONST = 1,
-	SYMFL_GLOBAL = 2,
-	SYMFL_ACCESSED = 4,
-	SYMFL_REFERENCED = 8,
-	SYMFL_ARG = 16,
+	SYMFL_CONST			= 0x01,
+	SYMFL_GLOBAL		= 0x02,
+	SYMFL_ACCESSED		= 0x04,
+	SYMFL_REFERENCED	= 0x08,
+	SYMFL_ARG			= 0x10,
 } sym_flags_t;
 
 typedef
@@ -61,5 +63,7 @@ struct symtab {
 sym_t* symtab_find(symtab_t* tab, lstr_t name);
 b8 symtab_definable(symtab_t* tab, lstr_t name);
 void symtab_insert(symtab_t* tab, lstr_t name, sym_t* sym);
+
+symtab_t* symtab_create(lt_arena_t* arena);
 
 #endif

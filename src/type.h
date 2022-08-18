@@ -12,7 +12,7 @@ typedef enum type_stype {
 	TP_PTR,
 	TP_ARRAY, TP_ARRAY_VIEW,
 	TP_FUNC,
-	TP_STRUCT,
+	TP_STRUCT, TP_ENUM,
 
 	TP_VOID,
 	TP_U8, TP_U16, TP_U32, TP_U64,
@@ -29,10 +29,17 @@ typedef struct type {
 	sym_t** child_syms;
 	sym_t* sym;
 	struct type* base;
+	symtab_t* symtab;
 } type_t;
 
-#define TYPE_INIT(stype, base) { (stype), 0, NULL, NULL, NULL, NULL, (base) }
+#define TYPE_INIT(stype, base) { (stype), 0, NULL, NULL, NULL, NULL, (base), NULL }
 #define TYPE(stype, base) ((type_t)TYPE_INIT(stype, base))
+
+static LT_INLINE
+type_t* resolve_enum(type_t* type) {
+	while (type->stype == TP_ENUM) type = type->base;
+	return type;
+}
 
 b8 type_eq(type_t* t1, type_t* t2);
 

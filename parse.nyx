@@ -1,0 +1,10 @@
+
+def ParseCtx :: struct {
+	Token[] back_stream;
+	LexCtx* lcx;
+}
+
+let consume :: Token*(LexCtx* cx) {
+
+}
+

@@ -31,6 +31,10 @@ let vmem_free :: void(void* mem, usz size) {
 usz VMEM_BLOCK_SIZE :: 4096;
 usz ALLOC_DEFAULT_ALIGN :: 16;
 
+def ALLOC_FLAGS :: enum usz {
+	FIXED_SIZE :: 0x01, // Do not grow automatically when out of memory
+};
+
 def Allocator :: struct {
 	void*(void*, usz) alloc;
 	void*(void*, void*, usz) realloc;
@@ -54,6 +58,7 @@ def Pool :: struct {
 	usz chunk_count;
 	usz size;
 	void* head;
+	usz flags;
 	Allocator* parent;
 	Allocator interf;
 }
@@ -103,7 +108,7 @@ let pmreset :: void(Pool* pool) {
 	*last = null;
 }
 
-let pmcreatem :: Pool*(Allocator* parent, void* mem, usz size, usz chunk_size) {
+let pmcreatem :: Pool*(Allocator* parent, void* mem, usz size, usz chunk_size, usz flags) {
 	usz headersz = alignf(sizeof(Pool), ALLOC_DEFAULT_ALIGN);
 
 	if size < headersz || !chunk_size {
@@ -119,6 +124,7 @@ let pmcreatem :: Pool*(Allocator* parent, void* mem, usz size, usz chunk_size) {
 	pool.chunk_size = chunk_size;
 	pool.size = size;
 	pool.chunk_count = (size - headersz) / chunk_size;
+	pool.flags = flags;
 	pool.parent = parent;
 	pool.interf.alloc = void*(void*, usz): _pmalloc_if;
 	pool.interf.realloc = void*(void*, void*, usz): _pmrealloc_if;
@@ -130,7 +136,7 @@ let pmcreatem :: Pool*(Allocator* parent, void* mem, usz size, usz chunk_size) {
 	return pool;
 }
 
-let pmcreate :: Pool*(Allocator* parent, usz size, usz chunk_size) {
+let pmcreate :: Pool*(Allocator* parent, usz size, usz chunk_size, usz flags) {
 	void* base = null;
 	if !parent {
 		size = alignf(size, VMEM_BLOCK_SIZE);
@@ -143,7 +149,7 @@ let pmcreate :: Pool*(Allocator* parent, usz size, usz chunk_size) {
 	if !base {
 		return null;
 	}
-	return pmcreatem(parent, base, size, chunk_size);
+	return pmcreatem(parent, base, size, chunk_size, flags);
 }
 
 let pmdestroy :: void(Pool* pool) {
@@ -159,6 +165,7 @@ def Arena :: struct {
 	void* base;
 	usz size;
 	void* top;
+	usz flags;
 	Allocator* parent;
 	Allocator interf;
 }
@@ -166,25 +173,24 @@ def Arena :: struct {
 let amalloc :: void*(Arena* arena, usz size) {
 	void* start = void*:alignf(usz:arena.top, ALLOC_DEFAULT_ALIGN);
 	void* new_top = start + ALLOC_DEFAULT_ALIGN + size;
-	void* top_max = arena.base + arena.size;
 
-	if new_top > top_max {
+	if new_top > arena.base + arena.size {
 		return null;
 	}
-	*usz*:new_top = size;
+	*usz*:start = size;
 	arena.top = new_top;
 	return start + ALLOC_DEFAULT_ALIGN;
 }
 
 let amrealloc :: void*(Arena* arena, void* ptr, usz new_size) {
-	usz old_size = *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
+	usz* psize = usz*:(ptr - ALLOC_DEFAULT_ALIGN);
 
-	if arena.top == ptr + old_size {
-		void* top_max = arena.base + arena.size;
-		*usz*:(ptr - ALLOC_DEFAULT_ALIGN) = new_size;
-		if ptr + new_size > top_max {
+	if arena.top == ptr + *psize {
+		if ptr + new_size > arena.base + arena.size {
 			return null;
 		}
+		*psize = new_size;
+		arena.top = ptr + new_size;
 		return ptr;
 	}
 
@@ -192,7 +198,7 @@ let amrealloc :: void*(Arena* arena, void* ptr, usz new_size) {
 	if !new_ptr {
 		return null;
 	}
-	mcopy(new_ptr, ptr, old_size);
+	mcopy(new_ptr, ptr, *psize);
 	return new_ptr;
 }
 
@@ -215,7 +221,7 @@ let amrestore :: void(Arena* arena, void* old) {
 	arena.top = old;
 }
 
-let amcreatem :: Arena*(Allocator* parent, void* mem, usz size) {
+let amcreatem :: Arena*(Allocator* parent, void* mem, usz size, usz flags) {
 	if size < usz:sizeof(Arena) {
 		return null;
 	}
@@ -223,18 +229,18 @@ let amcreatem :: Arena*(Allocator* parent, void* mem, usz size) {
 	Arena* arena = mem;
 	arena.base = mem;
 	arena.size = size;
-	arena.top = mem;
+	arena.top = mem + sizeof(Arena); // Reserve enough memory to cover the header
+	arena.flags = flags;
 	arena.parent = parent;
 	arena.interf.alloc = void*(void*, usz): amalloc;
 	arena.interf.realloc = void*(void*, void*, usz): amrealloc;
 	arena.interf.free = void(void*, void*): amfree;
 	arena.interf.size = usz(void*, void*): amsize;
 	arena.interf.usr = arena;
-	amalloc(arena, sizeof(Arena)); // Reserve an area covering the header
 	return arena;
 }
 
-let amcreate :: Arena*(Allocator* parent, usz size) {
+let amcreate :: Arena*(Allocator* parent, usz size, usz flags) {
 	void* base = null;
 	if !parent {
 		size = alignf(size, VMEM_BLOCK_SIZE);
@@ -247,7 +253,7 @@ let amcreate :: Arena*(Allocator* parent, usz size) {
 	if !base {
 		return null;
 	}
-	return amcreatem(parent, base, size);
+	return amcreatem(parent, base, size, flags);
 }
 
 let amdestroy :: void(Arena* arena) {

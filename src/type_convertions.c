@@ -6,16 +6,20 @@
 
 b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	expr_t* old = *expr;
+	type_t* from = old->type;
 
-	if (type_eq(type, old->type))
+	type = resolve_enum(type);
+	from = resolve_enum(from);
+
+	if (type_eq(type, from))
 		return 1;
 
-	b8 void_arr1 = type_eq(old->type, &void_view_def) && type->stype == TP_ARRAY;
-	b8 void_arr2 = old->type->stype == TP_ARRAY && type_eq(type, &void_view_def);
+	b8 void_arr1 = type_eq(from, &void_view_def) && type->stype == TP_ARRAY;
+	b8 void_arr2 = from->stype == TP_ARRAY && type_eq(type, &void_view_def);
 	if (void_arr1 || void_arr2) {
 		type_t* base = type->base;
 		if (void_arr2)
-			base = old->type->base;
+			base = from->base;
 		type_t* view_type = lt_arena_reserve(cx->arena, sizeof(type_t));
 		*view_type = TYPE(TP_ARRAY_VIEW, base);
 
@@ -31,14 +35,14 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		return 1;
 	}
 
-	if ((is_int_any_sign(type) && is_int_any_sign(old->type)) ||
-		(is_float(type) && is_float(old->type)) ||
-		(is_bool(type) && is_bool(old->type)) ||
-		(type_eq(old->type, &void_ptr_def) && (type->stype == TP_PTR || type->stype == TP_FUNC)) ||
-		((old->type->stype == TP_PTR || old->type->stype == TP_FUNC) && type_eq(type, &void_ptr_def)) ||
+	if ((is_int_any_sign(type) && is_int_any_sign(from)) ||
+		(is_float(type) && is_float(from)) ||
+		(is_bool(type) && is_bool(from)) ||
+		(type_eq(from, &void_ptr_def) && (type->stype == TP_PTR || type->stype == TP_FUNC)) ||
+		((from->stype == TP_PTR || from->stype == TP_FUNC) && type_eq(type, &void_ptr_def)) ||
 
-		(type_eq(old->type, &void_view_def) && type->stype == TP_ARRAY_VIEW) ||
-		(old->type->stype == TP_ARRAY_VIEW && type_eq(type, &void_view_def)))
+		(type_eq(from, &void_view_def) && type->stype == TP_ARRAY_VIEW) ||
+		(from->stype == TP_ARRAY_VIEW && type_eq(type, &void_view_def)))
 	{
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_CONVERT, type, (*expr)->tk);
@@ -47,7 +51,7 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		return 1;
 	}
 
-	if (type->stype == TP_ARRAY_VIEW && old->type->stype == TP_ARRAY && type_eq(type->base, old->type->base)) {
+	if (type->stype == TP_ARRAY_VIEW && from->stype == TP_ARRAY && type_eq(type->base, from->base)) {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_VIEW, type, (*expr)->tk);
 		new->child_1 = old;
@@ -59,13 +63,17 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 }
 
 b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
+	expr_t* old = *expr;
+	type_t* from = old->type;
+
+	type = resolve_enum(type);
+	from = resolve_enum(from);
+
 	if (type_convert_implicit(cx, type, expr))
 		return 1;
 
-	expr_t* old = *expr;
-
-	if ((is_int_any_sign_or_ptr(old->type) || is_float(type) || is_bool(type)) &&
-		(is_int_any_sign_or_ptr(old->type) || is_float(old->type) || is_bool(old->type)))
+	if ((is_int_any_sign_or_ptr(from) || is_float(type) || is_bool(type)) &&
+		(is_int_any_sign_or_ptr(from) || is_float(from) || is_bool(from)))
 	{
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_CONVERT, type, (*expr)->tk);
@@ -74,7 +82,7 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		return 1;
 	}
 
-	if (type->stype == TP_ARRAY_VIEW && old->type->stype == TP_ARRAY) {
+	if (type->stype == TP_ARRAY_VIEW && from->stype == TP_ARRAY) {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_VIEW, type, (*expr)->tk);
 		new->child_1 = old;
@@ -86,6 +94,9 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 }
 
 type_t* type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left, expr_t** right) {
+	(*left)->type = resolve_enum((*left)->type);
+	(*right)->type = resolve_enum((*right)->type);
+
 	LT_ASSERT(left && *left && (*left)->type);
 	LT_ASSERT(right && *right && (*right)->type);
 

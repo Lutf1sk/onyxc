@@ -18,7 +18,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			type_t* old_func_type = cx->curr_func_type;
 			cx->curr_func_type = type;
 
-			symtab_t* lbltab = lt_arena_reserve(cx->arena, sizeof(symtab_t));
+			symtab_t* lbltab = symtab_create(cx->arena);
 			stmt_t* compound = parse_func_body(cx, lbltab);
 			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 			*new = EXPR(EXPR_LAMBDA, type, tk);
@@ -112,6 +112,29 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 			consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
 			return new;
 		}
+	}
+
+	type_t* init_type = try_parse_type(cx);
+	if (init_type) {
+		tk_t* next_tk = peek(cx, 0);
+		if (next_tk->stype == TK_COLON) {
+			consume(cx);
+
+			if (init_type->stype == TP_VOID)
+				ferr("cannot cast to "A_BOLD"'void'"A_RESET, *tk);
+
+			expr_t* expr = parse_expr_unary(cx, NULL, 0xFFFF);
+			if (!type_convert_explicit(cx, init_type, &expr))
+				ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *next_tk,
+						type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
+			return expr;
+		}
+
+		expr_t* new = parse_expr_primary(cx, init_type);
+		if (type && !type_convert_implicit(cx, type, &new))
+			ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *next_tk,
+					type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type));
+		return new;
 	}
 
 	switch (tk->stype) {
@@ -255,7 +278,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &i64_def, tk);
 		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET" after "A_BOLD"'sizeof'"A_RESET));
-		new->int_val = type_bytes(parse_type(cx));
+		new->int_val = type_bytes(parse_type(cx, NULL));
 		consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET));
 		return new;
 	}
@@ -264,7 +287,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &i64_def, tk);
 		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET" after "A_BOLD"'sizeof'"A_RESET));
-		new->int_val = type_align(parse_type(cx));
+		new->int_val = type_align(parse_type(cx, NULL));
 		consume_type(cx, TK_RIGHT_PARENTH, CLSTR(", expected "A_BOLD"')'"A_RESET));
 		return new;
 	}
@@ -287,44 +310,14 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	}
 
 	case TK_IDENTIFIER: {
-		sym_t* sym = symtab_find(cx->symtab, tk->str);
-		if (!sym)
-			goto undeclared;
-
-		if (sym->stype == SYM_VAR) {
-			consume(cx);
-			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
-			*new = EXPR(EXPR_SYM, sym->type, tk);
-			sym->flags |= SYMFL_ACCESSED;
-			new->sym = sym;
-			return new;
-		}
-		if (sym->stype == SYM_TYPE) {
-			type_t* init_type = parse_type(cx);
-
-			tk_t* next_tk = peek(cx, 0);
-			if (next_tk->stype == TK_COLON) {
-				consume(cx);
-
-				if (init_type->stype == TP_VOID)
-					ferr("cannot cast to "A_BOLD"'void'"A_RESET, *tk);
-
-				expr_t* expr = parse_expr_unary(cx, NULL, 0xFFFF);
-				if (!type_convert_explicit(cx, init_type, &expr))
-					ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *next_tk,
-							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, init_type));
-				return expr;
-			}
-
-			expr_t* new = parse_expr_primary(cx, init_type);
-			if (type && !type_convert_implicit(cx, type, &new))
-				ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *next_tk,
-						type_to_reserved_str(cx->arena, new->type), type_to_reserved_str(cx->arena, type));
-			return new;
-		}
-
-	undeclared:
-		ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, *tk, tk->str);
+		sym_t* sym = parse_sym(cx);
+		if (sym->stype != SYM_VAR)
+			ferr("expected a runtime value", *tk);
+		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*new = EXPR(EXPR_SYM, sym->type, tk);
+		sym->flags |= SYMFL_ACCESSED;
+		new->sym = sym;
+		return new;
 	}
 
 	default:
@@ -437,9 +430,9 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			}
 
 			subscript->child_2 = parse_expr(cx, NULL);
-			if (is_int(subscript->child_2->type))
+			if (is_int(resolve_enum(subscript->child_2->type)))
 				type_convert_implicit(cx, &i64_def, &subscript->child_2);
-			else if (is_uint(subscript->child_2->type))
+			else if (is_uint(resolve_enum(subscript->child_2->type)))
 				type_convert_implicit(cx, &u64_def, &subscript->child_2);
 			else
 				ferr("array index must be an integer", *subscript->child_2->tk);
@@ -453,7 +446,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				consume(cx);
 
 				expr_t* next = parse_expr(cx, NULL);
-				if (!is_int_any_sign(next->type))
+				if (!is_int_any_sign(resolve_enum(next->type)))
 					ferr("array index must be an integer", *next->tk);
 				type_convert_implicit(cx, &u64_def, &next);
 
@@ -513,7 +506,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			new->child_1 = operand;
 			operand = new;
 
-			if (!is_number(new->type))
+			if (!is_number(resolve_enum(new->type)))
 				ferr("operand of unary "A_BOLD"'%S'"A_RESET" must be a valid number", *new->tk, new->tk->str);
 		}
 	}
@@ -555,7 +548,7 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 
 		default:
 			new->type = child->type;
-			if (!is_number(new->type))
+			if (!is_number(resolve_enum(new->type)))
 				ferr("operand of unary "A_BOLD"'%S'"A_RESET" must be a valid number", *new->tk, new->tk->str);
 			break;
 		}

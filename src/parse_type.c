@@ -9,9 +9,11 @@
 #include <lt/str.h>
 #include <lt/io.h>
 
-type_t* parse_type(parse_ctx_t* cx) {
+type_t* parse_type(parse_ctx_t* cx, type_t* base) {
+	if (base)
+		goto parse_postfix;
+
 	tk_t tk = *peek(cx, 0);
-	type_t* base = NULL;
 	switch (tk.stype) {
 	case TK_IDENTIFIER: consume(cx); {
 		sym_t* sym = symtab_find(cx->symtab, tk.str);
@@ -23,14 +25,18 @@ type_t* parse_type(parse_ctx_t* cx) {
 	case TK_KW_ENUM: consume(cx); {
 		tk_t* type_tk = peek(cx, 0);
 
-		type_t* type = parse_type(cx);
+		type_t* type = parse_type(cx, NULL);
 		if (type->stype == TP_VOID)
 			ferr("enum cannot be of type "A_BOLD"'void'"A_RESET, *type_tk);
 
 		consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET" after "A_BOLD"'enum'"A_RESET));
 
-		b8 auto_increment = is_int_any_sign(type);
+		b8 auto_increment = is_int_any_sign(resolve_enum(type));
 		u64 auto_val = 0;
+
+		type_t* parent = lt_arena_reserve(cx->arena, sizeof(type_t));
+		*parent = TYPE(TP_ENUM, type);
+		parent->symtab = symtab_create(cx->arena);
 
 		while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
 			tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
@@ -47,7 +53,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 			if (peek(cx, 0)->stype == TK_DOUBLE_COLON) {
 				consume(cx);
 				tk_t* tk = peek(cx, 0);
-				expr_t* expr = parse_expr(cx, type);
+				expr_t* expr = parse_expr(cx, parent);
 				if (!type_convert_implicit(cx, type, &expr))
 					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
 							type_to_reserved_str(cx->arena, expr->type), type_to_reserved_str(cx->arena, type));
@@ -61,7 +67,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 			else
 				ferr("non-integer enum values must be explicitly initialized", *ident_tk);
 
-			symtab_insert(cx->symtab, ident, sym);
+			symtab_insert(parent->symtab, ident, sym);
 
 			if (peek(cx, 0)->stype != TK_COMMA)
 				break;
@@ -69,7 +75,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 		}
 
 		consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET));
-		base = type;
+		base = parent;
 	}	break;
 
 	case TK_KW_STRUCT: consume(cx); {
@@ -80,7 +86,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 
 		while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
 			tk_t* tk = peek(cx, 0);
-			type_t* new = parse_type(cx);
+			type_t* new = parse_type(cx, NULL);
 
 			if (new->stype == TP_VOID)
 				ferr("struct member cannot be of type "A_BOLD"'void'"A_RESET, *tk);
@@ -105,6 +111,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 		ferr("unexpected token "A_BOLD"'%S'"A_RESET", expected a valid type", tk, tk.str);
 	}
 
+parse_postfix:
 	for (;;) {
 		tk = *peek(cx, 0);
 		switch (tk.stype) {
@@ -115,7 +122,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 			while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
 				if (func->child_count)
 					consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
-				type_t* new = parse_type(cx);
+				type_t* new = parse_type(cx, NULL);
 
 				if (new->stype == TP_VOID)
 					ferr("parameter cannot have type "A_BOLD"'void'"A_RESET, tk);
@@ -149,7 +156,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 
 				tk_t* tk = peek(cx, 0);
 				expr_t* expr = parse_expr(cx, NULL);
-				if (!is_int_any_sign(expr->type))
+				if (!is_int_any_sign(resolve_enum(expr->type)))
 					ferr("fixed array size must be an integer", *tk);
 
 				*new = TYPE(TP_ARRAY, base);
@@ -157,7 +164,7 @@ type_t* parse_type(parse_ctx_t* cx) {
 				if (ival.stype != IVAL_IMM)
 					ferr("fixed array size must be known at parse-time", *tk);
 				new->child_count = ival.uint_val;
-				if (is_int(expr->type) && (isz)new->child_count < 0)
+				if (is_int(resolve_enum(expr->type)) && (isz)new->child_count < 0)
 					ferr("fixed array size cannot be negative", *tk);
 			}
 
@@ -170,5 +177,22 @@ type_t* parse_type(parse_ctx_t* cx) {
 			return base;
 		}
 	}
+}
+
+type_t* try_parse_type(parse_ctx_t* cx) {
+	tk_t* tk = peek(cx, 0);
+
+	switch (tk->stype) {
+	case TK_IDENTIFIER: {
+		sym_t* sym = try_parse_sym(cx, SYM_TYPE);
+		if (!sym)
+			return NULL;
+		return parse_type(cx, sym->type);
+	}
+	case TK_KW_STRUCT: case TK_KW_ENUM:
+		return parse_type(cx, NULL);
+	}
+
+	return NULL;
 }
 

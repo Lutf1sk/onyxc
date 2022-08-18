@@ -1,4 +1,7 @@
 #include "parse.h"
+#include "parse_helpers.h"
+#include "symtab.h"
+#include "type.h"
 #include "tk.h"
 #include "expr_ast.h"
 #include "stmt_ast.h"
@@ -84,4 +87,56 @@ stmt_t* parse_initial(parse_ctx_t* cx) {
 }
 
 parse_pfn parse = parse_initial;
+
+sym_t* parse_sym(parse_ctx_t* cx) {
+	sym_t* sym = NULL;
+	symtab_t* symtab = cx->symtab;
+
+	for (;;) {
+		tk_t* tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected an identifier"));
+		sym = symtab_find(symtab, tk->str);
+		if (!sym)
+			ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, *tk, tk->str);
+
+		if (peek(cx, 0)->stype != TK_DOT || sym->stype != SYM_TYPE || !sym->type->symtab)
+			break;
+		consume(cx);
+
+		symtab = sym->type->symtab;
+	}
+
+	return sym;
+}
+
+sym_t* try_parse_sym(parse_ctx_t* cx, usz stype) {
+	sym_t* sym = NULL;
+	symtab_t* symtab = cx->symtab;
+
+	usz start_it = cx->lex->it;
+
+	for (;;) {
+		tk_t* tk = peek(cx, 0);
+		if (tk->stype != TK_IDENTIFIER)
+			goto fail;
+		consume(cx);
+
+		sym = symtab_find(symtab, tk->str);
+		if (!sym)
+			goto fail;
+
+		if (peek(cx, 0)->stype != TK_DOT || sym->stype != SYM_TYPE || !sym->type->symtab)
+			break;
+		consume(cx);
+
+		symtab = sym->type->symtab;
+	}
+
+	if (stype && sym->stype != stype)
+		goto fail;
+	return sym;
+
+fail:
+	cx->lex->it = start_it;
+	return NULL;
+}
 

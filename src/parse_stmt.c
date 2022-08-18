@@ -12,8 +12,7 @@
 #include <lt/io.h>
 
 #define PUSH_SCOPE() { \
-	symtab_t* new_symtab = lt_arena_reserve(cx->arena, sizeof(symtab_t)); \
-	memset(new_symtab->counts, 0, sizeof(new_symtab->counts)); \
+	symtab_t* new_symtab = symtab_create(cx->arena); \
 	new_symtab->parent = cx->symtab; \
 	cx->symtab = new_symtab; \
 }
@@ -170,7 +169,7 @@ stmt_t* parse_if(parse_ctx_t* cx) {
 	*new = STMT(STMT_IF);
 	new->expr = parse_expr(cx, NULL);
 
-	if (!is_number(new->expr->type))
+	if (!is_number(resolve_enum(new->expr->type)))
 		ferr("result of "A_BOLD"'if'"A_RESET" condition must be a valid number", *tk);
 
 	new->child = parse_compound(cx);
@@ -266,7 +265,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 			type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
 
-			type_t* copied_type = parse_type(cx);
+			type_t* copied_type = parse_type(cx, NULL);
 			*type = *copied_type;
 
 			sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
@@ -322,7 +321,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		*new = STMT(STMT_WHILE);
 		new->expr = parse_expr(cx, NULL);
 
-		if (!is_number(new->expr->type))
+		if (!is_number(resolve_enum(new->expr->type)))
 			ferr("result of "A_BOLD"'while'"A_RESET" condition must be a valid number", tk);
 		new->child = parse_compound(cx);
 		return new;
@@ -334,10 +333,10 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		PUSH_SCOPE();
 
-		type_t* it_type = parse_type(cx);
+		type_t* it_type = parse_type(cx, NULL);
 
 		tk_t* tk = peek(cx, 0);
-		if (!is_int_any_sign(it_type))
+		if (!is_int_any_sign(resolve_enum(it_type)))
 			ferr("for loop iterator must be an integer", *tk);
 
 		tk_t ident_tk = *consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
@@ -373,7 +372,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 	}
 
 	case TK_KW_STRUCT:
-		return parse_let(cx, parse_type(cx));
+		return parse_let(cx, parse_type(cx, NULL));
 
 	case TK_KW_GOTO: consume(cx); {
 		if (!cx->curr_func_type)
@@ -408,7 +407,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		*sw = STMT(STMT_SWITCH);
 		sw->expr = parse_expr(cx, NULL);
 
-		if (!is_number(sw->expr->type))
+		if (!is_number(resolve_enum(sw->expr->type)))
 			ferr("switch type "A_BOLD"'%S'"A_RESET" is not a valid number", *sw_tk,
 					type_to_reserved_str(cx->arena, sw->expr->type));
 
@@ -474,15 +473,15 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 				ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, tk, tk.str);
 			}
+		}
 
-			if (sym->stype == SYM_TYPE) {
-				type_t* type = parse_type(cx);
-				tk_stype_t ntk = peek(cx, 0)->stype;
-				if (ntk == TK_IDENTIFIER)
-					return parse_let(cx, type);
-				else
-					cx->lex->it = start_it;
-			}
+		type_t* type = try_parse_type(cx);
+		if (type) {
+			tk_stype_t ntk = peek(cx, 0)->stype;
+			if (ntk == TK_IDENTIFIER)
+				return parse_let(cx, type);
+			else
+				cx->lex->it = start_it;
 		}
 
 		if (!cx->curr_func_type)

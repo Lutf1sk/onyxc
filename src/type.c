@@ -24,7 +24,7 @@ b8 type_eq(type_t* t1, type_t* t2) {
 		case TP_ARRAY_VIEW:
 			return type_eq(t1->base, t2->base);
 
-		case TP_STRUCT:
+		case TP_STRUCT: case TP_ENUM:
 			return t1 == t2;
 
 		default:
@@ -219,6 +219,9 @@ usz type_bytes(type_t* type) {
 			size += type_bytes(type->children[i]);
 		return size;
 	}
+
+	case TP_ENUM:
+		return type_bytes(type->base);
 	}
 
 	LT_ASSERT_NOT_REACHED();
@@ -253,6 +256,9 @@ usz type_align(type_t* type) {
 		}
 		return align_max;
 	}
+
+	case TP_ENUM:
+		return type_align(type->base);
 	}
 
 	LT_ASSERT_NOT_REACHED();

@@ -1,0 +1,8 @@
+
+def ERR :: enum u8 {
+	OK :: 0,
+	NOMEM :: 1,
+	LEXER :: 2,
+	PARSE :: 3,
+};
+
