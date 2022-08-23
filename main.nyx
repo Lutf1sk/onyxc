@@ -1,7 +1,7 @@
-import "std/io.nyx", "std/mem.nyx", "lex.nyx", "parse.nyx";
+import "std/io.nyx", "std/mem.nyx", "std/hashtab.nyx", "lex.nyx", "parse.nyx";
 
 let main :: u64() {
-	Arena* arena = amcreate(null, 64M, ALLOC_FLAGS.FIXED_SIZE);
+	Arena* arena = amcreate(null, 64M, 0);
 	Allocator* alc = &arena.interf;
 
 	u8[] in_path = "main.nyx";
@@ -31,6 +31,7 @@ let main :: u64() {
 	fclose(in_f);
 
 	LexCtx lcx;
+	mset8(&lcx, 0, sizeof(LexCtx));
 	lcx.alc = alc;
 	lcx.src = invw;
 	if lex(&lcx) {
@@ -47,6 +48,11 @@ let main :: u64() {
 		print(tk.str);
 		print("'\n");
 	}
+
+	ParseCtx pcx;
+	mset8(&pcx, 0, sizeof(ParseCtx));
+	pcx.alc = alc;
+	pcx.lcx = &lcx;
 
 	amdestroy(arena);
 	exit(0);

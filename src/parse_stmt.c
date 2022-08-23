@@ -327,6 +327,23 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
+	case TK_KW_DO: consume(cx); {
+		if (!cx->curr_func_type)
+			goto outside_func;
+
+		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		*new = STMT(STMT_DO);
+		new->child = parse_compound(cx);
+
+		consume_type(cx, TK_KW_WHILE, CLSTR(", expected "A_BOLD"'while'"A_RESET));
+		new->expr = parse_expr(cx, NULL);
+
+		if (!is_number(resolve_enum(new->expr->type)))
+			ferr("result of "A_BOLD"'while'"A_RESET" condition must be a valid number", tk);
+		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET));
+		return new;
+	}
+
 	case TK_KW_FOR: consume(cx); {
 		if (!cx->curr_func_type)
 			goto outside_func;

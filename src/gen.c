@@ -1375,6 +1375,33 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		cx->cont_lbl = old_cont;
 	}	break;
 
+	case STMT_DO: {
+		usz size = type_bytes(stmt->expr->type);
+		usz start_lbl = lalloc(cx), cont_lbl = lalloc(cx), break_lbl = lalloc(cx);
+
+		usz old_break = cx->break_lbl;
+		usz old_cont = cx->cont_lbl;
+		cx->break_lbl = cont_lbl;
+		cx->cont_lbl = break_lbl;
+
+		ldefine(cx, start_lbl);
+
+		icode_gen_stmt(cx, stmt->child);
+
+		ldefine(cx, cont_lbl);
+
+		ival_t cond_v = icode_gen_expr(cx, stmt->expr);
+		u32 cond_reg = ival_reg(cx, size, cond_v);
+		u32 trg = ralloc(cx);
+		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .int_val = start_lbl));
+		emit(cx, ICODE2(IR_CJMPNZ, size, trg, cond_reg));
+
+		ldefine(cx, break_lbl);
+
+		cx->break_lbl = old_break;
+		cx->cont_lbl = old_cont;
+	}	break;
+
 	case STMT_IF: {
 		usz size = type_bytes(stmt->expr->type);
 		usz false_lbl = lalloc(cx);

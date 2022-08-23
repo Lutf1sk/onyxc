@@ -12,7 +12,7 @@ def LexCtx :: struct {
 	Allocator* alc;
 	u8[] src;
 	Token[] out;
-	Token* tk_it;
+	usz it;
 	u8[] err_str;
 	void* next;
 }

@@ -53,3 +53,15 @@ let alignb :: usz(usz val, usz align) {
 	return val & ~(align - 1);
 }
 
+let rotl8 :: u8(u8 v, u8 shift) { return (v << shift) | (v >> (8 - shift)); }
+let rotl16 :: u16(u16 v, u8 shift) { return (v << shift) | (v >> (16 - shift)); }
+let rotl32 :: u32(u32 v, u8 shift) { return (v << shift) | (v >> (32 - shift)); }
+let rotl64 :: u64(u64 v, u8 shift) { return (v << shift) | (v >> (64 - shift)); }
+let rotlz :: usz(usz v, u8 shift) { return (v << shift) | (v >> (sizeof(usz) * 8 - shift)); }
+
+let rotr8 :: u8(u8 v, u8 shift) { return (v >> shift) | (v << (8 - shift)); }
+let rotr16 :: u16(u16 v, u8 shift) { return (v >> shift) | (v << (16 - shift)); }
+let rotr32 :: u32(u32 v, u8 shift) { return (v >> shift) | (v << (32 - shift)); }
+let rotr64 :: u64(u64 v, u8 shift) { return (v >> shift) | (v << (64 - shift)); }
+let rotrz :: usz(usz v, u8 shift) { return (v >> shift) | (v << (sizeof(usz) * 8 - shift)); }
+

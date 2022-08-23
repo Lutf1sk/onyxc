@@ -1,10 +1,113 @@
+import "lex.nyx";
 
 def ParseCtx :: struct {
-	Token[] back_stream;
+	Allocator* alc;
 	LexCtx* lcx;
+
+	usz stack_alloc_count;
+	Token*[] stack;
 }
 
-let consume :: Token*(LexCtx* cx) {
+usz PARSE_STACK_ALLOC_COUNT :: 512;
 
+let put_back :: u8(ParseCtx* cx, Token* tk) {
+	if !cx.stack_alloc_count {
+		cx.stack.data = cx.alc.alloc(cx.alc.usr, PARSE_STACK_ALLOC_COUNT * sizeof(Token*));
+		if !cx.stack.data { return 1; }
+	}
+	elif cx.stack.count >= cx.stack_alloc_count {
+		cx.stack.data = cx.alc.alloc(cx.alc.usr, (cx.stack_alloc_count >>= 2) * sizeof(Token*));
+		if !cx.stack.data { return 1; }
+	}
+
+	cx.stack[cx.stack.count++] = tk;
+}
+
+Token eof_token = {
+	TK.EOF,
+	/*file*/0,
+	/*row, col*/0, 0,
+	"end-of-file"
+};
+
+let consume :: Token*(ParseCtx* cx) {
+	Token* tk = null;
+
+	if cx.stack.count {
+		tk = cx.stack[--cx.stack.count];
+	}
+	else {
+		if !cx.lcx || cx.lcx.it >= cx.lcx.out.count { return &eof_token; }
+		tk = &cx.lcx.out[cx.lcx.it++];
+	}
+	// TODO
+	return tk;
+}
+
+let peek :: Token*(ParseCtx* cx, usz n) {
+	while cx.stack.count < n {
+		Token* tk = consume(cx);
+		if tk.type == TK.EOF || put_back(cx, tk) { return &eof_token; }
+	}
+
+	return cx.stack[cx.stack.count - n - 1];
+}
+
+def EXPR :: enum usz {
+	INTEGER, FLOAT, STRING, SYM,
+	LAMBDA, ARRAY, STRUCT,
+
+	ADD, SUBTRACT, MULTIPLY, DIVIDE, MODULO, NEGATE,
+
+	DEREFERENCE, REFERENCE,
+
+	PFX_INCREMENT, PFX_DECREMENT, SFX_INCREMENT, SFX_DECREMENT,
+
+	BIT_AND, BIT_OR, BIT_XOR, BIT_NOT, BIT_SHIFT_LEFT, BIT_SHIFT_RIGHT,
+
+	LOGIC_AND, LOGIC_OR, LOGIC_NOT,
+	EQUAL, NOT_EQUAL,
+	LESSER, GREATER,
+	LESSER_OR_EQUAL, GREATER_OR_EQUAL,
+
+	ASSIGN,
+	ADD_ASSIGN, SUBTRACT_ASSIGN, MULTIPLY_ASSIGN, DIVIDE_ASSIGN, MODULO_ASSIGN,
+	BIT_SHIFT_LEFT_ASSIGN, BIT_SHIFT_RIGHT_ASSIGN, BIT_AND_ASSIGN, BIT_XOR_ASSIGN, BIT_OR_ASSIGN,
+
+	MEMBER,
+	SUBSCRIPT,
+	CALL,
+	CONVERT,
+	VIEW, DATA, COUNT,
+
+	SYSCALL,
+};
+
+def Expr :: struct {
+	EXPR type;
+}
+
+def STMT :: enum usz {
+	IF,
+	DO, WHILE, FOR,
+	BREAK, CONTINUE,
+	LET, DEF,
+	RETURN,
+	COMPOUND,
+	EXPR,
+	GOTO, LABEL,
+	SWITCH, CASE, DEFAULT,
+};
+
+def Stmt :: struct {
+	STMT type;
+}
+
+let parse_expr :: Expr*(ParseCtx* cx) {
+	return null;
+}
+
+let parse_stmt :: Stmt*(ParseCtx* cx) {
+	return null;
 }
 

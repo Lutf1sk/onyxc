@@ -33,6 +33,7 @@ usz ALLOC_DEFAULT_ALIGN :: 16;
 
 def ALLOC_FLAGS :: enum usz {
 	FIXED_SIZE :: 0x01, // Do not grow automatically when out of memory
+	DONT_UNMAP :: 0x02, // The memory should not be unmapped/deallocated after destruction
 };
 
 def Allocator :: struct {
@@ -153,6 +154,8 @@ let pmcreate :: Pool*(Allocator* parent, usz size, usz chunk_size, usz flags) {
 }
 
 let pmdestroy :: void(Pool* pool) {
+	if (pool.flags & ALLOC_FLAGS.DONT_UNMAP) { return; }
+
 	if pool.parent {
 		pool.parent.free(pool.parent.usr, pool);
 	}
@@ -257,6 +260,8 @@ let amcreate :: Arena*(Allocator* parent, usz size, usz flags) {
 }
 
 let amdestroy :: void(Arena* arena) {
+	if (arena.flags & ALLOC_FLAGS.DONT_UNMAP) { return; }
+
 	if arena.parent {
 		arena.parent.free(arena.parent.usr, arena);
 	}

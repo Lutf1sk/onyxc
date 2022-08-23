@@ -8,6 +8,7 @@
 
 #define FOR_EACH_STMT() \
 	STMT_OP(IF) \
+	STMT_OP(DO) \
 	STMT_OP(WHILE) \
 	STMT_OP(FOR) \
 	STMT_OP(LET) \

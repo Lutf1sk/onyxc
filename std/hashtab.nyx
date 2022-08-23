@@ -1,0 +1,71 @@
+import "std/bitmath.nyx", "std/mem.nyx";
+
+usz	HASHTAB_COUNT :: 256,
+	HASHTAB_MASK :: 0xFF,
+	HASHTAB_ALLOC_COUNT :: 32;
+
+def HashTable :: struct {
+	Allocator* alc;
+	usz[HASHTAB_COUNT] counts;
+	void**[HASHTAB_COUNT] vals;
+}
+
+let hash :: u32(void[] mem) {
+	u8* p = mem.data;
+	u32 hash = mem.count;
+
+	for usz i..mem.count {
+		hash ^= rotl32(hash, 7) ^ p[i];
+	}
+
+	return hash;
+}
+
+let htinsert :: u8(HashTable* ht, u32 hash, void* val) {
+	hash &= HASHTAB_MASK;
+
+	usz* pcount = &ht.counts[hash];
+	usz count = *pcount;
+
+	if !count {
+		ht.vals[hash] = val;
+		++*pcount;
+		return 0;
+	}
+	elif count == 1u {
+		void** vals = ht.alc.alloc(ht.alc.usr, HASHTAB_ALLOC_COUNT * sizeof(void*));
+		if !vals { return 1; }
+		vals[0] = ht.vals[hash];
+		ht.vals[hash] = vals;
+	}
+	elif count >= HASHTAB_ALLOC_COUNT {
+		return 1;
+	}
+
+	ht.vals[hash][*pcount++] = val;
+	return 0;
+}
+
+let htfind :: void*(HashTable* ht, u32 hash, u8(void*, void*) cmp, void* usr) {
+	hash &= HASHTAB_MASK;
+	usz count = ht.counts[hash];
+
+	if !count {
+		return null;
+	}
+	elif count == 1u {
+		if cmp(ht.vals[hash], usr) { return ht.vals[hash]; }
+		else { return null; }
+	}
+	elif count > HASHTAB_ALLOC_COUNT {
+		return null;
+	}
+
+	for usz i..count {
+		if cmp(ht.vals[hash][i], usr) {
+			return ht.vals[hash][i];
+		}
+	}
+	return null;
+}
+
