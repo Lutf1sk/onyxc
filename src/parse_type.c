@@ -42,7 +42,7 @@ type_t* parse_type(parse_ctx_t* cx, type_t* base) {
 			tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
 			lstr_t ident = ident_tk->str;
 
-			if (!symtab_definable(cx->symtab, ident))
+			if (!symtab_definable(parent->symtab, ident))
 				ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET"", *ident_tk, ident);
 
 			sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
