@@ -119,32 +119,23 @@ value of the same type as the first argument of the function.
 Therefore ```1.7->ceil()->fmod();``` is equal to ```fmod(ceil(1.7));```.
 
 # Variables
-A variable is defined either with C syntax:
-```isz some_var;```
+```some_var: isz;```
 
-Or by using the 'let' keyword to automatically deduce the type from the initializer:
-```let an_integer = 123;```
+```an_integer := 123;```
+```a_third_integer: isz = 123;```
 
-'let' cannot be used without an initializer.
-
-Multiple variables can be defined at once like this:
+A compile-time constant can be defined by switching the '=' in the initializer for ':'
 ```
-f32 a_float, another_float = 1.0, a_third_float;
-let an_int = 1, some_float = 123.0, a_bool = false;
-```
-
-A compile-time constant can be defined by switching the '=' in the initializer for '::'
-```
-f32 a_constant :: 1.0;
-let another_float_constant :: 2.0;
+a_constant :: 1.0;
+another_float_constant: float : 2.0;
 ```
 
 # Functions
 ### Example function definition
 ```
-let fadd :: f32(f32 x, f32 y) {
+fadd :: f32(f32 x, f32 y) {
 	return x + y
-}
+};
 ```
 
 # Ifs
@@ -166,6 +157,10 @@ else {
 while 1 {
 	do_something();
 }
+
+do {
+
+} while 0;
 ```
 ### For example
 ```
@@ -177,7 +172,7 @@ for u64 i..100 {
 # Switches
 Switches in onyx cannot fall through, and thus they do not affect 'break' statements.
 
-Unhandled cases evoke undefined behaviour if a 'default' case has not been specified, this allows far more aggressive optimization.
+Unhandled cases cause undefined behaviour if a 'default' case has not been specified, this allows for more aggressive optimization.
 ```
 switch 'A' {
 case 'C' {
@@ -208,7 +203,8 @@ Under the hood, this view is simply stored as a "count" and a pointer to the fir
 ### Assignment
 A major change from C is that onyx allows assignment to static arrays, doing something like:
 ```
-u32[100] arr1, arr2;
+arr1: u32[100];
+arr2: u32[100];
 arr2 = arr1;
 ```
 Is perfectly valid and copies the contents of arr1 into arr2.
@@ -219,12 +215,12 @@ Assignment to an array view only copies the data pointer and count, not the elem
 
 ### Examples
 ```
-u8[100] arr = " ello ";
-u8[] view = arr; // A view pointing to the contents of arr
+arr: u8[100] = " ello ";
+view: u8[] = arr; // A view pointing to the contents of arr
 
-// Set the first element to 'H', so that arr is now "Hello "
+// Set the first element to 'H', so that the first six bytes in arr become "Hello "
 view[0] = 'H';
 
-// Set the last element to '!', arr is now "Hello!"
+// Set the last element to '!', arr[0..6] is now "Hello!"
 arr[arr.count - 1] = '!';
 ```
