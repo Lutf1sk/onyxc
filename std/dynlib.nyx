@@ -2,21 +2,21 @@
 
 import "std/unix.nyx", "std/elf.nyx", "std/mem.nyx", "std/str.nyx";
 
-let elf_verify_magic :: u8(ELF64_FileHeader* fh) {
+elf_verify_magic :: u8(ELF64_FileHeader* fh) {
 	for usz i..fh.magic.count {
 		if fh.magic[i] != ELFMAGIC[i] {
 			return 0;
 		}
 	}
 	return 1;
-}
+};
 
-def DynLibList :: struct {
+DynLibList :: struct {
 	void* lib;
 	void* next;
-}
+};
 
-def DynLibrary :: struct {
+DynLibrary :: struct {
 	u8[] name;
 	u8* img_base;
 	u8* data;
@@ -27,71 +27,71 @@ def DynLibrary :: struct {
 
 	usz ref_count;
 	void* deps;
-}
+};
 
-let elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
+elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
 	return ELF64_SectHeader*:fh + fh.sh_offs + fh.sh_size * i;
-}
+};
 
-let elf_getph :: ELF64_ProgHeader*(ELF64_FileHeader* fh, usz i) {
+elf_getph :: ELF64_ProgHeader*(ELF64_FileHeader* fh, usz i) {
 	return ELF64_ProgHeader*:fh + fh.ph_offs + fh.ph_size * i;
-}
+};
 
-let elf_getstr :: u8[](u8* strtab, usz offs) {
-	u8* str = strtab + offs;
+elf_getstr :: u8[](u8* strtab, usz offs) {
+	str := strtab + offs;
 	return str[0..cstrlen(str)];
-}
+};
 
-let elf_img_size :: usz(ELF64_FileHeader* fh) {
-	usz max = 0;
+elf_img_size :: usz(ELF64_FileHeader* fh) {
+	max: usz = 0;
 	for usz i..fh.sh_count {
-		let sh = elf_getsh(fh, i);
-		usz top = sh.addr + sh.size;
-		if (sh.type == ELFSH_PROGBITS || sh.type == ELFSH_NOBITS) && top > max {
+		sh := elf_getsh(fh, i);
+		top := sh.addr + sh.size;
+		if (sh.type == ELFSH.PROGBITS || sh.type == ELFSH.NOBITS) && top > max {
 			max = top;
 		}
 	}
 	return max;
-}
+};
 
-let elf_map_sections :: void(ELF64_FileHeader* fh, u8* img_base) {
+elf_map_sections :: void(ELF64_FileHeader* fh, u8* img_base) {
 	for usz i..fh.sh_count {
-		let sh = elf_getsh(fh, i);
-		if sh.type == ELFSH_PROGBITS {
+		sh := elf_getsh(fh, i);
+		if sh.type == ELFSH.PROGBITS {
 			mcopy(img_base + sh.addr, fh + sh.offs, sh.size);
 		}
-		if sh.type == ELFSH_NOBITS {
+		if sh.type == ELFSH.NOBITS {
 			mset8(img_base + sh.addr, 0, sh.size);
 		}
 	}
-}
+};
 
-let elf_find_symdef :: ELF64_Sym*(DynLibrary* lib, u8[] name) {
-	ELF64_Sym* weak = null;
+elf_find_symdef :: ELF64_Sym*(DynLibrary* lib, u8[] name) {
+	weak: ELF64_Sym* = null;
 
 	for usz i..lib.syms.count {
-		ELF64_Sym* sym = &lib.syms[i];
-		u8 binding = sym.info & ELFSYM_BIND_MASK;
-		u8[] symname = elf_getstr(lib.strtab_sym, sym.name);
+		sym := &lib.syms[i];
+		binding := sym.info & ELFSYM.BIND_MASK;
+		symname := elf_getstr(lib.strtab_sym, sym.name);
 		if streq(name, symname) {
-			if binding == ELFSYM_GLOBAL || binding == ELFSYM_LOCAL {
+			if binding == ELFSYM.GLOBAL || binding == ELFSYM.LOCAL {
 				return sym;
 			}
-			if (binding == ELFSYM_WEAK) {
+			if (binding == ELFSYM.WEAK) {
 				weak = sym;
 			}
 		}
 	}
 
-	DynLibList* lit = lib.deps;
+	lit: DynLibList* = lib.deps;
 	while lit {
-		DynLibrary* lib = lit.lib;
+		lib: DynLibrary* = lit.lib;
 
 		for usz i..lib.syms.count {
-			ELF64_Sym* sym = &lib.syms[i];
-			u8 binding = sym.info & ELFSYM_BIND_MASK;
-			if binding == ELFSYM_GLOBAL {
-				u8[] symname = elf_getstr(lib.strtab_sym, sym.name);
+			sym := &lib.syms[i];
+			binding := sym.info & ELFSYM.BIND_MASK;
+			if binding == ELFSYM.GLOBAL {
+				symname := elf_getstr(lib.strtab_sym, sym.name);
 				if streq(name, symname) {
 					return sym;
 				}
@@ -101,15 +101,15 @@ let elf_find_symdef :: ELF64_Sym*(DynLibrary* lib, u8[] name) {
 	}
 
 	return weak;
-}
+};
 
-Pool* dlib_pool = null;
-Pool* dlib_list_pool = null;
+dlib_pool: Pool* = null;
+dlib_list_pool: Pool* = null;
 
-void* dlib_list_head = null;
+dlib_list_head := null;
 
-let list_find_dlib :: DynLibrary*(void* head, u8[] name) {
-	DynLibList* it = head;
+list_find_dlib :: DynLibrary*(void* head, u8[] name) {
+	it: DynLibList* = head;
 	while it {
 		if streq((DynLibrary*:it.lib).name, name) {
 			return it.lib;
@@ -117,35 +117,35 @@ let list_find_dlib :: DynLibrary*(void* head, u8[] name) {
 		it = it.next;
 	}
 	return null;
-}
+};
 
-let list_insert_dlib :: void(void** head, DynLibrary* lib) {
-	DynLibList* new_entry = pmalloc(dlib_list_pool);
+list_insert_dlib :: void(void** head, DynLibrary* lib) {
+	new_entry: DynLibList* = pmalloc(dlib_list_pool);
 	new_entry.lib = lib;
 	new_entry.next = *head;
 	*head = new_entry;
-}
+};
 
-DynLibrary*(u8[], Allocator*) dlopen_p = null;
+dlopen_p: DynLibrary*(u8[], Allocator*) = null;
 
-let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
+dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	if !dlib_pool {
-		dlib_pool = pmcreate(null, 4096, sizeof(DynLibrary));
-		dlib_list_pool = pmcreate(null, 8192, sizeof(DynLibrary));
+		dlib_pool = pmcreate(null, 4096, sizeof(DynLibrary), 0);
+		dlib_list_pool = pmcreate(null, 8192, sizeof(DynLibrary), 0);
 		if !dlib_pool || !dlib_list_pool {
 			print("failed to map pool\n");
 			return null;
 		}
 	}
 
-	DynLibrary* lib = list_find_dlib(dlib_list_head, libname);
+	lib := list_find_dlib(dlib_list_head, libname);
 	if lib {
 		return lib;
 	}
 
-	u8[] libpath_pfx :: "/usr/lib64/";
-	usz libpath_len = libpath_pfx.count + libname.count;
-	u8[] libpath = alc.alloc(alc.usr, libpath_len)[0..libpath_len];
+	libpath_pfx :: "/usr/lib64/";
+	libpath_len := libpath_pfx.count + libname.count;
+	libpath := alc.alloc(alc.usr, libpath_len)[0..libpath_len];
 	if !libpath.data {
 		print("allocation failed\n");
 		return null;
@@ -153,17 +153,17 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	mcopy(libpath.data, libpath_pfx.data, libpath_pfx.count);
 	mcopy(libpath.data + libpath_pfx.count, libname.data, libname.count);
 
-	isz fd;
+	fd: isz;
 	if &fd->fopenr(libpath) {
 		print("failed to open file\n");
 		return null;
 	}
 	alc.free(alc.usr, libpath.data);
 
-	stat_t st;
+	st: stat_t;
 	fd->fstat(&st);
 
-	u8* elf_data = alc.alloc(alc.usr, st.st_size);
+	elf_data: u8* = alc.alloc(alc.usr, st.st_size);
 	if !elf_data {
 		print("allocation failed\n");
 		return null;
@@ -171,36 +171,36 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	fd->read(elf_data[0..st.st_size]);
 	fd->close();
 
-	let fh = ELF64_FileHeader*:elf_data;
+	fh := ELF64_FileHeader*:elf_data;
 	if !elf_verify_magic(fh) {
 		print("ELF magic invalid\n");
 		alc.free(alc.usr, elf_data);
 		return null;
 	}
 
-	u8* strtab = elf_data + elf_getsh(fh, fh.strtab_index).offs;
+	strtab := elf_data + elf_getsh(fh, fh.strtab_index).offs;
 
-	ELF64_Sym[] syms = null[0..0];
+	syms: ELF64_Sym[] = null[0..0];
 
 	for usz i..fh.sh_count {
-		let sh = elf_getsh(fh, i);
-		u8[] name = elf_getstr(strtab, sh.name);
+		sh := elf_getsh(fh, i);
+		name := elf_getstr(strtab, sh.name);
 
-		if sh.type == ELFSH_DYNSYM {
+		if sh.type == ELFSH.DYNSYM {
 			syms = (ELF64_Sym*:elf_data + sh.offs)[0..sh.size/sizeof(ELF64_Sym)];
 		}
 	}
 
-	u8[] interp = null[0..0];
-	ELF64_Dyn* dyn_start = null;
+	interp: u8[] = null[0..0];
+	dyn_start: ELF64_Dyn* = null;
 
 	for usz i..fh.ph_count {
-		let ph = elf_getph(fh, i);
+		ph := elf_getph(fh, i);
 
-		if ph.type == ELFPH_INTERP {
+		if ph.type == ELFPH.INTERP {
 			interp = (elf_data + ph.offs)[0..ph.mem_size];
 		}
-		elif ph.type == ELFPH_DYNAMIC {
+		elif ph.type == ELFPH.DYNAMIC {
 			dyn_start = ELF64_Dyn*:elf_data + ph.offs;
 		}
 	}
@@ -211,7 +211,7 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		return null;
 	}
 
-	u8* base = alc.alloc(alc.usr, elf_img_size(fh));
+	base: u8* = alc.alloc(alc.usr, elf_img_size(fh));
 	if !base {
 		print("allocation failed\n");
 		alc.free(alc.usr, elf_data);
@@ -219,31 +219,32 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	}
 	elf_map_sections(fh, base);
 
-	u8* strtab_sym = null;
-	ELF64_RelAdd* rela_ptr = null;
-	usz relasz = 0, relaent = 0;
+	strtab_sym: u8* = null;
+	rela_ptr: ELF64_RelAdd* = null;
+	relasz: usz = 0;
+	relaent: usz = 0;
 
-	void() init = null;
-	void*[] initarr = null[0..0];
+	init: void() = null;
+	initarr: void*[] = null[0..0];
 
-	isz soname_offs = -1;
+	soname_offs: isz = -1;
 
-	ELF64_Dyn* dyn = dyn_start;
-	while dyn && dyn.type != ELFDYN_NULL {
+	dyn := dyn_start;
+	while dyn && dyn.type != ELFDYN.NULL {
 		switch dyn.type
-		case ELFDYN_STRTAB			{ strtab_sym = elf_data + dyn.val; },
-		case ELFDYN_RELA			{ rela_ptr = ELF64_RelAdd*:(elf_data + dyn.val); },
-		case ELFDYN_RELASZ			{ relasz = dyn.val; },
-		case ELFDYN_RELAENT			{ relaent = dyn.val; },
-		case ELFDYN_INIT			{ init = void*:base + dyn.val; },
-		case ELFDYN_INIT_ARRAY		{ initarr.data = void*:elf_data + dyn.val; },
-		case ELFDYN_INIT_ARRAYSZ	{ initarr.count = dyn.val / sizeof(void*); },
-		case ELFDYN_SONAME			{ soname_offs = dyn.val; },
+		case ELFDYN.STRTAB			{ strtab_sym = elf_data + dyn.val; },
+		case ELFDYN.RELA			{ rela_ptr = ELF64_RelAdd*:(elf_data + dyn.val); },
+		case ELFDYN.RELASZ			{ relasz = dyn.val; },
+		case ELFDYN.RELAENT			{ relaent = dyn.val; },
+		case ELFDYN.INIT			{ init = void*:base + dyn.val; },
+		case ELFDYN.INIT_ARRAY		{ initarr.data = void*:elf_data + dyn.val; },
+		case ELFDYN.INIT_ARRAYSZ	{ initarr.count = dyn.val / sizeof(void*); },
+		case ELFDYN.SONAME			{ soname_offs = dyn.val; },
 		default {};
 		dyn += sizeof(ELF64_Dyn);
 	}
 
-	u8[] soname = null[0..0];
+	soname: u8[] = null[0..0];
 	if soname_offs >= 0 {
 		soname = elf_getstr(strtab_sym, soname_offs);
 	}
@@ -267,9 +268,9 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	lib.deps = null;
 
 	dyn = dyn_start;
-	while dyn && dyn.type != ELFDYN_NULL {
-		if dyn.type == ELFDYN_NEEDED {
-			DynLibrary* dep = dlopen_p(elf_getstr(strtab_sym, dyn.val), alc);
+	while dyn && dyn.type != ELFDYN.NULL {
+		if dyn.type == ELFDYN.NEEDED {
+			dep := dlopen_p(elf_getstr(strtab_sym, dyn.val), alc);
 			if !dep {
 				print("Failed to load dependency\n");
 			}
@@ -280,22 +281,22 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 
 	list_insert_dlib(&dlib_list_head, lib);
 
-	ELF64_RelAdd* rela = rela_ptr;
-	usz rela_count = relasz / relaent;
+	rela := rela_ptr;
+	rela_count := relasz / relaent;
 
 	for usz i..rela_count {
-		u32 reltype = rela.info & ELFREL64_TYPE_MASK;
-		u32 relsym = rela.info >> ELFREL64_SYM_SHIFT;
+		reltype := rela.info & ELFREL.TYPE_MASK_64;
+		relsym := rela.info >> ELFREL.SYM_SHIFT_64;
 
-		void* patch_ptr = base + rela.offs;
+		patch_ptr := base + rela.offs;
 
 		switch reltype
-		case ELFREL_X64_NONE {
+		case ELFREL.X64_NONE {
 			// Do nothing
 		},
-		case ELFREL_X64_64 {
-			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
-			ELF64_Sym* sym = elf_find_symdef(lib, symname);
+		case ELFREL.X64_64 {
+			symname := elf_getstr(strtab_sym, syms[relsym].name);
+			sym := elf_find_symdef(lib, symname);
 			if (!sym) {
 				print("undefined reference to ");
 				print(symname);
@@ -303,12 +304,12 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 			}
 			*u64*:patch_ptr = usz:base + sym.val + rela.addend;
 		},
-		case ELFREL_X64_RELATIVE {
+		case ELFREL.X64_RELATIVE {
 			*u64*:patch_ptr = usz:base + rela.addend;
 		},
-		case ELFREL_X64_GLOB_DAT {
-			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
-			ELF64_Sym* sym = elf_find_symdef(lib, symname);
+		case ELFREL.X64_GLOB_DAT {
+			symname := elf_getstr(strtab_sym, syms[relsym].name);
+			sym := elf_find_symdef(lib, symname);
 			if (!sym) {
 				print("undefined reference to ");
 				print(symname);
@@ -321,15 +322,15 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 			print(symname);
 			print("'\n");
 		},
-		case ELFREL_X64_IRELATIVE {
+		case ELFREL.X64_IRELATIVE {
 			*u64*:patch_ptr = (u64():base + u64():rela.addend)();
 			print("Loaded 0x");
 			print_h64(*u64*:patch_ptr);
 			print("\n");
 		},
-		case ELFREL_X64_TPOFF64 {
-			u8[] symname = elf_getstr(strtab_sym, syms[relsym].name);
-			ELF64_Sym* sym = elf_find_symdef(lib, symname);
+		case ELFREL.X64_TPOFF64 {
+			symname := elf_getstr(strtab_sym, syms[relsym].name);
+			sym := elf_find_symdef(lib, symname);
 			if (!sym) {
 				print("undefined reference to ");
 				print(symname);
@@ -364,14 +365,14 @@ let dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 // 	}
 
 	return lib;
-}
+};
 
-let dlsym :: void*(DynLibrary* lib, u8[] name) {
+dlsym :: void*(DynLibrary* lib, u8[] name) {
 	for usz i..lib.syms.count {
 		if streq(name, elf_getstr(lib.strtab_sym, lib.syms[i].name)) {
 			return lib.img_base + lib.syms[i].val;
 		}
 	}
 	return null;
-}
+};
 

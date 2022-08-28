@@ -1,5 +1,5 @@
 
-let cstr :: u8*(u8[] path, u8[] out) {
+cstr :: u8*(u8[] path, u8[] out) {
 	if path.count >= out.count {
 		return null;
 	}
@@ -9,28 +9,28 @@ let cstr :: u8*(u8[] path, u8[] out) {
 	}
 	out[path.count] = 0;
 	return out.data;
-}
+};
 
-let cstrlen :: usz(u8* str) {
-	u8* it = str;
+cstrlen :: usz(u8* str) {
+	it := str;
 	while *it {
 		++it;
 	}
 	return usz:(it - str);
-}
+};
 
 
-let stou :: u8(u8[] str, u64* out) {
-	u8* it = str.data;
-	u8* end = it + str.count;
+stou :: u8(u8[] str, u64* out) {
+	it := str.data;
+	end := it + str.count;
 
 	if it == end {
 		return 1;
 	}
 
-	i64 v = 0;
+	v : i64 = 0;
 	while it < end {
-		u8 c = *it++;
+		c := *it++;
 
 		if c > '9' || c < '0' {
 			return 1;
@@ -42,17 +42,17 @@ let stou :: u8(u8[] str, u64* out) {
 
 	*out = v;
 	return 0;
-}
+};
 
-let stoi :: u8(u8[] str, i64* out) {
-	u8* it = str.data;
-	u8* end = it + str.count;
+stoi :: u8(u8[] str, i64* out) {
+	it := str.data;
+	end := it + str.count;
 
 	if it == end {
 		return 1;
 	}
 
-	u8 sign = 0;
+	sign : u8 = 0;
 	if *it == '-' {
 		sign = 1;
 		if it++ == end {
@@ -60,9 +60,9 @@ let stoi :: u8(u8[] str, i64* out) {
 		}
 	}
 
-	i64 v = 0;
+	v : i64 = 0;
 	while it < end {
-		u8 c = *it++;
+		c := *it++;
 		if c > '9' || c < '0' {
 			return 1;
 		}
@@ -77,9 +77,9 @@ let stoi :: u8(u8[] str, i64* out) {
 
 	*out = v;
 	return 0;
-}
+};
 
-let streq :: u8(u8[] s1, u8[] s2) {
+streq :: u8(u8[] s1, u8[] s2) {
 	if s1.count != s2.count {
 		return 0;
 	}
@@ -90,6 +90,6 @@ let streq :: u8(u8[] s1, u8[] s2) {
 		}
 	}
 	return 1;
-}
+};
 
 

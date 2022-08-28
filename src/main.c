@@ -71,7 +71,7 @@ void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, int indent) {
 			type_print(arena, it->type);
 			lt_printc(' ');
 		}
-		if (it->stype == STMT_DEF || it->stype == STMT_LET)
+		if (it->stype == STMT_SYMDEF)
 			lt_printf("%S ", it->sym->name);
 		lt_printc('\n');
 		if (it->expr)

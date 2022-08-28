@@ -56,7 +56,6 @@ tk_stype_t identifier_type(lstr_t str) {
 
 	case 'd':
 		if (lt_lstr_eq(str, CLSTR("do"))) return TK_KW_DO;
-		if (lt_lstr_eq(str, CLSTR("def"))) return TK_KW_DEF;
 		if (lt_lstr_eq(str, CLSTR("default"))) return TK_KW_DEFAULT;
 		break;
 
@@ -75,14 +74,14 @@ tk_stype_t identifier_type(lstr_t str) {
 		if (lt_lstr_eq(str, CLSTR("goto"))) return TK_KW_GOTO;
 		break;
 
+	case 'h':
+		if (lt_lstr_eq(str, CLSTR("here"))) return TK_KW_HERE;
+		break;
+
 	case 'i':
 		if (lt_lstr_eq(str, CLSTR("implicit"))) return TK_KW_IMPLICIT;
 		if (lt_lstr_eq(str, CLSTR("import"))) return TK_KW_IMPORT;
 		if (lt_lstr_eq(str, CLSTR("if"))) return TK_KW_IF;
-		break;
-
-	case 'l':
-		if (lt_lstr_eq(str, CLSTR("let"))) return TK_KW_LET;
 		break;
 
 	case 'n':
@@ -132,10 +131,7 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 		u8 tk = chars[(u8)c];
 
 		switch (tk) {
-		case TK_COLON: c = data[it];
-			if (c == ':') { ++it; emit(TK_DOUBLE_COLON); }
-			else emit(TK_COLON);
-			break;
+		case TK_COLON: emit(TK_COLON); break;
 
 		case TK_PLUS: c = data[it];
 			if (c == '+') { ++it; emit(TK_DOUBLE_PLUS); }
@@ -172,6 +168,8 @@ usz lex_cached(lex_ctx_t* cx, tk_t* out_tk) {
 			if (c == '/') { while (data[++it] != '\n') ; }
 			else if (c == '*') {
 				while ((c = data[it++])) {
+					if (c == '\n')
+						++line_index;
 					if (c == '*' && data[it] == '/') {
 						++it;
 						break;

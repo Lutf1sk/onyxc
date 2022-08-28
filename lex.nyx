@@ -1,23 +1,23 @@
 import "std/mem.nyx", "std/char.nyx";
 import "err.nyx";
 
-def Token :: struct {
+Token :: struct {
 	u32 type;
 	u32 file;
 	u32 row, col;
 	u8[] str;
-}
+};
 
-def LexCtx :: struct {
+LexCtx :: struct {
 	Allocator* alc;
 	u8[] src;
 	Token[] out;
 	usz it;
 	u8[] err_str;
 	void* next;
-}
+};
 
-def TK :: enum u32 {
+TK :: enum u32 {
 	EOF,
 	IDENT,
 	STR, CHAR,
@@ -59,7 +59,7 @@ def TK :: enum u32 {
 	MAX,
 };
 
-let tk_info :: struct { u8[] name_str; } [TK.MAX] {
+tk_info :: struct { u8[] name_str; } [TK.MAX] {
 	{"EOF"},
 	{"IDENT"},
 	{"STR"}, {"CHAR"},
@@ -99,9 +99,9 @@ let tk_info :: struct { u8[] name_str; } [TK.MAX] {
 	{"KW_SYSCALL"},
 };
 
-usz INITIAL_COUNT :: 1024;
+INITIAL_COUNT: usz : 1024;
 
-let find_keyword :: TK(u8[] str) {
+find_keyword :: TK(u8[] str) {
 	if str.count < 2u {
 		return TK.IDENT;
 	}
@@ -158,9 +158,9 @@ let find_keyword :: TK(u8[] str) {
 	default {};
 
 	return TK.IDENT;
-}
+};
 
-let emit_tk :: ERR(LexCtx* cx, TK type, u8[] str) {
+emit_tk :: ERR(LexCtx* cx, TK type, u8[] str) {
 	if cx.out.count >= INITIAL_COUNT && is_pow2_unsafe(cx.out.count) {
 		cx.out.data = cx.alc.realloc(cx.alc.usr, cx.out.data, cx.out.count * 2 * sizeof(Token));
 		if !cx.out.data {
@@ -171,9 +171,9 @@ let emit_tk :: ERR(LexCtx* cx, TK type, u8[] str) {
 
 	cx.out[cx.out.count++] = Token { type, 0, 0, 0, str };
 	return ERR.OK;
-}
+};
 
-let lex :: ERR(LexCtx* cx) {
+lex :: ERR(LexCtx* cx) {
 	cx.out.data = cx.alc.alloc(cx.alc.usr, INITIAL_COUNT * sizeof(Token));
 	if !cx.out.data {
 		cx.err_str = "Memory allocation failed";
@@ -181,15 +181,16 @@ let lex :: ERR(LexCtx* cx) {
 	}
 	cx.out.count = 0;
 
-	u8* it = cx.src.data, end = cx.src.data + cx.src.count;
+	it := cx.src.data;
+	end := cx.src.data + cx.src.count;
 
 	while it < end {
-		u8* tk_start = it;
-		TK tk_type = TK.EOF;
+		tk_start := it;
+		tk_type := TK.EOF;
 
 		switch ctype_tab[*it]
 		case CTYPE.ALPHA {
-		parse_ident:
+		parse_ident :: here;
 			while it < end && (is_alpha8(*it) || is_digit8(*it) || *it == '_') {
 				++it;
 			}
@@ -209,7 +210,7 @@ let lex :: ERR(LexCtx* cx) {
 		},
 		default {};
 
-		usz rem = usz:(end - it)-1;
+		rem := usz:(end - it)-1;
 		switch *it++
 		case '_' { goto parse_ident; },
 
@@ -311,7 +312,7 @@ let lex :: ERR(LexCtx* cx) {
 					cx.err_str = "Unterminated string";
 					return ERR.LEXER;
 				}
-				u8 c = *it++;
+				c := *it++;
 				if c == '\\' {
 					++it;
 					continue;
@@ -328,7 +329,7 @@ let lex :: ERR(LexCtx* cx) {
 					cx.err_str = "Unterminated character literal";
 					return ERR.LEXER;
 				}
-				u8 c = *it++;
+				c := *it++;
 				if c == '\\' {
 					++it;
 					continue;
@@ -343,12 +344,12 @@ let lex :: ERR(LexCtx* cx) {
 			cx.err_str = "Unexpected symbol";
 			return ERR.LEXER;
 		};
-	emit:
-		u8[] tk_str = tk_start[0..usz:(it - tk_start)];
-		ERR err = emit_tk(cx, tk_type, tk_str);
+	emit :: here;
+		tk_str := tk_start[0..usz:(it - tk_start)];
+		err := emit_tk(cx, tk_type, tk_str);
 		if err { return err; }
 	}
 
 	return ERR.OK;
-}
+};
 

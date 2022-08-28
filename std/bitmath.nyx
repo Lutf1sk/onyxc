@@ -1,67 +1,67 @@
 
 // UNSAFE - 'n' must not be zero
-let is_pow2_unsafe :: u8(usz n) {
+is_pow2_unsafe :: u8(usz n) {
 	return !(n & (n - 1));
-}
+};
 
-let is_pow2 :: u8(usz n) {
+is_pow2 :: u8(usz n) {
 	if !n {
 		return 0;
 	}
 	return !(n & (n - 1));
-}
+};
 
 // UNSAFE - 'align' must be non-zero and a power of two
-let pad_unsafe :: usz(usz val, usz align) {
-	usz align_mask = align - 1;
+pad_unsafe :: usz(usz val, usz align) {
+	align_mask := align - 1;
 	return ((val & align_mask) ^ align_mask) + 1;
-}
+};
 
-let pad :: usz(usz val, usz align) {
+pad :: usz(usz val, usz align) {
 	if !align {
 		return val;
 	}
-	usz align_mask = align - 1;
+	align_mask := align - 1;
 	return ((val & align_mask) ^ align_mask) + 1;
-}
+};
 
 // UNSAFE - 'align' must be non-zero and a power of two
-let alignf_unsafe :: usz(usz val, usz align) {
-	usz align_mask = align - 1;
+alignf_unsafe :: usz(usz val, usz align) {
+	align_mask := align - 1;
 	return (val + align_mask) & ~align_mask;
-}
+};
 
-let alignf :: usz(usz val, usz align) {
+alignf :: usz(usz val, usz align) {
 	// TODO: assert(is_pow2(align))
 	if !align {
 		return val;
 	}
-	usz align_mask = align - 1;
+	align_mask := align - 1;
 	return (val + align_mask) & ~align_mask;
-}
+};
 
 // UNSAFE - 'align' must be non-zero and a power of two
-let alignb_unsafe :: usz(usz val, usz align) {
+alignb_unsafe :: usz(usz val, usz align) {
 	return val & ~(align - 1);
-}
+};
 
-let alignb :: usz(usz val, usz align) {
+alignb :: usz(usz val, usz align) {
 	// TODO: assert(is_pow2(align))
 	if !align {
 		return val;
 	}
 	return val & ~(align - 1);
-}
+};
 
-let rotl8 :: u8(u8 v, u8 shift) { return (v << shift) | (v >> (8 - shift)); }
-let rotl16 :: u16(u16 v, u8 shift) { return (v << shift) | (v >> (16 - shift)); }
-let rotl32 :: u32(u32 v, u8 shift) { return (v << shift) | (v >> (32 - shift)); }
-let rotl64 :: u64(u64 v, u8 shift) { return (v << shift) | (v >> (64 - shift)); }
-let rotlz :: usz(usz v, u8 shift) { return (v << shift) | (v >> (sizeof(usz) * 8 - shift)); }
+rotl8 :: u8(u8 v, u8 shift) { return (v << shift) | (v >> (8 - shift)); };
+rotl16 :: u16(u16 v, u8 shift) { return (v << shift) | (v >> (16 - shift)); };
+rotl32 :: u32(u32 v, u8 shift) { return (v << shift) | (v >> (32 - shift)); };
+rotl64 :: u64(u64 v, u8 shift) { return (v << shift) | (v >> (64 - shift)); };
+rotlz :: usz(usz v, u8 shift) { return (v << shift) | (v >> (sizeof(usz) * 8 - shift)); };
 
-let rotr8 :: u8(u8 v, u8 shift) { return (v >> shift) | (v << (8 - shift)); }
-let rotr16 :: u16(u16 v, u8 shift) { return (v >> shift) | (v << (16 - shift)); }
-let rotr32 :: u32(u32 v, u8 shift) { return (v >> shift) | (v << (32 - shift)); }
-let rotr64 :: u64(u64 v, u8 shift) { return (v >> shift) | (v << (64 - shift)); }
-let rotrz :: usz(usz v, u8 shift) { return (v >> shift) | (v << (sizeof(usz) * 8 - shift)); }
+rotr8 :: u8(u8 v, u8 shift) { return (v >> shift) | (v << (8 - shift)); };
+rotr16 :: u16(u16 v, u8 shift) { return (v >> shift) | (v << (16 - shift)); };
+rotr32 :: u32(u32 v, u8 shift) { return (v >> shift) | (v << (32 - shift)); };
+rotr64 :: u64(u64 v, u8 shift) { return (v >> shift) | (v << (64 - shift)); };
+rotrz :: usz(usz v, u8 shift) { return (v >> shift) | (v << (sizeof(usz) * 8 - shift)); };
 

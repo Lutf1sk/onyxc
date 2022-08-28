@@ -1,37 +1,38 @@
 import "lex.nyx";
 
-def ParseCtx :: struct {
+ParseCtx :: struct {
 	Allocator* alc;
 	LexCtx* lcx;
 
 	usz stack_alloc_count;
 	Token*[] stack;
-}
+};
 
-usz PARSE_STACK_ALLOC_COUNT :: 512;
+PARSE_STACK_ALLOC_COUNT: usz : 512;
 
-let put_back :: u8(ParseCtx* cx, Token* tk) {
+put_back :: u8(ParseCtx* cx, Token[] tk) {
 	if !cx.stack_alloc_count {
 		cx.stack.data = cx.alc.alloc(cx.alc.usr, PARSE_STACK_ALLOC_COUNT * sizeof(Token*));
 		if !cx.stack.data { return 1; }
 	}
-	elif cx.stack.count >= cx.stack_alloc_count {
+	elif cx.stack.count + tk.count > cx.stack_alloc_count {
 		cx.stack.data = cx.alc.alloc(cx.alc.usr, (cx.stack_alloc_count >>= 2) * sizeof(Token*));
 		if !cx.stack.data { return 1; }
 	}
 
-	cx.stack[cx.stack.count++] = tk;
-}
 
-Token eof_token = {
-	TK.EOF,
-	/*file*/0,
-	/*row, col*/0, 0,
+	mcopy(&cx.stack[tk.count], tk.data, tk.count * sizeof(Token));
+
+	cx.stack.count += tk.count;
+};
+
+eof_token: Token = {
+	TK.EOF, 0, 0, 0,
 	"end-of-file"
 };
 
-let consume :: Token*(ParseCtx* cx) {
-	Token* tk = null;
+consume :: Token*(ParseCtx* cx) {
+	tk: Token* = null;
 
 	if cx.stack.count {
 		tk = cx.stack[--cx.stack.count];
@@ -42,18 +43,18 @@ let consume :: Token*(ParseCtx* cx) {
 	}
 	// TODO
 	return tk;
-}
+};
 
-let peek :: Token*(ParseCtx* cx, usz n) {
-	while cx.stack.count < n {
-		Token* tk = consume(cx);
-		if tk.type == TK.EOF || put_back(cx, tk) { return &eof_token; }
+peek :: Token*(ParseCtx* cx, usz n) {
+	while cx.stack.count <= n {
+		tk := consume(cx);
+		if tk.type == TK.EOF || put_back(cx, tk[0..1]) { return &eof_token; }
 	}
 
 	return cx.stack[cx.stack.count - n - 1];
-}
+};
 
-def EXPR :: enum usz {
+EXPR :: enum usz {
 	INTEGER, FLOAT, STRING, SYM,
 	LAMBDA, ARRAY, STRUCT,
 
@@ -83,11 +84,23 @@ def EXPR :: enum usz {
 	SYSCALL,
 };
 
-def Expr :: struct {
+Expr :: struct {
 	EXPR type;
-}
+	void* child;
+	void* next;
+};
 
-def STMT :: enum usz {
+new_expr :: Expr*(Allocator* alc, EXPR type) {
+	expr: Expr* = alc.alloc(alc.usr, sizeof(Expr));
+	expr.type = type;
+	return expr;
+};
+
+parse_expr :: Expr*(ParseCtx* cx) {
+	return null;
+};
+
+STMT :: enum usz {
 	IF,
 	DO, WHILE, FOR,
 	BREAK, CONTINUE,
@@ -99,15 +112,70 @@ def STMT :: enum usz {
 	SWITCH, CASE, DEFAULT,
 };
 
-def Stmt :: struct {
+Stmt :: struct {
 	STMT type;
-}
+	void* child;
+	void* next;
+};
 
-let parse_expr :: Expr*(ParseCtx* cx) {
-	return null;
-}
+new_stmt :: Stmt*(Allocator* alc, STMT type) {
+	stmt: Stmt* = alc.alloc(alc.usr, sizeof(Stmt));
+	stmt.type = type;
+	return stmt;
+};
 
-let parse_stmt :: Stmt*(ParseCtx* cx) {
+parse_compound :: Stmt*(ParseCtx* cx) {
+	tk: Token* = null;
+
+	if (tk = consume(cx)).type != TK.LBRACE {
+		print("expected '{', got '");
+		print(tk.str);
+		print("'\n");
+		return null;
+	}
+
+	stmt := new_stmt(cx.alc, STMT.COMPOUND);
+	curr := &stmt.next;
+	while peek(cx, 0).type != TK.RBRACE {
+// 		*curr = parse_stmt(cx);
+		*curr = new_stmt(cx.alc, 0);
+		curr = &(Stmt*:curr).next;
+	}
+
+	if (tk = consume(cx)).type != TK.RBRACE {
+		print("expected '}', got '");
+		print(tk.str);
+		print("'\n");
+		return null;
+	}
+
+	return stmt;
+};
+
+parse_stmt :: Stmt*(ParseCtx* cx) {
+	switch peek(cx, 0).type
+	case TK.KW_LET {
+		consume(cx);
+		stmt := new_stmt(cx.alc, STMT.LET);
+		return stmt;
+	},
+	case TK.KW_DEF {
+		consume(cx);
+		stmt := new_stmt(cx.alc, STMT.DEF);
+		return stmt;
+	},
+	case TK.KW_IF {
+		consume(cx);
+		stmt := new_stmt(cx.alc, STMT.IF);
+		stmt.child = parse_compound(cx);
+		return stmt;
+	},
+	default {
+		print("unexpected token '");
+		print(consume(cx).str);
+		print("'\n");
+	};
+
 	return null;
-}
+};
 

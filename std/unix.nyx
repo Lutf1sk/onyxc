@@ -1,61 +1,61 @@
-
-usz SYS_READ			:: 0,
-	SYS_WRITE			:: 1,
-	SYS_OPEN			:: 2,
-	SYS_CLOSE			:: 3,
-	SYS_STAT			:: 4,
-	SYS_FSTAT			:: 5,
-	SYS_LSTAT			:: 6,
-	SYS_MMAP			:: 9,
-	SYS_MPROTECT		:: 10,
-	SYS_MUNMAP			:: 11,
-	SYS_BRK				:: 12,
-	SYS_SOCKET			:: 41,
-	SYS_CONNECT			:: 42,
-	SYS_ACCEPT			:: 43,
-	SYS_SENDTO			:: 44,
-	SYS_RECVFROM		:: 45,
-	SYS_BIND			:: 49,
-	SYS_LISTEN			:: 50,
-	SYS_SETSOCKOPT		:: 54,
-	SYS_GETSOCKOPT		:: 55,
-	SYS_EXIT			:: 60,
-	SYS_TIME			:: 201,
-	SYS_CLOCK_GETTIME	:: 228;
-
+SYS :: enum usz {
+	READ			: 0,
+	WRITE			: 1,
+	OPEN			: 2,
+	CLOSE			: 3,
+	STAT			: 4,
+	FSTAT			: 5,
+	LSTAT			: 6,
+	MMAP			: 9,
+	MPROTECT		: 10,
+	MUNMAP			: 11,
+	BRK				: 12,
+	SOCKET			: 41,
+	CONNECT			: 42,
+	ACCEPT			: 43,
+	SENDTO			: 44,
+	RECVFROM		: 45,
+	BIND			: 49,
+	LISTEN			: 50,
+	SETSOCKOPT		: 54,
+	GETSOCKOPT		: 55,
+	EXIT			: 60,
+	TIME			: 201,
+	CLOCK_GETTIME	: 228,
+};
 // ----- File I/O
 
-usz PATH_MAX :: 4096,
-	FILE_MAX :: 256;
+PATH_MAX :: 4096;
+FILE_MAX :: 256;
 
-i32 O_RDONLY	:: 0x00,
-	O_WRONLY	:: 0x01,
-	O_RDWR		:: 0x02,
-	O_CREAT		:: 0x40,
-	O_TRUNC		:: 0x200,
-	O_APPEND	:: 0x400,
+O_RDONLY	:: 0x00;
+O_WRONLY	:: 0x01;
+O_RDWR		:: 0x02;
+O_CREAT		:: 0x40;
+O_TRUNC		:: 0x200;
+O_APPEND	:: 0x400;
 
-	S_IRUSR 	:: 0x100,
-	S_IWUSR 	:: 0x80,
-	S_IXUSR 	:: 0x40;
+S_IRUSR 	:: 0x100;
+S_IWUSR 	:: 0x80;
+S_IXUSR 	:: 0x40;
 
-let read :: isz(isz fd, void[] data) {
-	return syscall(SYS_READ, fd, data.data, data.count);
-}
+read :: isz(isz fd, void[] data) {
+	return syscall(SYS.READ, fd, data.data, data.count);
+};
 
-let write :: isz(isz fd, void[] data) {
-	return syscall(SYS_WRITE, fd, data.data, data.count);
-}
+write :: isz(isz fd, void[] data) {
+	return syscall(SYS.WRITE, fd, data.data, data.count);
+};
 
-let open :: isz(u8* path, i32 flags, i32 mode) {
-	return syscall(SYS_OPEN, path, flags, mode);
-}
+open :: isz(u8* path, i32 flags, i32 mode) {
+	return syscall(SYS.OPEN, path, flags, mode);
+};
 
-let close :: isz(isz fd) {
-	return syscall(SYS_CLOSE, fd);
-}
+close :: isz(isz fd) {
+	return syscall(SYS.CLOSE, fd);
+};
 
-def stat_t :: struct {
+stat_t :: struct {
 	u64 st_dev;
 	u64 st_ino;
 	u64 st_nlink;
@@ -76,160 +76,174 @@ def stat_t :: struct {
 	u64 st_ctime;
 	u64 st_ctime_nsec;
 	i64[3] unused;
-}
+};
 
-let stat :: isz(u8* path, stat_t* buf) {
-	syscall(SYS_STAT, path, buf);
-}
+stat :: isz(u8* path, stat_t* buf) {
+	syscall(SYS.STAT, path, buf);
+};
 
-let fstat :: isz(isz fd, stat_t* buf) {
-	syscall(SYS_FSTAT, fd, buf);
-}
+fstat :: isz(isz fd, stat_t* buf) {
+	syscall(SYS.FSTAT, fd, buf);
+};
 
-let lstat :: isz(u8* path, stat_t* buf) {
-	syscall(SYS_LSTAT, path, buf);
-}
+lstat :: isz(u8* path, stat_t* buf) {
+	syscall(SYS.LSTAT, path, buf);
+};
 
 // ----- Memory Allocation
 
-usz	MAP_SHARED			:: 0x01,
-	MAP_PRIVATE			:: 0x02,
-	MAP_SHARED_VALIDATE	:: 0x03,
-	MAP_FIXED			:: 0x10,
-	MAP_ANONYMOUS		:: 0x20,
+MAP :: enum usz {
+	SHARED			: 0x01,
+	PRIVATE			: 0x02,
+	SHARED_VALIDATE	: 0x03,
+	FIXED			: 0x10,
+	ANONYMOUS		: 0x20,
 
-	MAP_POPULATE		:: 0x008000,
-	MAP_NONBLOCK		:: 0x010000,
-	MAP_STACK			:: 0x020000,
-	MAP_HUGETLB			:: 0x040000,
-	MAP_SYNC			:: 0x080000,
-	MAP_FIXED_NOREPLACE	:: 0x100000,
-	MAP_UNINITIALIZED	:: 0x400000;
+	POPULATE		: 0x008000,
+	NONBLOCK		: 0x010000,
+	STACK			: 0x020000,
+	HUGETLB			: 0x040000,
+	SYNC			: 0x080000,
+	FIXED_NOREPLACE	: 0x100000,
+	UNINITIALIZED	: 0x400000,
+};
 
-usz	PROT_READ	:: 0x01,
-	PROT_WRITE	:: 0x02,
-	PROT_EXEC	:: 0x04,
-	PROT_SEM	:: 0x08;
+PROT :: enum usz {
+	READ	: 0x01,
+	WRITE	: 0x02,
+	EXEC	: 0x04,
+	SEM		: 0x08,
+};
 
-let mmap :: void*(usz addr, usz size, usz prot, usz flags, usz fd, usz off) {
-	return void*:syscall(SYS_MMAP, addr, size, prot, flags, fd, off);
-}
+mmap :: void*(usz addr, usz size, PROT prot, MAP flags, usz fd, usz off) {
+	return void*:syscall(SYS.MMAP, addr, size, prot, flags, fd, off);
+};
 
-let mprotect :: i64(usz addr, usz size, usz prot) {
-	return syscall(SYS_MPROTECT, addr, size, prot);
-}
+mprotect :: i64(usz addr, usz size, usz prot) {
+	return syscall(SYS.MPROTECT, addr, size, prot);
+};
 
-let munmap :: void*(usz addr, usz size) {
-	return void*:syscall(SYS_MUNMAP, addr, size);
-}
+munmap :: void*(usz addr, usz size) {
+	return void*:syscall(SYS.MUNMAP, addr, size);
+};
 
 // ----- Time
 
-u64 CLOCK_REALTIME				:: 0,
-	CLOCK_MONOTONIC				:: 1,
-	CLOCK_PROCESS_CPUTIME_ID	:: 2,
-	CLOCK_THREAD_CPUTIME_ID		:: 3;
+CLOCK :: enum usz {
+	REALTIME				: 0,
+	MONOTONIC				: 1,
+	PROCESS_CPUTIME_ID	: 2,
+	THREAD_CPUTIME_ID		: 3,
+};
 
-def timespec_t :: struct {
+timespec_t :: struct {
 	u64 tv_sec;
 	u64 tv_nsec;
-}
+};
 
-let clock_gettime :: isz(i32 clockid, timespec_t* ts) {
-	return syscall(SYS_CLOCK_GETTIME, clockid, ts);
-}
+clock_gettime :: isz(CLOCK clockid, timespec_t* ts) {
+	return syscall(SYS.CLOCK_GETTIME, clockid, ts);
+};
 
 // ----- Sockets
 
-u16	PF_UNSPEC	:: 0,
-	PF_LOCAL	:: 1,
-	PF_INET		:: 2,
-	PF_INET6	:: 10;
+PF :: enum u16 {
+	UNSPEC	: 0,
+	LOCAL	: 1,
+	INET	: 2,
+	INET6	: 10,
+};
 
-u16	AF_UNSPEC	:: PF_UNSPEC,
-	AF_LOCAL	:: PF_LOCAL,
-	AF_INET		:: PF_INET,
-	AF_INET6	:: PF_INET6;
+AF :: enum u16 {
+	UNSPEC	: PF.UNSPEC,
+	LOCAL	: PF.LOCAL,
+	INET	: PF.INET,
+	INET6	: PF.INET6,
+};
 
-u32	SOCK_STREAM		:: 1,
-	SOCK_DGRAM		:: 2,
-	SOCK_RAW		:: 3,
-	SOCK_CLOEXEC	:: 0x00080000,
-	SOCK_NONBLOCK	:: 0x00000800;
+SOCK :: enum u32 {
+	STREAM		: 1,
+	DGRAM		: 2,
+	RAW			: 3,
+	CLOEXEC		: 0x00080000,
+	NONBLOCK	: 0x00000800,
+};
 
-u32	SO_DEBUG		:: 1,	// i32
-	SO_REUSEADDR	:: 2,	// i32
-	SO_DONTROUTE	:: 5,	// i32
-	SO_BROADCAST	:: 6,	// i32
-	SO_SNDBUF		:: 7,	// i32
-	SO_RCVBUF		:: 8,	// i32
-	SO_KEEPALIVE	:: 9,	// i32
-	SO_OOBLINE		:: 10,	// i32
-	SO_LINGER		:: 13,	// i32
-	SO_RCVLOWAT		:: 18,	// i32
-	SO_SNDLOWAT		:: 19,	// i32
-	SO_RCVTIMEO		:: 20,	// timeval_t
-	SO_SNDTIMEO		:: 21;	// timeval_t
+SO :: enum u32 {
+	DEBUG		: 1,	// i32
+	REUSEADDR	: 2,	// i32
+	DONTROUTE	: 5,	// i32
+	BROADCAST	: 6,	// i32
+	SNDBUF		: 7,	// i32
+	RCVBUF		: 8,	// i32
+	KEEPALIVE	: 9,	// i32
+	OOBLINE		: 10,	// i32
+	LINGER		: 13,	// i32
+	RCVLOWAT		: 18,	// i32
+	SNDLOWAT		: 19,	// i32
+	RCVTIMEO		: 20,	// timeval_t
+	SNDTIMEO		: 21,	// timeval_t
+};
 
-def sockaddr_t :: struct {
+sockaddr_t :: struct {
 	u16 sa_family;
 	u8[14] sa_data;
-}
+};
 
-def sockaddr_in_t :: struct {
+sockaddr_in_t :: struct {
 	u16 sin_family;
 	u16 sin_port;	// Big-endian
 	u32 sin_addr;	// Big-endian
 	u8[8] pad;
-}
+};
 
-def sockaddr_in6_t :: struct {
+sockaddr_in6_t :: struct {
 	u16 sin6_family;
 	u16 sin6_port;		// Big-endian
 	u32 sin6_flowinfo;	// Big-endian
 	u8[16] sin6_addr;
 	u32 sin6_scope_id;
-}
+};
 
-let socket :: isz(i32 family, i32 type, i32 protocol) {
-	return syscall(SYS_SOCKET, family, type, protocol);
-}
+socket :: isz(AF family, SOCK type, PF protocol) {
+	return syscall(SYS.SOCKET, family, type, protocol);
+};
 
-let connect :: isz(isz fd, sockaddr_t* addr, i32 addrlen) {
-	return syscall(SYS_CONNECT, fd, addr, addrlen);
-}
+connect :: isz(isz fd, sockaddr_t* addr, i32 addrlen) {
+	return syscall(SYS.CONNECT, fd, addr, addrlen);
+};
 
-let accept :: isz(isz fd, sockaddr_t* addr_out, i32 addrlen) {
-	return syscall(SYS_ACCEPT, fd, addr_out, addrlen);
-}
+accept :: isz(isz fd, sockaddr_t* addr_out, i32 addrlen) {
+	return syscall(SYS.ACCEPT, fd, addr_out, addrlen);
+};
 
-let sendto :: isz(isz fd, void* buf, usz len, u32 flags, sockaddr_t* addr, i32 addrlen) {
-	return syscall(SYS_SENDTO, fd, buf, len, flags, addr, addrlen);
-}
+sendto :: isz(isz fd, void* buf, usz len, u32 flags, sockaddr_t* addr, i32 addrlen) {
+	return syscall(SYS.SENDTO, fd, buf, len, flags, addr, addrlen);
+};
 
-let recvfrom :: isz(isz fd, void* buf, usz len, u32 flags, sockaddr_t* addr, i32 addrlen) {
-	return syscall(SYS_RECVFROM, fd, buf, len, flags, addr, addrlen);
-}
+recvfrom :: isz(isz fd, void* buf, usz len, u32 flags, sockaddr_t* addr, i32 addrlen) {
+	return syscall(SYS.RECVFROM, fd, buf, len, flags, addr, addrlen);
+};
 
-let bind :: isz(isz fd, sockaddr_t* addr, i32 addrlen) {
-	return syscall(SYS_BIND, fd, addr, addrlen);
-}
+bind :: isz(isz fd, sockaddr_t* addr, i32 addrlen) {
+	return syscall(SYS.BIND, fd, addr, addrlen);
+};
 
-let listen :: isz(isz fd, i32 backlog) {
-	return syscall(SYS_LISTEN, fd, backlog);
-}
+listen :: isz(isz fd, i32 backlog) {
+	return syscall(SYS.LISTEN, fd, backlog);
+};
 
-let setsockopt :: isz(isz fd, i32 level, i32 optname, void* optval, i32 optlen) {
-	return syscall(SYS_SETSOCKOPT, fd, level, optname, optval, optlen);
-}
+setsockopt :: isz(isz fd, i32 level, SO optname, void* optval, i32 optlen) {
+	return syscall(SYS.SETSOCKOPT, fd, level, optname, optval, optlen);
+};
 
-let getsockopt :: isz(isz fd, i32 level, i32 optname, void* optval, i32* optlen) {
-	return syscall(SYS_GETSOCKOPT, fd, level, optname, optval, optlen);
-}
+getsockopt :: isz(isz fd, i32 level, SO optname, void* optval, i32* optlen) {
+	return syscall(SYS.GETSOCKOPT, fd, level, optname, optval, optlen);
+};
 
 // ----- Misc.
 
-let exit :: void(i32 code) {
-	syscall(SYS_EXIT, code);
-}
+exit :: void(i32 code) {
+	syscall(SYS.EXIT, code);
+};
 

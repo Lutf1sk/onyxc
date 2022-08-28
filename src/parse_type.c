@@ -50,7 +50,7 @@ type_t* parse_type(parse_ctx_t* cx, type_t* base) {
 			sym->type = type;
 			sym->flags = SYMFL_CONST;
 
-			if (peek(cx, 0)->stype == TK_DOUBLE_COLON) {
+			if (peek(cx, 0)->stype == TK_COLON) {
 				consume(cx);
 				tk_t* tk = peek(cx, 0);
 				expr_t* expr = parse_expr(cx, parent);

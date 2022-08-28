@@ -1,87 +1,96 @@
 
 // Implementation of RFC 1035
 
-u16	DNSH_QUERY		:: 0b0000000000000000,
-	DNSH_RESPONSE	:: 0b1000000000000000,
-	DNSH_QR_MASK	:: 0b1000000000000000,
+DNSH :: enum u16 {
+	QUERY		: 0b0000000000000000,
+	RESPONSE	: 0b1000000000000000,
+	QR_MASK		: 0b1000000000000000,
 
-	DNSH_STANDARD	:: 0b0000000000000000,	// Standard query
-	DNSH_INVERSE	:: 0b0000100000000000,	// Inverse query
-	DNSH_SRVSTATRQ	:: 0b0001000000000000,	// Server status request
-	DNSH_QCODE_MASK	:: 0b0111100000000000,
+	STANDARD	: 0b0000000000000000,	// Standard query
+	INVERSE		: 0b0000100000000000,	// Inverse query
+	SRVSTATRQ	: 0b0001000000000000,	// Server status request
+	QCODE_MASK	: 0b0111100000000000,
 
-	DNSH_AA			:: 0b0000010000000000,	// Responding name server is an authority
-	DNSH_TC			:: 0b0000001000000000,	// Message was truncated
-	DNSH_RD			:: 0b0000000100000000,	// Recursion desired (copied into response)
-	DNSH_RA			:: 0b0000000010000000,	// Recursion available
+	AA			: 0b0000010000000000,	// Responding name server is an authority
+	TC			: 0b0000001000000000,	// Message was truncated
+	RD			: 0b0000000100000000,	// Recursion desired (copied into response)
+	RA			: 0b0000000010000000,	// Recursion available
 
-	DNSH_NO_ERROR	:: 0b0000000000000000,
-	DNSH_FORMAT_ERR	:: 0b0000000000000001,	// Server was unable to interpret the query
-	DNSH_SRV_FAIL	:: 0b0000000000000010,	// Server failure
-	DNSH_NAME_ERR	:: 0b0000000000000011,	// Name does not exist (meaningful from authoritative only)
-	DNSH_NOT_IMPL	:: 0b0000000000000100,	// Unsupported query type
-	DNSH_REFUSED	:: 0b0000000000000101,	// Refused for policy reasons
-	DNSH_RCODE_MASK	:: 0b0000000000001111;
+	NO_ERROR	: 0b0000000000000000,
+	FORMAT_ERR	: 0b0000000000000001,	// Server was unable to interpret the query
+	SRV_FAIL	: 0b0000000000000010,	// Server failure
+	NAME_ERR	: 0b0000000000000011,	// Name does not exist (meaningful from authoritative only)
+	NOT_IMPL	: 0b0000000000000100,	// Unsupported query type
+	REFUSED		: 0b0000000000000101,	// Refused for policy reasons
+	RCODE_MASK	: 0b0000000000001111,
+};
 
-u16	DNST_A		:: 1,	// Host address
-	DNST_NS		:: 2,	// Authoritative name server
-	DNST_MD		:: 3,	// Mail destination (obsolete)
-	DNST_MF		:: 4,	// Mail forwarder (obsolete)
-	DNST_CNAME	:: 5,	// Canonical alias name
-	DNST_SOA	:: 6,	// Start of a zone of authority
-	DNST_MB		:: 7,	// Mailbox domain name
-	DNST_MG		:: 8,	// Mail group member
-	DNST_MR		:: 9,	// Mail rename domain name
-	DNST_NULL	:: 10,	// Null RR
-	DNST_WKS	:: 11,	// Well known service description
-	DNST_PTR	:: 12,	// Domain name pointer
-	DNST_HINFO	:: 13,	// Host information
-	DNST_MINFO	:: 14,	// Mailbox/mail list information
-	DNST_MX		:: 15,	// Mail exchange
-	DNST_TXT	:: 16;	// Text strings
+DNST :: enum u16 {
+	A		: 1,	// Host address
+	NS		: 2,	// Authoritative name server
+	MD		: 3,	// Mail destination (obsolete)
+	MF		: 4,	// Mail forwarder (obsolete)
+	CNAME	: 5,	// Canonical alias name
+	SOA		: 6,	// Start of a zone of authority
+	MB		: 7,	// Mailbox domain name
+	MG		: 8,	// Mail group member
+	MR		: 9,	// Mail rename domain name
+	NULL	: 10,	// Null RR
+	WKS		: 11,	// Well known service description
+	PTR		: 12,	// Domain name pointer
+	HINFO	: 13,	// Host information
+	MINFO	: 14,	// Mailbox/mail list information
+	MX		: 15,	// Mail exchange
+	TXT		: 16,	// Text strings
+};
 
-u16 DNSQT_AXFR	:: 252,	// Request transfer of an entire zone
-	DNSQT_MAILB	:: 253,	// Request mailbox-related (MB/MG/MR)
-	DNSQT_MAILA	:: 254,	// Request mail agent RRs
-	DNSQT_ALL	:: 255;	// Request all records
+DNSQT :: enum u16 {
+	AXFR	: 252,	// Request transfer of an entire zone
+	MAILB	: 253,	// Request mailbox-related (MB/MG/MR)
+	MAILA	: 254,	// Request mail agent RRs
+	ALL		: 255,	// Request all records
+};
 
-u16	DNSC_IN		:: 1,	// Internet
-	DNSC_CS		:: 2,	// CSNET (obsolete)
-	DNSC_CH		:: 3,	// CHAOS
-	DNSC_HS		:: 4;	// Hesiod
+DNSC :: enum u16 {
+	IN		: 1,	// Internet
+	CS		: 2,	// CSNET (obsolete)
+	CH		: 3,	// CHAOS
+	HS		: 4,	// Hesiod
+};
 
-u16	DNSQC_ALL	:: 255;	// All classes
+DNSQC_ALL: u16 : 255;	// All classes
 
-def DNS_Header :: struct {
+DNS_Header :: struct {
 	u16 id;
 	u16 flags;
 	u16 qdcount;
 	u16 ancount;
 	u16 nscount;
 	u16 arcount;
-}
+};
 
-def DNS_Question :: struct {
+DNS_Question :: struct {
 	u16 qtype;
 	u16 qclass;
-}
+};
 
-def DNS_RsrcRecord :: struct {
+DNS_RsrcRecord :: struct {
 	u16 type;
 	u16 class;
 	u32 ttl;
 	u16 rdlen;
-}
+};
 
-import "std/net.nyx";
+import "std/net.nyx", "std/ipv4.nyx";
 
-let dns_encode_name :: isz(u8[] domain, u8[] out) {
-	u8* q_it = out.data, q_max = q_it + out.count;
-	u8* substr = domain.data;
+dns_encode_name :: isz(u8[] domain, u8[] out) {
+	q_it := out.data;
+	q_max := q_it + out.count;
+	substr := domain.data;
 	for usz i..domain.count {
 		if domain[i] == '.' {
-			usz substr_len = i - usz:(substr - domain.data);
-			u8* q_it_next = q_it + substr_len + 1;
+			substr_len := i - usz:(substr - domain.data);
+			q_it_next := q_it + substr_len + 1;
 			if !substr_len || substr_len > 63u || q_it_next >= q_max {
 				return -1;
 			}
@@ -95,8 +104,8 @@ let dns_encode_name :: isz(u8[] domain, u8[] out) {
 		}
 	}
 
-	usz substr_len = domain.count - usz:(substr - domain.data);
-	u8* q_it_next = q_it + substr_len + 2;
+	substr_len := domain.count - usz:(substr - domain.data);
+	q_it_next := q_it + substr_len + 2;
 	if !substr_len || substr_len > 63u || q_it_next >= q_max {
 		return -1;
 	}
@@ -107,19 +116,19 @@ let dns_encode_name :: isz(u8[] domain, u8[] out) {
 
 	*q_it++ = 0;
 	return usz:(q_it - out.data);
-}
+};
 
-let dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
-	sockaddr_in_t saddr;
+dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
+	saddr: sockaddr_in_t;
 	mset8(&saddr, 0, sizeof(sockaddr_in_t));
-	saddr.sin_family = AF_INET;
+	saddr.sin_family = AF.INET;
 	saddr.sin_port = hton16(53);
 
 	if ipv4_parse_addr(dns_host, &saddr) {
 		return 1;
 	}
 
-	isz sock = socket(AF_INET, SOCK_STREAM, 0);
+	sock := socket(AF.INET, SOCK.STREAM, 0);
 	if sock < 0 {
 		return 1;
 	}
@@ -129,23 +138,23 @@ let dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 		return 1;
 	}
 
-	DNS_Header dh;
+	dh: DNS_Header;
 	mset8(&dh, 0, sizeof(DNS_Header));
-	dh.flags = hton16(DNSH_QUERY | DNSH_STANDARD | DNSH_RD);
+	dh.flags = hton16(DNSH.QUERY | DNSH.STANDARD | DNSH.RD);
 	dh.qdcount = hton16(1);
 
-	DNS_Question dq;
-	dq.qtype = hton16(DNST_A);
-	dq.qclass = hton16(DNSC_IN);
+	dq: DNS_Question;
+	dq.qtype = hton16(DNST.A);
+	dq.qclass = hton16(DNSC.IN);
 
-	u8[256] question;
-	isz qlen = dns_encode_name(domain, question);
+	question: u8[256];
+	qlen := dns_encode_name(domain, question);
 	if qlen < 0 {
 		sock->close();
 		return 1;
 	}
 
-	u16 msglen = hton16(sizeof(DNS_Header) + qlen + sizeof(DNS_Question));
+	msglen := hton16(sizeof(DNS_Header) + qlen + sizeof(DNS_Question));
 	sock->write((&msglen)[0..1]);
 	sock->write((&dh)[0..1]);
 	sock->write(question[0..qlen]);
@@ -159,7 +168,7 @@ let dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 	msglen = hton16(msglen);
 
 	// Receive message body
-	u8[4096] buf;
+	buf: u8[4096];
 	if sock->recv(buf[0..msglen]) <= 0 || msglen < u32:sizeof(DNS_Header) {
 		sock->close();
 		return 1;
@@ -167,20 +176,20 @@ let dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 
 	sock->close();
 
-	DNS_Header* rh = void*:buf.data;
+	rh := DNS_Header*:buf.data;
 	rh.flags = hton16(rh.flags);
 	rh.qdcount = hton16(rh.qdcount);
 	rh.ancount = hton16(rh.ancount);
 	rh.nscount = hton16(rh.nscount);
 	rh.arcount = hton16(rh.arcount);
 
-	u16 rcode = rh.flags & DNSH_RCODE_MASK;
-	if rcode != DNSH_NO_ERROR {
+	rcode := rh.flags & DNSH.RCODE_MASK;
+	if rcode != DNSH.NO_ERROR {
 		return 1;
 	}
 
-	void* section_start = buf.data + sizeof(DNS_Header);
-	u8* it = section_start;
+	section_start := buf.data + sizeof(DNS_Header);
+	it := section_start;
 
 	// TODO: Prevent out-of-bounds writes
 
@@ -191,7 +200,7 @@ let dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 
 	for usz i..rh.ancount {
 		while *it { it++; } // NAME
-		let rr = DNS_RsrcRecord*:it;
+		rr := DNS_RsrcRecord*:it;
 		rr.type = hton16(rr.type);
 		rr.class = hton16(rr.class);
 		rr.ttl = hton16(rr.ttl);
@@ -199,7 +208,7 @@ let dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 
 		it += sizeof(DNS_RsrcRecord);
 
-		if rr.type == DNST_A && rr.class == DNSC_IN {
+		if rr.type == DNST.A && rr.class == DNSC.IN {
 			out.sin_addr = *u32*:it;
 			return 0;
 		}
@@ -208,6 +217,5 @@ let dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 	}
 
 	return 1;
-}
-
+};
 

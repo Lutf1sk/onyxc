@@ -85,6 +85,93 @@ stmt_t* parse_compound(parse_ctx_t* cx) {
 	return root;
 }
 
+stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
+	tk_t* tk = consume_type(cx, TK_COLON, CLSTR(", expected "A_BOLD"':'"A_RESET" after name in symbol definition"));
+
+	sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+	*sym = SYM(SYM_VAR, str);
+
+	type_t* type = try_parse_type(cx);
+
+	expr_t* expr = NULL;
+	if (peek(cx, 0)->stype == TK_COLON) {
+		consume(cx);
+		sym->flags |= SYMFL_CONST;
+
+		if (!type) {
+			type = try_parse_type(cx);
+			if (type && peek(cx, 0)->stype == TK_SEMICOLON) {
+				sym->stype = SYM_TYPE;
+			}
+			else if (!type && peek(cx, 0)->stype == TK_KW_HERE) {
+				consume(cx);
+				sym->stype = SYM_LABEL;
+				symtab_insert(cx->label_symtab, str, sym);
+				sym->lbl = cx->label_symtab->count;
+			}
+			else {
+				expr = parse_expr(cx, type);
+				type = expr->type;
+			}
+		}
+		else
+			expr = parse_expr(cx, type);
+	}
+	else if (peek(cx, 0)->stype == TK_EQUAL) {
+		consume(cx);
+		expr = parse_expr(cx, type);
+		if (!type)
+			type = expr->type;
+	}
+	else if (type && peek(cx, 0)->stype == TK_SEMICOLON) {}
+	else
+		ferr("expected "A_BOLD"':'"A_RESET", or "A_BOLD"'='"A_RESET" after symbol definition", *peek(cx, 0));
+
+	sym->type = type;
+	sym->expr = expr;
+
+	if (sym->stype == SYM_VAR) {
+		LT_ASSERT(type);
+
+		if (sym->flags & SYMFL_CONST) {
+			sym->val = gen_const_expr(cx->gen_cx, expr);
+			if ((sym->val.stype & ~IVAL_REF) == IVAL_SEG)
+				cx->gen_cx->seg[sym->val.uint_val].name = sym->name;
+		}
+		else if (!cx->curr_func_type) {
+			sym->flags |= SYMFL_GLOBAL;
+
+			usz size = type_bytes(sym->type);
+			void* data = lt_arena_reserve(cx->arena, size);
+			memset(data, 0, size);
+			u32 seg_i = new_data_seg(cx->gen_cx, SEG_ENT(SEG_DATA, sym->name, size, data));
+			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = seg_i);
+
+			if (expr) {
+				ival_t v = gen_const_expr(cx->gen_cx, expr);
+				ival_write_comp(cx->gen_cx, &cx->gen_cx->seg[seg_i], expr->type, v, data);
+			}
+		}
+	}
+
+	consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after symbol definition"));
+
+	stmt_t* stmt = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+	if (sym->stype == SYM_LABEL)
+		*stmt = STMT(STMT_LABEL);
+	else
+		*stmt = STMT(STMT_SYMDEF);
+	stmt->sym = sym;
+	stmt->expr = expr;
+	stmt->type = type;
+
+	if (!symtab_definable(cx->symtab, str))
+		ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET"", *tk, str);
+	symtab_insert(cx->symtab, str, sym);
+	return stmt;
+}
+
+/*
 stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 	stmt_t* stmt = NULL;
 	stmt_t** it = &stmt;
@@ -161,7 +248,7 @@ stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
 		consume(cx);
 		it = &new->child;
 	}
-}
+}*/
 
 stmt_t* parse_if(parse_ctx_t* cx) {
 	tk_t* tk = consume(cx);
@@ -208,7 +295,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 	case TK_LEFT_BRACE:
 		return parse_compound(cx);
 
-	case TK_KW_IMPORT: consume(cx);
+	case TK_KW_IMPORT: consume(cx); {
 		lex_ctx_t* old_lex_cx = cx->lex;
 		stmt_t* stmt = NULL;
  		stmt_t** it = &stmt;
@@ -237,7 +324,8 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 				*it = parse(cx);
 				cx->lex = old_lex_cx;
 
-				it = &(*it)->child;
+				if (*it)
+					it = &(*it)->child;
 			}
 
 			if (peek(cx, 0)->stype != TK_COMMA) {
@@ -245,46 +333,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 				return stmt;
 			}
 			consume(cx);
-		}
-
-	case TK_KW_LET: consume(cx);
-		return parse_let(cx, NULL);
-
-	case TK_KW_DEF: consume(cx); {
-		stmt_t* stmt = NULL;
- 		stmt_t** it = &stmt;
-		for (;;) {
-			stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
-			*new = STMT(STMT_DEF);
-			tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected type name"));
-
-			if (!symtab_definable(cx->symtab, ident_tk->str))
-				ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET, *ident_tk, ident_tk->str);
-
-			consume_type(cx, TK_DOUBLE_COLON, CLSTR(", expected "A_BOLD"'::'"A_RESET" after type name"));
-
-			type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
-
-			type_t* copied_type = parse_type(cx, NULL);
-			*type = *copied_type;
-
-			sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
-			*sym = SYM(SYM_TYPE, ident_tk->str);
-			sym->type = type;
-			symtab_insert(cx->symtab, ident_tk->str, sym);
-
-			type->sym = sym;
-			new->sym = sym;
-			new->type = type;
-
-			*it = new;
-			if (peek(cx, 0)->stype != TK_COMMA) {
-				if (type->stype != TP_STRUCT)
-					consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after type definition"));
-				return stmt;
-			}
-			consume(cx);
-			it = &new->child;
 		}
 	}
 
@@ -388,9 +436,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return new;
 	}
 
-	case TK_KW_STRUCT:
-		return parse_let(cx, parse_type(cx, NULL));
-
 	case TK_KW_GOTO: consume(cx); {
 		if (!cx->curr_func_type)
 			goto outside_func;
@@ -465,40 +510,16 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return sw;
 	}
 
+	case TK_KW_STRUCT: case TK_KW_ENUM:
 	default: {
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
-		usz start_it = cx->lex->it;
 
 		if (tk.stype == TK_IDENTIFIER) {
 			sym_t* sym = symtab_find(cx->symtab, tk.str);
-			if (!sym) {
+			if (peek(cx, 1)->stype == TK_COLON) {
 				consume(cx);
-				if (peek(cx, 0)->stype == TK_COLON) {
-					if (!cx->curr_func_type)
-						goto outside_func;
-
-					consume(cx);
-					sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
-					*sym = SYM(SYM_LABEL, tk.str);
-					symtab_insert(cx->label_symtab, tk.str, sym);
-					sym->lbl = cx->label_symtab->count;
-
-					*new = STMT(STMT_LABEL);
-					new->sym = sym;
-					return new;
-				}
-
-				ferr("use of undeclared identifier "A_BOLD"'%S'"A_RESET, tk, tk.str);
+				return parse_symdef(cx, tk.str);
 			}
-		}
-
-		type_t* type = try_parse_type(cx);
-		if (type) {
-			tk_stype_t ntk = peek(cx, 0)->stype;
-			if (ntk == TK_IDENTIFIER)
-				return parse_let(cx, type);
-			else
-				cx->lex->it = start_it;
 		}
 
 		if (!cx->curr_func_type)

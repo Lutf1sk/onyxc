@@ -1305,13 +1305,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	switch (stmt->stype) {
-	case STMT_LET: {
-		stmt_t* it = stmt;
-		while (it) {
-			gen_sym_def(cx, it->sym, it->expr);
-			it = it->child;
-		}
-	}	break;
+	case STMT_SYMDEF:
+		if (stmt->sym->stype == SYM_VAR)
+			gen_sym_def(cx, stmt->sym, stmt->expr);
+		break;
 
 	case STMT_EXPR:
 		icode_gen_expr(cx, stmt->expr);
@@ -1341,9 +1338,6 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		emit(cx, ICODE1(IR_RET, size, reg));
 		break;
 	}
-
- 	case STMT_DEF:
- 		break;
 
 	case STMT_WHILE: {
 		usz size = type_bytes(stmt->expr->type);

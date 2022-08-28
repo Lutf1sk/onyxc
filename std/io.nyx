@@ -1,11 +1,11 @@
 import "std/unix.nyx", "std/str.nyx";
 
-let filename_from_path :: u8[](u8[] path) {
+filename_from_path :: u8[](u8[] path) {
 	if !path.count {
 		return null[0..0];
 	}
 
-	usz i = path.count - 1;
+	i := path.count - 1;
 	while i && path[i] != '/' {
 		i--;
 	}
@@ -13,46 +13,47 @@ let filename_from_path :: u8[](u8[] path) {
 		++i;
 	}
 	return (path.data + i)[0..path.count - i];
-}
+};
 
-let fopenw :: u8(isz* fdp, u8[] path) {
-	u8[PATH_MAX] path_nt;
+fopenw :: u8(isz* fdp, u8[] path) {
+	path_nt : u8[PATH_MAX];
 	cstr(path, path_nt);
 	*fdp = open(path_nt.data, O_WRONLY|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
 	return *fdp < 0;
-}
+};
 
-let fopenr :: u8(isz* fdp, u8[] path) {
-	u8[PATH_MAX] path_nt;
+fopenr :: u8(isz* fdp, u8[] path) {
+	path_nt : u8[PATH_MAX];
 	cstr(path, path_nt);
 	*fdp = open(path_nt.data, O_RDONLY, 0);
 	return *fdp < 0;
-}
+};
 
-let fclose :: void(isz fd) {
+fclose :: void(isz fd) {
 	close(fd);
-}
+};
 
-let fwrite :: void(isz fd, u8[] data) {
+fwrite :: void(isz fd, u8[] data) {
 	write(fd, data);
-}
+};
 
-let fread :: usz(isz fd, u8[] data) {
+fread :: usz(isz fd, u8[] data) {
 	return read(fd, data);
-}
+};
 
-let print :: isz(u8[] str) {
+print :: isz(u8[] str) {
 	return write(1, str);
-}
+};
 
-let print_i64 :: usz(i64 n) {
+print_i64 :: usz(i64 n) {
 	if (n < 0) {
 		print("-");
 		n = -n;
 	}
 
-	u8[32] str;
-	u8* end = str.data + str.count, it = end - 1;
+	str : u8[32];
+	end := str.data + str.count;
+	it := end - 1;
 
 	while n >= 10 {
 		*it-- = n % 10 + '0';
@@ -60,16 +61,17 @@ let print_i64 :: usz(i64 n) {
 	}
 	*it = n + '0';
 
-	u8[] view = it[0..usz:(end - it)];
+	view := it[0..usz:(end - it)];
 	print(view);
 	return view.count;
-}
+};
 
-let print_h64 :: usz(u64 n) {
-	u8[16] hex_conv_tab :: "0123456789ABCDEF";
+print_h64 :: usz(u64 n) {
+	hex_conv_tab : u8[16] : "0123456789ABCDEF";
 
-	u8[16] str;
-	u8* end = str.data + str.count, it = end - 1;
+	str : u8[16];
+	end := str.data + str.count;
+	it := end - 1;
 
 	while n > 0x0F {
 		*it-- = hex_conv_tab[n & 0x0F];
@@ -77,8 +79,8 @@ let print_h64 :: usz(u64 n) {
 	}
 	*it = hex_conv_tab[n];
 
-	u8[] view = it[0..usz:(end - it)];
+	view := it[0..usz:(end - it)];
 	print(view);
 	return view.count;
-}
+};
 

@@ -1,12 +1,17 @@
 import "std/io.nyx", "std/mem.nyx", "std/hashtab.nyx", "lex.nyx", "parse.nyx";
 
-let main :: u64() {
-	Arena* arena = amcreate(null, 64M, 0);
-	Allocator* alc = &arena.interf;
+import	"std/bitmath.nyx", "std/char.nyx", "std/conf.nyx", "std/dns.nyx",
+		"std/dynlib.nyx", "std/elf.nyx", "std/hashtab.nyx", "std/io.nyx",
+		"std/ipv4.nyx", "std/mem.nyx", "std/net.nyx", "std/str.nyx",
+		"std/time.nyx", "std/unix.nyx";
 
-	u8[] in_path = "main.nyx";
+main :: u64() {
+	arena := amcreate(null, 64M, 0);
+	alc := &arena.interf;
 
-	isz in_f;
+	in_path := "main.nyx";
+
+	in_f: isz;
 	if fopenr(&in_f, in_path) {
 		print("Failed to open '");
 		print(in_path);
@@ -14,23 +19,23 @@ let main :: u64() {
 		goto err0;
 	}
 
-	stat_t st;
+	st : stat_t;
 	if fstat(in_f, &st) < 0 {
 		print("fstat() failed\n");
 		goto err1;
 	}
 
-	u8* in_data = amalloc(arena, st.st_size + 2);
+	in_data: u8* = amalloc(arena, st.st_size + 2);
 	in_data[0] = 0;
 	in_data[st.st_size] = 0;
-	u8[] invw = (in_data + 1)[0..st.st_size];
+	invw := (in_data + 1)[0..st.st_size];
 	if fread(in_f, invw) != st.st_size {
 		print("read() failed\n");
 		goto err1;
 	}
 	fclose(in_f);
 
-	LexCtx lcx;
+	lcx: LexCtx;
 	mset8(&lcx, 0, sizeof(LexCtx));
 	lcx.alc = alc;
 	lcx.src = invw;
@@ -41,7 +46,7 @@ let main :: u64() {
 	}
 
 	for usz i..lcx.out.count {
-		Token* tk = &lcx.out[i];
+		tk := &lcx.out[i];
 
 		print(tk_info[tk.type].name_str);
 		print(" '");
@@ -49,16 +54,22 @@ let main :: u64() {
 		print("'\n");
 	}
 
-	ParseCtx pcx;
+	pcx: ParseCtx;
 	mset8(&pcx, 0, sizeof(ParseCtx));
 	pcx.alc = alc;
 	pcx.lcx = &lcx;
 
+	while peek(&pcx, 0).type != TK.EOF {
+		parse_stmt(&pcx);
+	}
+
 	amdestroy(arena);
 	exit(0);
 
-err1:	fclose(in_f);
-err0:	amdestroy(arena);
-		exit(1);
-}
+err1 :: here;
+	fclose(in_f);
+err0 :: here;
+	amdestroy(arena);
+	exit(1);
+};
 

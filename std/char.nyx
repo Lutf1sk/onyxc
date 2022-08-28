@@ -1,12 +1,12 @@
 
-def CTYPE :: enum u8 {
-	NONE	:: 0x00,
-	ALPHA	:: 0x01,
-	DIGIT	:: 0x02,
-	SPACE	:: 0x04,
+CTYPE :: enum u8 {
+	NONE	: 0x00,
+	ALPHA	: 0x01,
+	DIGIT	: 0x02,
+	SPACE	: 0x04,
 };
 
-CTYPE[256] ctype_tab :: {
+ctype_tab :: CTYPE[256] {
 	CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE,			// 0..7
 	CTYPE.NONE, CTYPE.SPACE, CTYPE.SPACE, CTYPE.SPACE, CTYPE.NONE, CTYPE.SPACE, CTYPE.NONE, CTYPE.NONE,		// 8..15
 	CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE,			// 16..23
@@ -28,27 +28,27 @@ CTYPE[256] ctype_tab :: {
 	CTYPE.ALPHA, CTYPE.ALPHA, CTYPE.ALPHA, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE,		// 120..127
 };
 
-let is_alpha8 :: u8(u8 c) {
+is_alpha8 :: u8(u8 c) {
 	return ctype_tab[c] & CTYPE.ALPHA;
-}
+};
 
-let is_alpha32 :: u8(u32 c) {
+is_alpha32 :: u8(u32 c) {
 	return c < ctype_tab.count && ctype_tab[c] & CTYPE.ALPHA;
-}
+};
 
-let is_digit8 :: u8(u8 c) {
+is_digit8 :: u8(u8 c) {
 	return ctype_tab[c] & CTYPE.DIGIT;
-}
+};
 
-let is_digit32 :: u8(u32 c) {
+is_digit32 :: u8(u32 c) {
 	return c < ctype_tab.count && ctype_tab[c] & CTYPE.DIGIT;
-}
+};
 
-let is_space8 :: u8(u8 c) {
+is_space8 :: u8(u8 c) {
 	return ctype_tab[c] & CTYPE.SPACE;
-}
+};
 
-let is_space32 :: u8(u32 c) {
+is_space32 :: u8(u32 c) {
 	return c < ctype_tab.count && ctype_tab[c] & CTYPE.SPACE;
-}
+};
 
