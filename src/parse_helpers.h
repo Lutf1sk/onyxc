@@ -7,20 +7,13 @@
 #include "textattrib.h"
 #include "lex.h"
 
-static inline
+static
 tk_t* consume(parse_ctx_t* cx) {
 	LT_ASSERT(cx->lex->it < cx->lex->count);
 	return &cx->lex->tk_data[cx->lex->it++];
 }
 
-static inline
-usz line_count(parse_ctx_t* cx) {
-	if (!cx->lex->count)
-		return 0;
-	return cx->lex->tk_data[cx->lex->count - 1].line_index;
-}
-
-static inline
+static
 tk_t* consume_type(parse_ctx_t* cx, tk_stype_t stype, lstr_t err) {
 	tk_t* tk = &cx->lex->tk_data[cx->lex->it];
 
@@ -33,7 +26,7 @@ tk_t* consume_type(parse_ctx_t* cx, tk_stype_t stype, lstr_t err) {
 	return tk;
 }
 
-static LT_INLINE
+static
 tk_t* peek(parse_ctx_t* cx, usz offs) {
 	offs += cx->lex->it;
 	if (offs >= cx->lex->count) {

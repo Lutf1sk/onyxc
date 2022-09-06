@@ -10,20 +10,17 @@ ParseCtx :: struct {
 
 PARSE_STACK_ALLOC_COUNT: usz : 512;
 
-put_back :: u8(ParseCtx* cx, Token[] tk) {
+put_back :: u8(ParseCtx* cx, Token* tk) {
 	if !cx.stack_alloc_count {
 		cx.stack.data = cx.alc.alloc(cx.alc.usr, PARSE_STACK_ALLOC_COUNT * sizeof(Token*));
 		if !cx.stack.data { return 1; }
 	}
-	elif cx.stack.count + tk.count > cx.stack_alloc_count {
+	elif cx.stack.count > cx.stack_alloc_count {
 		cx.stack.data = cx.alc.alloc(cx.alc.usr, (cx.stack_alloc_count >>= 2) * sizeof(Token*));
 		if !cx.stack.data { return 1; }
 	}
 
-
-	mcopy(&cx.stack[tk.count], tk.data, tk.count * sizeof(Token));
-
-	cx.stack.count += tk.count;
+	cx.stack[cx.stack.count++] = tk;
 };
 
 eof_token: Token = {
@@ -48,7 +45,7 @@ consume :: Token*(ParseCtx* cx) {
 peek :: Token*(ParseCtx* cx, usz n) {
 	while cx.stack.count <= n {
 		tk := consume(cx);
-		if tk.type == TK.EOF || put_back(cx, tk[0..1]) { return &eof_token; }
+		if tk.type == TK.EOF || put_back(cx, tk) { return &eof_token; }
 	}
 
 	return cx.stack[cx.stack.count - n - 1];
@@ -154,6 +151,10 @@ parse_compound :: Stmt*(ParseCtx* cx) {
 
 parse_stmt :: Stmt*(ParseCtx* cx) {
 	switch peek(cx, 0).type
+	case TK.KW_IMPORT {
+		consume(cx);
+		return null;
+	},
 	case TK.KW_LET {
 		consume(cx);
 		stmt := new_stmt(cx.alc, STMT.LET);

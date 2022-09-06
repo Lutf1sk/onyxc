@@ -171,85 +171,6 @@ stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 	return stmt;
 }
 
-/*
-stmt_t* parse_let(parse_ctx_t* cx, type_t* init_type) {
-	stmt_t* stmt = NULL;
-	stmt_t** it = &stmt;
-
-	for (;;) {
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
-		*new = STMT(STMT_LET);
-		tk_t* ident_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected variable name"));
-
-		sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
-		*sym = SYM(SYM_VAR, ident_tk->str);
-
-		new->sym = sym;
-
-		u8 flags = 0;
-		if (!cx->curr_func_type)
-			flags |= SYMFL_GLOBAL;
-
-		if (!symtab_definable(cx->symtab, ident_tk->str))
-			ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET"", *ident_tk, ident_tk->str);
-
-		type_t* type = init_type;
-		tk_t* tk = peek(cx, 0);
-		if (tk->stype == TK_DOUBLE_COLON || tk->stype == TK_EQUAL) {
-			consume(cx);
-			if (tk->stype == TK_DOUBLE_COLON)
-				flags |= SYMFL_CONST;
-
-			new->expr = parse_expr(cx, init_type);
-			if (init_type) {
-				if (!type_convert_implicit(cx, init_type, &new->expr))
-					ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *ident_tk,
-							type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, init_type));
-			}
-			else
-				type = new->expr->type;
-		}
-		else if (!type)
-			ferr("variable with implicit type must be initialized", *ident_tk);
-
-		if (type->stype == TP_VOID)
-			ferr("variable cannot be of type "A_BOLD"'void'"A_RESET, *ident_tk);
-
-		sym->expr = new->expr;
-		sym->type = type;
-		new->type = type;
-		sym->flags = flags;
-		symtab_insert(cx->symtab, ident_tk->str, sym);
-
-		if (flags & SYMFL_CONST) {
-			sym->val = gen_const_expr(cx->gen_cx, sym->expr);
-			if ((sym->val.stype & ~IVAL_REF) == IVAL_SEG)
-				cx->gen_cx->seg[sym->val.uint_val].name = sym->name;
-		}
-		else if (flags & SYMFL_GLOBAL) {
-			usz size = type_bytes(sym->type);
-			void* data = lt_arena_reserve(cx->arena, size);
-			memset(data, 0, size);
-			u32 seg_i = new_data_seg(cx->gen_cx, SEG_ENT(SEG_DATA, sym->name, size, data));
-			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = seg_i);
-
-			if (sym->expr) {
-				ival_t v = gen_const_expr(cx->gen_cx, sym->expr);
-				ival_write_comp(cx->gen_cx, &cx->gen_cx->seg[seg_i], sym->expr->type, v, data);
-			}
-		}
-
-		*it = new;
-		if (peek(cx, 0)->stype != TK_COMMA) {
-			if (type->stype != TP_FUNC)
-				consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after variable definition"));
-			return stmt;
-		}
-		consume(cx);
-		it = &new->child;
-	}
-}*/
-
 stmt_t* parse_if(parse_ctx_t* cx) {
 	tk_t* tk = consume(cx);
 	stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
@@ -508,6 +429,12 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		}
 		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after switch statement"));
 		return sw;
+	}
+
+	case TK_HASH: consume(cx); {
+		stmt_t* stmt = parse_stmt(cx);
+		(void)stmt;
+		return NULL;
 	}
 
 	case TK_KW_STRUCT: case TK_KW_ENUM:

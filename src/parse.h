@@ -11,6 +11,9 @@ typedef struct parse_ctx {
 	symtab_t* symtab, *label_symtab;
 	lt_arena_t* arena;
 
+	tk_t** tk_stack;
+	usz tk_stack_count;
+
 	lex_ctx_t* lex;
 	gen_ctx_t* gen_cx;
 } parse_ctx_t;

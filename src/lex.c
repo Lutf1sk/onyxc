@@ -344,6 +344,7 @@ usz lex_initial(lex_ctx_t* cx, tk_t* out_tk) {
 	chars[','] = TK_COMMA;
 	chars[':'] = TK_COLON;
 	chars[';'] = TK_SEMICOLON;
+	chars['#'] = TK_HASH;
 	chars['('] = TK_LEFT_PARENTH;
 	chars[')'] = TK_RIGHT_PARENTH;
 	chars['{'] = TK_LEFT_BRACE;

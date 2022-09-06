@@ -25,6 +25,7 @@
 	TK_OP(DOT) \
 	TK_OP(DOUBLE_DOT) \
 	TK_OP(COMMA) \
+	TK_OP(HASH) \
 	\
 	TK_OP(PLUS) \
 	TK_OP(DOUBLE_PLUS) \
