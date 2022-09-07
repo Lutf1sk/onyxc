@@ -182,7 +182,7 @@ int main(int argc, char** argv) {
 
 		if (run_mode) {
 			// Execute intermediate code
-			u64* stack = lt_arena_reserve(arena, LT_MB(1));
+// 			u64* stack = lt_arena_reserve(arena, LT_MB(1));
 			u64 code = 0;
 
 			sym_t* main = symtab_find(&symtab, CLSTR("main"));
@@ -192,57 +192,20 @@ int main(int argc, char** argv) {
 				lt_ferr(CLSTR("'main' symbol must be a function\n"));
 
 			exec_ctx_t exec_cx;
-			exec_cx.sp = (u8*)stack;
-			exec_cx.bp = (u8*)stack;
-			exec_cx.ip = gen_cx.seg[main->val.uint_val].data;
-			exec_cx.seg = gen_cx.seg;
-			exec_cx.ret_ptr = (u8*)&code;
-			exec_cx.reg_offs = 0;
+// 			exec_cx.sp = (u8*)stack;
+// 			exec_cx.bp = (u8*)stack;
+// 			exec_cx.ip = gen_cx.seg[main->val.uint_val].data;
+// 			exec_cx.seg = gen_cx.seg;
+// 			exec_cx.ret_ptr = (u8*)&code;
+// 			exec_cx.reg_offs = 0;
 
 			icode_exec(&exec_cx);
 			return code;
 		}
 
 #if 0
-		// Print segments
-		for (usz i = 0; i < gen_cx.seg_count; ++i) {
-			seg_ent_t* seg = &gen_cx.seg[i];
-			if (seg->stype == SEG_DATA) {
-				lt_printf("DS %uq '%S': %uq bytes\n", i, seg->name, seg->size);
-				continue;
-			}
-
-			icode_t* icode = seg->data;
-			usz icode_count = seg->size;
-
-			lt_printf("CS %uq '%S':\n", i, seg->name);
-			for (usz i = 0; i < icode_count; ++i) {
-				icode_t ic = icode[i];
-
-				lt_printf("%uz\t%S\t%S\t", i, icode_size_str(ic.size), icode_op_str(ic.op));
-
-				if (ic.dst)
-					lt_printf(A_BOLD"r%iq "A_RESET, ic.dst);
-				switch (ic.op) {
-				case IR_INT: lt_printf("0x%hq\n", ic.uint_val); break;
-				case IR_FLOAT: lt_printf("FLOAT\n"); break;
-				case IR_SRESV: lt_printf("%ud %ud\n", ic.regs[0], ic.regs[1]); break;
-				case IR_GETLBL: lt_printf("%iq\n", ic.int_val); break;
-				case IR_LBL: lt_printf("%ud\n", ic.uint_val); break;
-				case IR_SEG: lt_printf("%ud\n", ic.regs[0]); break;
-				case IR_CALL: lt_printf("r%ud %ud\n", ic.regs[0], ic.regs[1]); break;
-				case IR_SYSCALL: lt_printf("%ud\n", ic.regs[0]); break;
-				case IR_SETARG: lt_printf("%ud\n", ic.regs[0]); break;
-				case IR_GETARG: lt_printf("%ud\n", ic.regs[0]); break;
-				default:
-					for (usz i = 0; i < 2; ++i)
-						if (ic.regs[i])
-							lt_printf("r%ud ", ic.regs[i]);
-					lt_printc('\n');
-					break;
-				}
-			}
-		}
+		for (usz i = 0; i < gen_cx.seg_count; ++i)
+			print_seg(&gen_cx, i);
 #endif
 
 		switch (target) {
@@ -251,6 +214,8 @@ int main(int argc, char** argv) {
 			x64.arena = arena;
 			x64.seg = gen_cx.seg;
 			x64.seg_count = gen_cx.seg_count;
+			x64.reg_map = lt_arena_reserve(arena, sizeof(amd64_ireg_t) * 2048); // !!
+			x64.reg_lifetimes = lt_arena_reserve(arena, sizeof(usz) * 2048); // !!
 
 			amd64_gen(&x64);
 

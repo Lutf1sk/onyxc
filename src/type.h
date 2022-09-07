@@ -68,6 +68,7 @@ type_t* type_make_compatible(parse_ctx_t* cx, tk_t* tk, int stype, expr_t** left
 extern type_t void_def;
 extern type_t void_ptr_def;
 extern type_t void_view_def;
+extern type_t void_func_def;
 
 extern type_t u8_def;
 extern type_t u8_ptr_def;

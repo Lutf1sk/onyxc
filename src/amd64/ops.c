@@ -303,8 +303,8 @@ amd64_op_t ops[] = {
 		VAR1(RM64, OPXT, { 2, 0xFF })),
 
 	OP("ret", 2,
-		VAR1(UIMM16, 0,	{ 0xC2 }),	// RET uimm16
-		VAR0(0,			{ 0xC3 })),	// RET
+		VAR0(0,			{ 0xC3 }),	// RET
+		VAR1(UIMM16, 0,	{ 0xC2 })),	// RET uimm16
 
 	OP("syscall", 1,
 		VAR0(0, { 0x0F, 0x05 })),

@@ -480,50 +480,50 @@ void convert_icode(amd64_ctx_t* cx) {
 		ireg_end(cx, ir->regs[1]);
 }
 
-void amd64_gen(amd64_ctx_t* cx) {
-	cx->reg_map = lt_arena_reserve(cx->arena, sizeof(amd64_ireg_t) * 2048);
-	cx->reg_lifetimes = lt_arena_reserve(cx->arena, sizeof(usz) * 2048);
+usz amd64_gen_func(amd64_ctx_t* cx, usz i) {
+	seg_ent_t* cs = &cx->seg[i];
 
-	usz seg_count = cx->seg_count;
+	memset(cx->reg_allocated, 0, sizeof(cx->reg_allocated));
 
-	for (usz i = 0; i < seg_count; ++i) {
-		seg_ent_t* cs = &cx->seg[i];
+	cx->curr_ifunc = i;
+	cx->curr_func = new_mcode_seg(cx, cs->type, cs->name, i);
+	cx->stack_top = 0;
+	cx->arg_num = 0;
+	cx->getarg_offs = 0;
+	if (type_bytes(cs->type->base) > 8)
+		cx->getarg_offs = 1;
+	cx->lbl = NULL;
 
-		if (cs->stype != SEG_ICODE)
-			continue;
+	seg_ent_t* ms = &cx->seg[cx->curr_func];
 
-		memset(cx->reg_allocated, 0, sizeof(cx->reg_allocated));
+	for (cx->i = 0; cx->i < cs->size; ++cx->i)
+		prepass_icode(cx);
 
-		cx->curr_ifunc = i;
-		cx->curr_func = new_mcode_seg(cx, cs->type, cs->name, i);
-		cx->stack_top = 0;
-		cx->arg_num = 0;
-		cx->getarg_offs = 0;
-		if (type_bytes(cs->type->base) > 8)
-			cx->getarg_offs = 1;
-		cx->lbl = NULL;
+	cx->lbl_it = cx->lbl;
 
-		seg_ent_t* ms = &cx->seg[cx->curr_func];
+	cx->frame_size = sresv(cx, 0, 16);
+	cx->stack_top = 0;
 
-		for (cx->i = 0; cx->i < cs->size; ++cx->i)
-			prepass_icode(cx);
-
-		cx->lbl_it = cx->lbl;
-
-		cx->frame_size = sresv(cx, 0, 16);
-		cx->stack_top = 0;
-
-		for (cx->i = 0; cx->i < cs->size; ++cx->i)
-			convert_icode(cx);
+	for (cx->i = 0; cx->i < cs->size; ++cx->i)
+		convert_icode(cx);
 
 #ifdef LT_DEBUG
-		for (usz i = 0 ; i < AMD64_REG_COUNT; ++i)
-			if (cx->reg_allocated[i])
-				lt_printf(A_BOLD"m-cs '%S': "A_MAGENTA"internal compiler error"A_RESET": leaked register %S (r%ud)\n",
-						cs->name, reg_names[i][VARG_64], cx->reg_allocated[i]);
+	for (usz i = 0 ; i < AMD64_REG_COUNT; ++i)
+		if (cx->reg_allocated[i])
+			lt_printf(A_BOLD"m-cs '%S': "A_MAGENTA"internal compiler error"A_RESET": leaked register %S (r%ud)\n",
+					cs->name, reg_names[i][VARG_64], cx->reg_allocated[i]);
 #endif
 
-		ms->lbl = cx->lbl;
+	ms->lbl = cx->lbl;
+
+	return cx->curr_func;
+}
+
+void amd64_gen(amd64_ctx_t* cx) {
+	for (usz i = 0; i < cx->seg_count; ++i) {
+		if (cx->seg[i].stype != SEG_ICODE)
+			continue;
+		amd64_gen_func(cx, i);
 	}
 }
 

@@ -1,7 +1,7 @@
 #ifndef ELF_H
 #define ELF_H 1
 
-#include <lt/primitives.h>
+#include <lt/lt.h>
 
 #define LT_ELF_VERSION_CURRENT 1
 

@@ -61,10 +61,17 @@ struct amd64_ctx {
 	usz i;
 } amd64_ctx_t;
 
+// amd64.c
+usz amd64_gen_func(amd64_ctx_t* cx, usz i);
 void amd64_gen(amd64_ctx_t* cx);
 void amd64_print_seg(amd64_ctx_t* cx, usz i);
 void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr);
 
+// asm.c
+void* amd64_assemble_program(amd64_ctx_t* cx, usz base_addr, usz* out_size);
+void* amd64_jit_assemble_function(amd64_ctx_t* cx, usz i);
+
+// elf.c
 void amd64_write_elf64(amd64_ctx_t* cx, char* path);
 
 #endif

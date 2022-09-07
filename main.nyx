@@ -5,9 +5,13 @@ import "std/io.nyx", "std/mem.nyx", "std/hashtab.nyx", "lex.nyx", "parse.nyx";
 // 		"std/ipv4.nyx", "std/mem.nyx", "std/net.nyx", "std/str.nyx",
 // 		"std/time.nyx", "std/unix.nyx";
 
-main :: u64() {
-	#syscall(SYS.WRITE, 1, "asdf\n".data, "asdf\n".count);
+#{
+	str :: "asdf\n";
+	syscall(SYS.WRITE, 1, str.data, str.count);
+	syscall(SYS.EXIT, 5);
+}
 
+main :: u64() {
 	arena := amcreate(null, 64M, 0);
 	alc := &arena.interf;
 
@@ -21,7 +25,7 @@ main :: u64() {
 		goto err0;
 	}
 
-	st : stat_t;
+	st: stat_t;
 	if fstat(in_f, &st) < 0 {
 		print("fstat() failed\n");
 		goto err1;

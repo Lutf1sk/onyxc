@@ -8,6 +8,9 @@
 #include "gen.h"
 #include "segment.h"
 
+// !!
+#include "amd64/amd64.h"
+
 #include <lt/str.h>
 #include <lt/io.h>
 
@@ -431,9 +434,46 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return sw;
 	}
 
-	case TK_HASH: consume(cx); {
-		stmt_t* stmt = parse_stmt(cx);
-		(void)stmt;
+	case TK_HASH: {
+		// Parse
+		tk_t* tk = consume(cx);
+		type_t* old_func_type = cx->curr_func_type;
+		cx->curr_func_type = &void_func_def;
+
+		symtab_t* lbltab = symtab_create(cx->arena);
+
+		PUSH_SCOPE();
+		stmt_t* compound = parse_stmt(cx);
+		POP_SCOPE();
+
+		expr_t* lambda = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		*lambda = EXPR(EXPR_LAMBDA, &void_func_def, tk);
+		lambda->stmt = compound;
+		lambda->label_symtab = lbltab;
+
+		cx->curr_func_type = old_func_type;
+
+		// Generate IR
+		ival_t seg_v = gen_const_expr(cx->gen_cx, lambda);
+		LT_ASSERT(seg_v.stype == IVAL_SEG);
+		usz seg_i = seg_v.uint_val;
+		print_seg(cx->gen_cx, seg_i);
+
+		// Generate low-level IR
+		amd64_ctx_t x64;
+		x64.arena = cx->arena;
+		x64.seg = cx->gen_cx->seg;
+		x64.seg_count = cx->gen_cx->seg_count;
+		x64.reg_map = lt_arena_reserve(cx->arena, sizeof(amd64_ireg_t) * 2048); // !!
+		x64.reg_lifetimes = lt_arena_reserve(cx->arena, sizeof(usz) * 2048); // !!
+
+		seg_i = amd64_gen_func(&x64, seg_i);
+		lt_printf("\nM-CS %uq '%S':\n", seg_i, x64.seg[seg_i].name);
+		amd64_print_seg(&x64, seg_i);
+
+		// Assemble and link function
+		void* func = amd64_jit_assemble_function(&x64, seg_i);
+		((void(*)(void))func)();
 		return NULL;
 	}
 
@@ -441,12 +481,9 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 	default: {
 		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
 
-		if (tk.stype == TK_IDENTIFIER) {
-			sym_t* sym = symtab_find(cx->symtab, tk.str);
-			if (peek(cx, 1)->stype == TK_COLON) {
-				consume(cx);
-				return parse_symdef(cx, tk.str);
-			}
+		if (tk.stype == TK_IDENTIFIER && peek(cx, 1)->stype == TK_COLON) {
+			consume(cx);
+			return parse_symdef(cx, tk.str);
 		}
 
 		if (!cx->curr_func_type)

@@ -20,6 +20,7 @@ OBJS = \
 	src/type.o \
 	src/symtab.o \
 	src/amd64/amd64.o \
+	src/amd64/asm.o \
 	src/amd64/ops.o \
 	src/amd64/regs.o \
 	src/amd64/common.o \
