@@ -40,8 +40,7 @@ struct amd64_ctx {
 	isz curr_ifunc;
 	isz curr_func;
 
-	seg_ent_t* seg;
-	usz seg_count;
+	segtab_t* segtab;
 
 	u32 reg_allocated[AMD64_REG_COUNT];
 

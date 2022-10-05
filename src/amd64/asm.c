@@ -86,7 +86,7 @@ void write_lbl(asm_ctx_t* cx, amd64_lbl_t** cx_lbl, usz offs, u64* imm_val) {
 
 static
 void write_seg(asm_ctx_t* cx, usz offs, usz imm_bytes, u64* imm_val, u32 index) {
-	*imm_val = cx->amd64_cx->seg[index].load_at;
+	*imm_val = cx->amd64_cx->segtab->seg[index].load_at;
 	if (!*imm_val) {
 		fwd_ref_t* new_ref = lt_amalloc(cx->arena, sizeof(fwd_ref_t));
 		new_ref->offs = offs;
@@ -105,7 +105,7 @@ usz assemble_func(asm_ctx_t* cx, seg_ent_t* seg) {
 
 // 	lt_printf("%S: 0x%hz\n", seg->name, load_addr);
 	seg->load_at = load_addr;
-	cx->amd64_cx->seg[seg->origin].load_at = load_addr;
+	cx->amd64_cx->segtab->seg[seg->origin].load_at = load_addr;
 
 	cx->amd64_cx->lbl_it = cx->amd64_cx->lbl = NULL;
 
@@ -265,8 +265,8 @@ void* amd64_assemble_program(amd64_ctx_t* cx, usz base_addr, usz* out_size) {
 	asm_cx.arena = cx->arena;
 	LT_ASSERT(asm_cx.bin_data);
 
-	for (usz i = 0; i < cx->seg_count; ++i) {
-		seg_ent_t* seg = &cx->seg[i];
+	for (usz i = 0; i < cx->segtab->count; ++i) {
+		seg_ent_t* seg = &cx->segtab->seg[i];
 		if (seg->stype == SEG_MCODE)
 			assemble_func(&asm_cx, seg);
 		else if (seg->stype == SEG_DATA) {
@@ -294,7 +294,7 @@ void* amd64_assemble_program(amd64_ctx_t* cx, usz base_addr, usz* out_size) {
 	while (it) {
 		u64 val = 0;
 		memcpy(&val, asm_cx.bin_data + it->offs, it->size);
-		val += cx->seg[it->seg].load_at;
+		val += cx->segtab->seg[it->seg].load_at;
 		memcpy(asm_cx.bin_data + it->offs, &val, it->size);
 
 		it = it->next;
@@ -307,25 +307,23 @@ void* amd64_assemble_program(amd64_ctx_t* cx, usz base_addr, usz* out_size) {
 #include <sys/mman.h>
 
 void* amd64_jit_assemble_function(amd64_ctx_t* cx, usz i) {
-	usz page_count = 16; // !!
-
 	asm_ctx_t asm_cx;
 	asm_cx.bin_size = 0;
-	asm_cx.bin_asize = page_count * lt_get_pagesize();
-	asm_cx.bin_data = lt_vmalloc(page_count);
+	asm_cx.bin_asize = 16 * lt_get_pagesize(); // !!
+	asm_cx.bin_data = lt_vmalloc(asm_cx.bin_asize);
 	asm_cx.base_addr = (usz)asm_cx.bin_data;
 	asm_cx.amd64_cx = cx;
 	asm_cx.refs = NULL;
 	asm_cx.arena = cx->arena;
 	LT_ASSERT(asm_cx.bin_data);
 
-	assemble_func(&asm_cx, &cx->seg[i]);
+	assemble_func(&asm_cx, &cx->segtab->seg[i]);
 
 	mprotect(asm_cx.bin_data, asm_cx.bin_asize, PROT_READ|PROT_WRITE|PROT_EXEC);
 
 	fwd_ref_t* it = asm_cx.refs;
 	while (it) {
-		seg_ent_t* seg = &cx->seg[it->seg];
+		seg_ent_t* seg = &cx->segtab->seg[it->seg];
 		u64 addr = seg->load_at;
 		if (seg->stype == SEG_DATA)
 			addr = (usz)seg->data;

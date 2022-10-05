@@ -36,4 +36,20 @@ struct seg_ent {
 #define SEG_ENT_INIT(stype, name, size, data) { (stype), (name), (size), (data), NULL, 0, 0, 0, 0, NULL, NULL, NULL }
 #define SEG_ENT(stype, name, size, data) ((seg_ent_t)SEG_ENT_INIT(stype, name, size, data))
 
+#define SEG_ICODE_INIT(name, type) { SEG_ICODE, (name), 0, NULL, (type), 0, 0, 0, 0, NULL, NULL, NULL }
+#define SEG_MCODE_INIT(name, type, origin) { SEG_MCODE, (name), 0, NULL, (type), 0, 0, 0, (origin), NULL, NULL, NULL }
+
+typedef
+struct segtab {
+	usz count;
+	seg_ent_t* seg;
+} segtab_t;
+
+usz add_segment(segtab_t* tab, seg_ent_t* seg);
+
+static LT_INLINE
+usz new_segment(segtab_t* tab, seg_ent_t seg) {
+	return add_segment(tab, &seg);
+}
+
 #endif

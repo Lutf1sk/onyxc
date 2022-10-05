@@ -125,6 +125,4 @@ b8 ireg_reg_any(amd64_ireg_t* ireg);
 usz emit(amd64_ctx_t* cx, amd64_instr_t instr);
 void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_);
 
-usz new_mcode_seg(amd64_ctx_t* cx, type_t* type, lstr_t name, u32 origin);
-
 #endif

@@ -52,21 +52,10 @@ b8 ireg_reg_any(amd64_ireg_t* ireg) {
 #define SEGMENT_BLOCK_SIZE 512
 #define SEGMENT_BLOCK_MASK (SEGMENT_BLOCK_SIZE-1)
 
-usz new_mcode_seg(amd64_ctx_t* cx, type_t* type, lstr_t name, u32 origin) {
-	if (!(cx->seg_count & SEGMENT_BLOCK_MASK))
-		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
-	memset(&cx->seg[cx->seg_count], 0, sizeof(seg_ent_t));
-	cx->seg[cx->seg_count].type = type;
-	cx->seg[cx->seg_count].stype = SEG_MCODE;
-	cx->seg[cx->seg_count].name = name;
-	cx->seg[cx->seg_count].origin = origin;
-	return cx->seg_count++;
-}
-
 usz emit(amd64_ctx_t* cx, amd64_instr_t mi) {
 	LT_ASSERT(cx->curr_func != -1);
 
-	seg_ent_t* ent = &cx->seg[cx->curr_func];
+	seg_ent_t* ent = &cx->segtab->seg[cx->curr_func];
 	if (!(ent->size & AMD64_BLOCK_MASK))
 		ent->data = realloc(ent->data, (ent->size + AMD64_BLOCK_SIZE) * sizeof(amd64_instr_t));
 

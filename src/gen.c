@@ -16,14 +16,11 @@
 #define ICODE_BLOCK_SIZE 512
 #define ICODE_BLOCK_MASK (ICODE_BLOCK_SIZE-1)
 
-#define SEGMENT_BLOCK_SIZE 512
-#define SEGMENT_BLOCK_MASK (ICODE_BLOCK_SIZE-1)
-
 static
 usz emit(gen_ctx_t* cx, icode_t instr) {
 	LT_ASSERT(cx->curr_func != -1);
 
-	seg_ent_t* ent = &cx->seg[cx->curr_func];
+	seg_ent_t* ent = &cx->segtab->seg[cx->curr_func];
 
 	if (!(ent->size & ICODE_BLOCK_MASK))
 		ent->data = realloc(ent->data, (ent->size + ICODE_BLOCK_SIZE) * sizeof(icode_t));
@@ -32,24 +29,7 @@ usz emit(gen_ctx_t* cx, icode_t instr) {
 	return ent->size++;
 }
 
-
-usz new_code_seg(gen_ctx_t* cx, type_t* type) {
-	if (!(cx->seg_count & SEGMENT_BLOCK_MASK))
-		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
-	memset(&cx->seg[cx->seg_count], 0, sizeof(seg_ent_t));
-	cx->seg[cx->seg_count].type = type;
-	cx->seg[cx->seg_count].stype = SEG_ICODE;
-	return cx->seg_count++;
-}
-
-usz new_data_seg(gen_ctx_t* cx, seg_ent_t new_ent) {
-	if (!(cx->seg_count & SEGMENT_BLOCK_MASK))
-		cx->seg = realloc(cx->seg, (cx->seg_count + SEGMENT_BLOCK_SIZE) * sizeof(seg_ent_t));
-	cx->seg[cx->seg_count] = new_ent;
-	return cx->seg_count++;
-}
-
-#define LBL_COUNT (cx->seg[cx->curr_func].lbls)
+#define LBL_COUNT (cx->segtab->seg[cx->curr_func].lbls)
 
 static
 usz lalloc(gen_ctx_t* cx) {
@@ -62,7 +42,7 @@ void ldefine(gen_ctx_t* cx, usz lbl) {
 	emit(cx, ICODE(IR_LBL, ISZ_64, 0, .uint_val = lbl));
 }
 
-#define REG_COUNT (cx->seg[cx->curr_func].regs)
+#define REG_COUNT (cx->segtab->seg[cx->curr_func].regs)
 
 static
 u32 ralloc(gen_ctx_t* cx) {
@@ -134,8 +114,8 @@ static
 void* ival_data(gen_ctx_t* cx, ival_t* v) {
 	switch (v->stype) {
 	case IVAL_IMM: return &v->uint_val;
-	case IVAL_SEG: return &cx->seg[v->uint_val].data;
-	case IVAL_SEG | IVAL_REF: return cx->seg[v->uint_val].data;
+	case IVAL_SEG: return &cx->segtab->seg[v->uint_val].data;
+	case IVAL_SEG | IVAL_REF: return cx->segtab->seg[v->uint_val].data;
 	}
 
 	LT_ASSERT_NOT_REACHED();
@@ -149,7 +129,7 @@ u8* ival_write_comp(gen_ctx_t* cx, seg_ent_t* seg, type_t* type, ival_t v, u8* o
 
 		switch (v.stype) {
 		case IVAL_IMM: ptr = &v.uint_val; break;
-		case IVAL_SEG | IVAL_REF: ptr = cx->seg[v.uint_val].data; break;
+		case IVAL_SEG | IVAL_REF: ptr = cx->segtab->seg[v.uint_val].data; break;
 
 		case IVAL_SEG: {
 			fwd_ref_t* new_ref = lt_amalloc(cx->arena, sizeof(fwd_ref_t));
@@ -471,8 +451,8 @@ ival_t gen_static_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
 	void* data = lt_amalloc(cx->arena, size);
 	memset(data, 0, size);
 
-	u32 seg_i = new_data_seg(cx, SEG_ENT(SEG_DATA, CLSTR("@STATCOM"), size, data));
-	ival_write_comp(cx, &cx->seg[seg_i], type, *v, data);
+	u32 seg_i = new_segment(cx->segtab, SEG_ENT(SEG_DATA, CLSTR("@STATCOM"), size, data));
+	ival_write_comp(cx, &cx->segtab->seg[seg_i], type, *v, data);
 	return IVAL(IVAL_SEG | IVAL_REF, .uint_val = seg_i);
 }
 
@@ -531,12 +511,11 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 	switch (expr->stype) {
 	case EXPR_LAMBDA: {
 		isz old_func = cx->curr_func;
-		usz new_func = new_code_seg(cx, expr->type);
+		usz new_func = new_segment(cx->segtab, (seg_ent_t)SEG_ICODE_INIT(CLSTR("@LAMDA"), expr->type));
 		cx->curr_func = new_func;
 
-		cx->seg[cx->curr_func].name = CLSTR("@LAMDA");
-		cx->seg[cx->curr_func].label_symtab = expr->label_symtab;
-		cx->seg[cx->curr_func].lbls = expr->label_symtab->count;
+		cx->segtab->seg[new_func].label_symtab = expr->label_symtab;
+		cx->segtab->seg[new_func].lbls = expr->label_symtab->count;
 
 		emit(cx, ICODE0(IR_ENTER, ISZ_64));
 		sym_t** args = expr->type->child_syms;
@@ -1480,7 +1459,7 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		break;
 
 	case STMT_GOTO: {
-		sym_t* sym = symtab_find(cx->seg[cx->curr_func].label_symtab, stmt->tk->str);
+		sym_t* sym = symtab_find(cx->segtab->seg[cx->curr_func].label_symtab, stmt->tk->str);
 		if (!sym)
 			ferr(A_BOLD"'%S'"A_RESET" is not a valid label", *stmt->tk, stmt->tk->str);
 
@@ -1558,7 +1537,7 @@ void icode_gen(gen_ctx_t* cx, stmt_t* root) {
 }
 
 void print_seg(gen_ctx_t* cx, usz i) {
-	seg_ent_t* seg = &cx->seg[i];
+	seg_ent_t* seg = &cx->segtab->seg[i];
 	if (seg->stype == SEG_DATA) {
 		lt_printf("DS %uq '%S': %uq bytes\n", i, seg->name, seg->size);
 		return;

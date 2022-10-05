@@ -173,12 +173,13 @@ int main(int argc, char** argv) {
 		for (usz i = 0; i < sizeof(primitives) / sizeof(*primitives); ++i)
 			symtab_insert(&symtab, primitives[i].name, &primitives[i].sym);
 
+		segtab_t segtab = { 0, NULL };
+
 		// Parse token array
 		gen_ctx_t gen_cx;
 		gen_cx.lex_cx = lex_cx;
 		gen_cx.curr_func = -1;
-		gen_cx.seg = NULL;
-		gen_cx.seg_count = 0;
+		gen_cx.segtab = &segtab;
 		gen_cx.arena = arena;
 
 		parse_ctx_t parse_cx;
@@ -230,8 +231,7 @@ int main(int argc, char** argv) {
 		case TRG_AMD64: {
 			amd64_ctx_t x64;
 			x64.arena = arena;
-			x64.seg = gen_cx.seg;
-			x64.seg_count = gen_cx.seg_count;
+			x64.segtab = &segtab;
 			x64.reg_map = lt_amalloc(arena, sizeof(amd64_ireg_t) * 2048); // !!
 			x64.reg_lifetimes = lt_amalloc(arena, sizeof(usz) * 2048); // !!
 

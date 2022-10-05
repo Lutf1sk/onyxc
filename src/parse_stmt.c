@@ -7,6 +7,7 @@
 #include "symtab.h"
 #include "gen.h"
 #include "segment.h"
+#include "jit.h"
 
 // !!
 #include "amd64/amd64.h"
@@ -139,7 +140,7 @@ stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 		if (sym->flags & SYMFL_CONST) {
 			sym->val = gen_const_expr(cx->gen_cx, expr);
 			if ((sym->val.stype & ~IVAL_REF) == IVAL_SEG)
-				cx->gen_cx->seg[sym->val.uint_val].name = sym->name;
+				cx->gen_cx->segtab->seg[sym->val.uint_val].name = sym->name;
 		}
 		else if (!cx->curr_func_type) {
 			sym->flags |= SYMFL_GLOBAL;
@@ -147,12 +148,12 @@ stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 			usz size = type_bytes(sym->type);
 			void* data = lt_amalloc(cx->arena, size);
 			memset(data, 0, size);
-			u32 seg_i = new_data_seg(cx->gen_cx, SEG_ENT(SEG_DATA, sym->name, size, data));
+			u32 seg_i = new_segment(cx->gen_cx->segtab, SEG_ENT(SEG_DATA, sym->name, size, data));
 			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = seg_i);
 
 			if (expr) {
 				ival_t v = gen_const_expr(cx->gen_cx, expr);
-				ival_write_comp(cx->gen_cx, &cx->gen_cx->seg[seg_i], expr->type, v, data);
+				ival_write_comp(cx->gen_cx, &cx->gen_cx->segtab->seg[seg_i], expr->type, v, data);
 			}
 		}
 	}
@@ -460,19 +461,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		print_seg(cx->gen_cx, seg_i);
 
 		// Generate low-level IR
-		amd64_ctx_t x64;
-		x64.arena = cx->arena;
-		x64.seg = cx->gen_cx->seg;
-		x64.seg_count = cx->gen_cx->seg_count;
-		x64.reg_map = lt_amalloc(cx->arena, sizeof(amd64_ireg_t) * 2048); // !!
-		x64.reg_lifetimes = lt_amalloc(cx->arena, sizeof(usz) * 2048); // !!
-
-		seg_i = amd64_gen_func(&x64, seg_i);
-		lt_printf("\nM-CS %uq '%S':\n", seg_i, x64.seg[seg_i].name);
-		amd64_print_seg(&x64, seg_i);
-
-		// Assemble and link function
-		void* func = amd64_jit_assemble_function(&x64, seg_i);
+		usz func = jit_compile_seg(cx->gen_cx, seg_i);
 		((void(*)(void))func)();
 		return NULL;
 	}

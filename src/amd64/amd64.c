@@ -68,7 +68,7 @@ u32 sresv(amd64_ctx_t* cx, usz size, usz align) {
 
 static
 void prepass_icode(amd64_ctx_t* cx) {
-	seg_ent_t* seg = &cx->seg[cx->curr_ifunc];
+	seg_ent_t* seg = &cx->segtab->seg[cx->curr_ifunc];
 	icode_t* ir = &((icode_t*)seg->data)[cx->i];
 
 	#define UPD(r) (cx->reg_lifetimes[r] = cx->i)
@@ -110,7 +110,7 @@ void ireg_end(amd64_ctx_t* cx, u32 reg) {
 
 	if (ireg_reg_any(ireg) && ireg_movable(cx, reg) && !reg_free(cx, ireg->mreg))
 		lt_printf(A_BOLD"m-cs '%S': "A_MAGENTA"internal compiler error"A_RESET": invalid free of %S (r%ud)\n",
-						cx->seg[cx->curr_func].name, reg_names[ireg->mreg][VARG_64], reg);
+						cx->segtab->seg[cx->curr_func].name, reg_names[ireg->mreg][VARG_64], reg);
 }
 
 static
@@ -170,7 +170,7 @@ amd64_ireg_t* init_new_reg(amd64_ctx_t* cx, u32 dst, u32 src, usz size) {
 
 static
 void convert_icode(amd64_ctx_t* cx) {
-	seg_ent_t* seg = &cx->seg[cx->curr_ifunc];
+	seg_ent_t* seg = &cx->segtab->seg[cx->curr_ifunc];
 
 	usz i = cx->i;
 
@@ -481,12 +481,12 @@ void convert_icode(amd64_ctx_t* cx) {
 }
 
 usz amd64_gen_func(amd64_ctx_t* cx, usz i) {
-	seg_ent_t* cs = &cx->seg[i];
+	seg_ent_t* cs = &cx->segtab->seg[i];
 
 	memset(cx->reg_allocated, 0, sizeof(cx->reg_allocated));
 
 	cx->curr_ifunc = i;
-	cx->curr_func = new_mcode_seg(cx, cs->type, cs->name, i);
+	cx->curr_func = new_segment(cx->segtab, (seg_ent_t)SEG_MCODE_INIT(cs->name, cs->type, i));
 	cx->stack_top = 0;
 	cx->arg_num = 0;
 	cx->getarg_offs = 0;
@@ -494,7 +494,7 @@ usz amd64_gen_func(amd64_ctx_t* cx, usz i) {
 		cx->getarg_offs = 1;
 	cx->lbl = NULL;
 
-	seg_ent_t* ms = &cx->seg[cx->curr_func];
+	seg_ent_t* ms = &cx->segtab->seg[cx->curr_func];
 
 	for (cx->i = 0; cx->i < cs->size; ++cx->i)
 		prepass_icode(cx);
@@ -520,8 +520,8 @@ usz amd64_gen_func(amd64_ctx_t* cx, usz i) {
 }
 
 void amd64_gen(amd64_ctx_t* cx) {
-	for (usz i = 0; i < cx->seg_count; ++i) {
-		if (cx->seg[i].stype != SEG_ICODE)
+	for (usz i = 0; i < cx->segtab->count; ++i) {
+		if (cx->segtab->seg[i].stype != SEG_ICODE)
 			continue;
 		amd64_gen_func(cx, i);
 	}
@@ -538,8 +538,8 @@ void print_modrm(u8 mod, u8 rm, u8 size, u32 disp) {
 }
 
 void amd64_print_seg(amd64_ctx_t* cx, usz i) {
-	amd64_instr_t* mcode = cx->seg[i].data;
-	usz mcode_count = cx->seg[i].size;
+	amd64_instr_t* mcode = cx->segtab->seg[i].data;
+	usz mcode_count = cx->segtab->seg[i].size;
 
 	for (usz i = 0; i < mcode_count; ++i) {
 		lt_printf("\t(%uz)\t", i);
@@ -578,7 +578,7 @@ void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr) {
 		case VARG_REG: lt_printf("%S", reg_names[reg][size]); break;
 		case VARG_MRM:
 			if (instr->disp_flags & MI_SEG)
-				lt_printf("[<%S+%ud>]", cx->seg[instr->mrm.disp].name, instr->mrm.disp2);
+				lt_printf("[<%S+%ud>]", cx->segtab->seg[instr->mrm.disp].name, instr->mrm.disp2);
 			else if (instr->disp_flags & MI_LBL)
 				lt_printf("[(%id+%ud)]", instr->mrm.disp, instr->mrm.disp2);
 			else
@@ -586,7 +586,7 @@ void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr) {
 			break;
 		case VARG_IMM:
 			if (instr->imm_flags & MI_SEG)
-				lt_printf("<%S+%ud>", cx->seg[instr->imm.index].name, instr->imm.disp);
+				lt_printf("<%S+%ud>", cx->segtab->seg[instr->imm.index].name, instr->imm.disp);
 			else if (instr->imm_flags & MI_LBL)
 				lt_printf("(%id+%ud)", instr->imm.index, instr->imm.disp);
 			else
