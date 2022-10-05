@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
 		}
 
 #if 0
-		for (usz i = 0; i < gen_cx.seg_count; ++i)
+		for (usz i = 0; i < segtab.count; ++i)
 			print_seg(&gen_cx, i);
 #endif
 
@@ -239,11 +239,11 @@ int main(int argc, char** argv) {
 
 #if 0
 			// Print machine code
-			for (usz i = 0; i < x64.seg_count; ++i) {
-				if (x64.seg[i].stype != SEG_MCODE)
+			for (usz i = 0; i < segtab.count; ++i) {
+				if (segtab.seg[i].stype != SEG_MCODE)
 					continue;
 
-				lt_printf("\nM-CS %uq '%S':\n", i, x64.seg[i].name);
+				lt_printf("\nM-CS %uq '%S':\n", i, segtab.seg[i].name);
 				amd64_print_seg(&x64, i);
 			}
 #endif

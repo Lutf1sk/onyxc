@@ -255,7 +255,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	case TK_STRING: consume(cx); {
 		char* data = lt_amalloc(cx->arena, 0);
 		usz len = unescape_str(data, tk);
-		lt_amalloc(cx->arena, len);
+		data = lt_amrealloc(cx->arena, data, len); // !!
 
 		type_t* type = lt_amalloc(cx->arena, sizeof(type_t));
 		*type = TYPE(TP_ARRAY, &u8_def);

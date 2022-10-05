@@ -1,6 +1,6 @@
 #include "segment.h"
 
-#define SEGMENT_BLOCK_SIZE 512
+#define SEGMENT_BLOCK_SIZE 16
 #define SEGMENT_BLOCK_MASK (SEGMENT_BLOCK_SIZE-1)
 
 usz add_segment(segtab_t* tab, seg_ent_t* seg) {

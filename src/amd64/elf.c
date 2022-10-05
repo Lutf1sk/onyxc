@@ -9,6 +9,8 @@
 
 static
 void fill_fh(lt_elf64_fh_t* fh) {
+	memset(fh, 0, sizeof(lt_elf64_fh_t));
+
 	fh->magic[0] = 0x7f;
 	fh->magic[1] = 'E';
 	fh->magic[2] = 'L';
@@ -19,8 +21,6 @@ void fill_fh(lt_elf64_fh_t* fh) {
 	fh->header_version = LT_ELF_VERSION_CURRENT;
 	fh->osabi = LT_ELFOSABI_SYSV;
 	fh->abi_version = 0;
-
-	memset(fh->pad, 0, sizeof(fh->pad));
 
 	fh->obj_type = LT_ELFTYPE_EXEC;
 	fh->arch = LT_ELFARCH_AMD64;

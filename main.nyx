@@ -5,13 +5,13 @@ import "std/io.nyx", "std/mem.nyx", "std/hashtab.nyx", "lex.nyx", "parse.nyx";
 // 		"std/ipv4.nyx", "std/mem.nyx", "std/net.nyx", "std/str.nyx",
 // 		"std/time.nyx", "std/unix.nyx";
 
-#{
-	str :: "asdf\n";
-	syscall(SYS.WRITE, 1, str.data, str.count);
-	syscall(SYS.EXIT, 5);
-}
+// #{
+// 	str :: "asdf\n";
+// 	syscall(SYS.WRITE, 1, str.data, str.count);
+// 	syscall(SYS.EXIT, 5);
+// }
 
-main :: u64() {
+main :: void() {
 	arena := amcreate(null, 64M, 0);
 	alc := &arena.interf;
 
