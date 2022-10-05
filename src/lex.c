@@ -10,7 +10,8 @@
 
 lex_ctx_t* lex_file(lt_arena_t* arena, char* path, tk_t* path_tk) {
 	// Read source file
-	lt_file_t* fp = lt_file_open(arena, path, LT_FILE_R, 0);
+	lt_file_t* fp = lt_file_open(path, LT_FILE_R, 0, &arena->interf);
+
 	if (!fp) {
 		if (path_tk)
 			ferr("failed to open '%s'", *path_tk, path);
@@ -18,20 +19,21 @@ lex_ctx_t* lex_file(lt_arena_t* arena, char* path, tk_t* path_tk) {
 	}
 
 	usz size = lt_file_size(fp);
-	char* data = lt_arena_reserve(arena, size + 2);
+	char* data = lt_amalloc(arena, size + 2);
 	if (lt_file_read(fp, data + 1, size) != size)
 		lt_ferrf("failed to read from '%s'\n", path);
 	data[0] = 0;
 	data[size + 1] = 0;
-	lt_file_close(fp);
+	lt_file_close(fp, &arena->interf);
 
 	// Lex data
-	lex_ctx_t* lex_cx = lt_arena_reserve(arena, sizeof(lex_ctx_t));
+	lex_ctx_t* lex_cx = lt_amalloc(arena, sizeof(lex_ctx_t));
 	lex_cx->path = path;
 	lex_cx->data = LSTR(data + 1, size);
-	lex_cx->count = lex(lex_cx, lt_arena_reserve(arena, 0));
-	lex_cx->tk_data = lt_arena_reserve(arena, lex_cx->count * sizeof(tk_t));
 
+	tk_t* out = lt_amalloc(arena, 0);
+	lex_cx->count = lex(lex_cx, out);
+	lex_cx->tk_data = lt_amrealloc(arena, out, lex_cx->count * sizeof(tk_t)); // !!
 	return lex_cx;
 }
 

@@ -23,7 +23,7 @@ i64 sign_extend(usz from, i64 v) {
 }
 
 void icode_exec(exec_ctx_t* cx) {
-	usz arg_stack = 0;
+// 	usz arg_stack = 0;
 
 	icode_t* ip = cx->ip;
 	for (;;) {

@@ -544,7 +544,7 @@ void amd64_print_seg(amd64_ctx_t* cx, usz i) {
 	for (usz i = 0; i < mcode_count; ++i) {
 		lt_printf("\t(%uz)\t", i);
 		amd64_print_instr(cx, &mcode[i]);
-		lt_printc('\n');
+		lt_printf("\n");
 	}
 }
 
@@ -569,7 +569,7 @@ void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr) {
 
 	for (usz i = 0; i < var->arg_count; ++i) {
 		if (i)
-			lt_printls(CLSTR(", "));
+			lt_printf(", ");
 
 		u8 arg = var->args[i];
 		u8 size = arg & VARG_SIZE_MASK;

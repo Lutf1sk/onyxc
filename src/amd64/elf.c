@@ -75,7 +75,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	ph.mem_size = bin_size;
 	ph.alignment = ALIGN_BYTES;
 
-	lt_file_t* f = lt_file_open(cx->arena, path, LT_FILE_W, LT_FILE_PERMIT_X);
+	lt_file_t* f = lt_file_open(path, LT_FILE_W, LT_FILE_PERMIT_X, &cx->arena->interf);
 	if (!f)
 		lt_ferrf("Failed to open output file '%s'\n", path);
 
@@ -84,6 +84,6 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	lt_file_write(f, align_buf, ALIGN_BYTES - (sizeof(fh) + sizeof(ph))); // !!
 	lt_file_write(f, bin_data, bin_size);
 
-	lt_file_close(f);
+	lt_file_close(f, &cx->arena->interf);
 }
 

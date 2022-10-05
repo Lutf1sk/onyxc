@@ -34,7 +34,7 @@ type_t* parse_type(parse_ctx_t* cx, type_t* base) {
 		b8 auto_increment = is_int_any_sign(resolve_enum(type));
 		u64 auto_val = 0;
 
-		type_t* parent = lt_arena_reserve(cx->arena, sizeof(type_t));
+		type_t* parent = lt_amalloc(cx->arena, sizeof(type_t));
 		*parent = TYPE(TP_ENUM, type);
 		parent->symtab = symtab_create(cx->arena);
 
@@ -45,7 +45,7 @@ type_t* parse_type(parse_ctx_t* cx, type_t* base) {
 			if (!symtab_definable(parent->symtab, ident))
 				ferr("invalid redefinition of "A_BOLD"'%S'"A_RESET"", *ident_tk, ident);
 
-			sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+			sym_t* sym = lt_amalloc(cx->arena, sizeof(sym_t));
 			*sym = SYM(SYM_VAR, ident);
 			sym->type = type;
 			sym->flags = SYMFL_CONST;
@@ -79,7 +79,7 @@ type_t* parse_type(parse_ctx_t* cx, type_t* base) {
 	}	break;
 
 	case TK_KW_STRUCT: consume(cx); {
-		type_t* struc = lt_arena_reserve(cx->arena, sizeof(type_t));
+		type_t* struc = lt_amalloc(cx->arena, sizeof(type_t));
 		*struc = TYPE(TP_STRUCT, NULL);
 
 		consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET" after "A_BOLD"'struct'"A_RESET));
@@ -116,7 +116,7 @@ parse_postfix:
 		tk = *peek(cx, 0);
 		switch (tk.stype) {
 		case TK_LEFT_PARENTH: consume(cx); {
-			type_t* func = lt_arena_reserve(cx->arena, sizeof(type_t));
+			type_t* func = lt_amalloc(cx->arena, sizeof(type_t));
 			*func = TYPE(TP_FUNC, base);
 
 			while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
@@ -139,14 +139,14 @@ parse_postfix:
 		}	break;
 
 		case TK_ASTERISK: consume(cx); {
-			type_t* new = lt_arena_reserve(cx->arena, sizeof(type_t));
+			type_t* new = lt_amalloc(cx->arena, sizeof(type_t));
 			*new = TYPE(TP_PTR, base);
 			base = new;
 			break;
 		}
 
 		case TK_LEFT_BRACKET: consume(cx); {
-			type_t* new = lt_arena_reserve(cx->arena, sizeof(type_t));
+			type_t* new = lt_amalloc(cx->arena, sizeof(type_t));
 
 			if (peek(cx, 0)->stype == TK_RIGHT_BRACKET)
 				*new = TYPE(TP_ARRAY_VIEW, base);

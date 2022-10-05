@@ -179,7 +179,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 		lt_printf("%uz:%uz Invalid operands to '%S' ", cx->curr_ifunc, cx->i, op->str);
 		for (usz i = 0; i < arg_count; ++i)
 			lt_printf("(type:%ud,size:%ud) ", args[i].type, args[i].size);
-		lt_printc('\n');
+		lt_printf("\n");
 		LT_BREAKPOINT();
 		LT_ASSERT_NOT_REACHED();
 		return;

@@ -20,7 +20,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 			symtab_t* lbltab = symtab_create(cx->arena);
 			stmt_t* compound = parse_func_body(cx, lbltab);
-			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 			*new = EXPR(EXPR_LAMBDA, type, tk);
 			new->stmt = compound;
 			new->label_symtab = lbltab;
@@ -30,7 +30,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		}
 		else if (type->stype == TP_ARRAY && tk->stype == TK_LEFT_BRACE) {
 			consume(cx);
-			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 			*new = EXPR(EXPR_ARRAY, type, tk);
 
 			expr_t** it = &new->child_1;
@@ -54,10 +54,10 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		}
 		else if (type->stype == TP_ARRAY_VIEW && tk->stype == TK_LEFT_BRACE) {
 			consume(cx);
-			type_t* new_type = lt_arena_reserve(cx->arena, sizeof(type_t));
+			type_t* new_type = lt_amalloc(cx->arena, sizeof(type_t));
 			*new_type = TYPE(TP_ARRAY, type->base);
 
-			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 			*new = EXPR(EXPR_ARRAY, new_type, tk);
 
 			expr_t** it = &new->child_1;
@@ -82,7 +82,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		}
 		else if (type->stype == TP_STRUCT && tk->stype == TK_LEFT_BRACE) {
 			consume(cx);
-			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 			*new = EXPR(EXPR_STRUCT, type, tk);
 
 			expr_t** it = &new->child_1;
@@ -145,7 +145,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	}
 
 	case TK_NUMBER: consume(cx); {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &i64_def, tk);
 
 		isz i = 0;
@@ -237,10 +237,10 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	}
 
 	case TK_CHAR: consume(cx); {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &u8_def, tk);
 
-		char* str = lt_arena_reserve(cx->arena, 0);
+		char* str = lt_amalloc(cx->arena, 0);
 		usz len = unescape_str(str, tk);
 
 		if (len > 1)
@@ -253,29 +253,29 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	}
 
 	case TK_STRING: consume(cx); {
-		char* data = lt_arena_reserve(cx->arena, 0);
+		char* data = lt_amalloc(cx->arena, 0);
 		usz len = unescape_str(data, tk);
-		lt_arena_reserve(cx->arena, len);
+		lt_amalloc(cx->arena, len);
 
-		type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
+		type_t* type = lt_amalloc(cx->arena, sizeof(type_t));
 		*type = TYPE(TP_ARRAY, &u8_def);
 		type->child_count = len;
 
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_STRING, type, tk);
 		new->str_val = LSTR(data, len);
 		return new;
 	}
 
 	case TK_KW_NULL: consume(cx); {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &void_ptr_def, tk);
 		new->uint_val = 0;
 		return new;
 	}
 
 	case TK_KW_SIZEOF: consume(cx); {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &i64_def, tk);
 		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET" after "A_BOLD"'sizeof'"A_RESET));
 		new->int_val = type_bytes(parse_type(cx, NULL));
@@ -284,7 +284,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	}
 
 	case TK_KW_ALIGNOF: consume(cx); {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &i64_def, tk);
 		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET" after "A_BOLD"'sizeof'"A_RESET));
 		new->int_val = type_align(parse_type(cx, NULL));
@@ -294,7 +294,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 
 	case TK_KW_SYSCALL: consume(cx); {
 		consume_type(cx, TK_LEFT_PARENTH, CLSTR(", expected "A_BOLD"'('"A_RESET));
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_SYSCALL, &i64_def, tk);
 
 		expr_t** eit = &new->child_1;
@@ -313,7 +313,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		sym_t* sym = parse_sym(cx);
 		if (sym->stype != SYM_VAR)
 			ferr("expected a runtime value", *tk);
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_SYM, sym->type, tk);
 		sym->flags |= SYMFL_ACCESSED;
 		new->sym = sym;
@@ -358,7 +358,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			tk_t* member_name_tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"));
 			type_t* it = operand->type;
 			while (it->stype == TP_PTR) {
-				expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+				expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 				*new = EXPR(EXPR_DEREFERENCE, it->base, tk);
 				new->child_1 = operand;
 				operand = new;
@@ -370,10 +370,10 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 
 			// Find 'data' or 'count' member if the type is an array
 			if (it->stype == TP_ARRAY_VIEW || it->stype == TP_ARRAY) {
-				expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+				expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 
 				if (lt_lstr_eq(member_name, CLSTR("data"))) {
-					type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
+					type_t* type = lt_amalloc(cx->arena, sizeof(type_t));
 					*type = TYPE(TP_PTR, it->base);
 					*new = EXPR(EXPR_DATA, type, tk);
 				}
@@ -403,7 +403,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			ferr("structure has no member named "A_BOLD"'%S'"A_RESET, *member_name_tk, member_name_tk->str);
 
 		member_found:
-			expr_t* member = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			expr_t* member = lt_amalloc(cx->arena, sizeof(expr_t));
 			*member = EXPR(EXPR_MEMBER, it->children[member_index], tk);
 			member->child_1 = operand;
 			member->member_index = member_index;
@@ -414,16 +414,16 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				ferr("subscripted type "A_BOLD"'%S'"A_RESET" is neither an array nor a pointer",
 						*tk, type_to_reserved_str(cx->arena, operand->type));
 
-			expr_t* subscript = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			expr_t* subscript = lt_amalloc(cx->arena, sizeof(expr_t));
 			*subscript = EXPR(EXPR_SUBSCRIPT, operand->type->base, tk);
 			subscript->child_1 = operand;
 
 			// Insert EXPR_DATA node if the type is an array
 			if (operand->type->stype == TP_ARRAY || operand->type->stype == TP_ARRAY_VIEW) {
-				type_t* ptr_type = lt_arena_reserve(cx->arena, sizeof(type_t));
+				type_t* ptr_type = lt_amalloc(cx->arena, sizeof(type_t));
 				*ptr_type = TYPE(TP_PTR, operand->type->base);
 
-				expr_t* data_ptr = lt_arena_reserve(cx->arena, sizeof(expr_t));
+				expr_t* data_ptr = lt_amalloc(cx->arena, sizeof(expr_t));
 				*data_ptr = EXPR(EXPR_DATA, ptr_type, tk);
 				data_ptr->child_1 = operand;
 				subscript->child_1 = data_ptr;
@@ -438,7 +438,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				ferr("array index must be an integer", *subscript->child_2->tk);
 
 			if (peek(cx, 0)->stype == TK_DOUBLE_DOT) {
-				type_t* view_type = lt_arena_reserve(cx->arena, sizeof(type_t));
+				type_t* view_type = lt_amalloc(cx->arena, sizeof(type_t));
 				*view_type = TYPE(TP_ARRAY_VIEW, operand->type->base);
 				subscript->type = view_type;
 				subscript->stype = EXPR_VIEW;
@@ -466,7 +466,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 				ferr("called type "A_BOLD"'%S'"A_RESET" is not a function", *tk,
 						type_to_reserved_str(cx->arena, operand->type));
 
-			expr_t* call = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			expr_t* call = lt_amalloc(cx->arena, sizeof(expr_t));
 			*call = EXPR(EXPR_CALL, operand->type->base, tk);
 			call->child_1 = operand;
 
@@ -501,7 +501,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			operand = call;
 		}
 		else {
-			expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+			expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 			*new = EXPR(op->expr, operand->type, tk);
 			new->child_1 = operand;
 			operand = new;
@@ -520,7 +520,7 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 	operator_t* op = find_pfx_operator(tk->stype);
 	if (op) {
 		consume(cx);
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(op->expr, NULL, tk);
 
 		expr_t* child = parse_expr_unary(cx, type, precedence);
@@ -537,7 +537,7 @@ expr_t* parse_expr_unary(parse_ctx_t* cx, type_t* type, int precedence) {
 			break;
 
 		case EXPR_REFERENCE: {
-			type_t* type = lt_arena_reserve(cx->arena, sizeof(type_t));
+			type_t* type = lt_amalloc(cx->arena, sizeof(type_t));
 			*type = TYPE(TP_PTR, child->type);
 			if (child->stype == EXPR_SYM)
 				child->sym->flags |= SYMFL_REFERENCED;
@@ -576,7 +576,7 @@ expr_t* parse_expr_binary(parse_ctx_t* cx, type_t* type, int precedence) {
 
 		type = type_make_compatible(cx, tk, op->expr, &left, &right);
 
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(op->expr, type, tk);
 		new->child_1 = left;
 		new->child_2 = right;

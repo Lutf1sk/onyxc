@@ -17,7 +17,7 @@ amd64_lbl_t* new_lbl(lt_arena_t* arena, amd64_lbl_t** lbl, usz lbl_i) {
 		it = &(*it)->next;
 	}
 
-	amd64_lbl_t* new = lt_arena_reserve(arena, sizeof(amd64_lbl_t));
+	amd64_lbl_t* new = lt_amalloc(arena, sizeof(amd64_lbl_t));
 	new->i = lbl_i;
 	new->m_i = 0;
 	new->next = *it;

@@ -22,18 +22,18 @@
 #include "textattrib.h"
 
 void type_print(lt_arena_t* arena, type_t* type) {
-	char* str_data = lt_arena_reserve(arena, 0);
+	char* str_data = lt_amalloc(arena, 0);
 	lstr_t str = LSTR(str_data, type_to_str(str_data, type));
-	lt_printls(str);
+	lt_printf("%S", str);
 }
 
 void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, int indent);
 
 void print_indent(int indent) {
 	for (int i = 0; i + 1 < indent; ++i)
-		lt_printls(CLSTR("| "));
+		lt_printf("%S", CLSTR("| "));
 	if (indent)
-		lt_printls(CLSTR("|-"));
+		lt_printf("%S", CLSTR("|-"));
 }
 
 void expr_print_recursive(lt_arena_t* arena, expr_t* ex, int indent) {
@@ -43,14 +43,14 @@ void expr_print_recursive(lt_arena_t* arena, expr_t* ex, int indent) {
 		lt_printf("%S: ", expr_type_str(it->stype));
 		if (it->type) {
 			type_print(arena, it->type);
-			lt_printc(' ');
+			lt_printf(" ");
 		}
 		if (it->stype == EXPR_SYM)
 			lt_printf("%S ", it->sym->name);
 		if (it->stype == EXPR_INTEGER)
 			lt_printf("%iq ", it->int_val);
 
-		lt_printc('\n');
+		lt_printf("\n");
 		if (it->sym && it->stype == EXPR_LAMBDA)
 			stmt_print_recursive(arena, it->stmt, indent + 1);
 		if (it->child_1)
@@ -69,11 +69,11 @@ void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, int indent) {
 		lt_printf("%S: ", stmt_type_str(it->stype));
 		if (it->type) {
 			type_print(arena, it->type);
-			lt_printc(' ');
+			lt_printf(" ");
 		}
 		if (it->stype == STMT_SYMDEF)
 			lt_printf("%S ", it->sym->name);
-		lt_printc('\n');
+		lt_printf("\n");
 		if (it->expr)
 			expr_print_recursive(arena, it->expr, indent + 1);
 		if (it->child)
@@ -96,19 +96,30 @@ int main(int argc, char** argv) {
 		lt_ferr(CLSTR("memory allocation failed\n"));
 	usz in_file_count = 0;
 
-	lstr_t out_path = CLSTR("out");
+	char* out_path = "out";
 	b8 run_mode = 0;
-	lt_arg_bool(CLSTR("run"), &run_mode);
-	lt_arg_bool(CLSTR("r"), &run_mode);
 
-	lt_arg_str(CLSTR("out"), &out_path);
-	lt_arg_str(CLSTR("o"), &out_path);
+	lt_arg_iterator_t arg_it = lt_arg_iterator_create(argc, argv);
 
-	lt_arg_parse(argc, argv);
+	while (lt_arg_next(&arg_it)) {
+		if (lt_arg_flag(&arg_it, 'h', CLSTR("help"))) {
+			lt_printf(
+				"usage: onyxc [OPTIONS] FILE...\n"
+				"options:\n"
+				"  -h, --help     Display this information.\n"
+				"  -r, --run      JIT compile and run instead of producing an executable.\n"
+				"  -o, --out=OUT  Store compiled program in OUT\n"
+			);
+			return 0;
+		}
+		if (lt_arg_flag(&arg_it, 'r', CLSTR("run"))) {
+			run_mode = 1;
+			continue;
+		}
+		if (lt_arg_str(&arg_it, 'o', CLSTR("out"), &out_path))
+			continue;
 
-	for (usz i = 1; i < argc; ++i) {
-		if (argv[i][0] != '-')
-			in_files[in_file_count++] = argv[i];
+		in_files[in_file_count++] = *arg_it.it;
 	}
 
  	u32 target = TRG_AMD64;
@@ -120,8 +131,15 @@ int main(int argc, char** argv) {
 	for (isz file_index = 0; file_index < in_file_count; ++file_index) {
 		char* in_path = in_files[file_index];
 
-		lt_arena_t* arena = lt_arena_alloc(LT_MB(128));
+		lt_arena_t* arena = lt_amcreate(NULL, LT_GB(1), 0);
 		lex_ctx_t* lex_cx = lex_file(arena, in_path, NULL);
+
+#if 0
+		for (usz i = 0; i < lex_cx->count; ++i) {
+			tk_t* tk = &lex_cx->tk_data[i];
+			lt_printf("[%S] '%S'\n", tk_type_str(tk->stype), tk->str);
+		}
+#endif
 
 		// Create symtab and add primitives
 		symtab_t symtab;
@@ -182,7 +200,7 @@ int main(int argc, char** argv) {
 
 		if (run_mode) {
 			// Execute intermediate code
-// 			u64* stack = lt_arena_reserve(arena, LT_MB(1));
+// 			u64* stack = lt_amalloc(arena, LT_MB(1));
 			u64 code = 0;
 
 			sym_t* main = symtab_find(&symtab, CLSTR("main"));
@@ -214,8 +232,8 @@ int main(int argc, char** argv) {
 			x64.arena = arena;
 			x64.seg = gen_cx.seg;
 			x64.seg_count = gen_cx.seg_count;
-			x64.reg_map = lt_arena_reserve(arena, sizeof(amd64_ireg_t) * 2048); // !!
-			x64.reg_lifetimes = lt_arena_reserve(arena, sizeof(usz) * 2048); // !!
+			x64.reg_map = lt_amalloc(arena, sizeof(amd64_ireg_t) * 2048); // !!
+			x64.reg_lifetimes = lt_amalloc(arena, sizeof(usz) * 2048); // !!
 
 			amd64_gen(&x64);
 
@@ -231,7 +249,7 @@ int main(int argc, char** argv) {
 #endif
 
 			if (format == FMT_ELF64)
-				amd64_write_elf64(&x64, out_path.str);
+				amd64_write_elf64(&x64, out_path);
 		}	break;
 
 		case TRG_X86: {
@@ -239,7 +257,7 @@ int main(int argc, char** argv) {
 		}	break;
 		}
 
-		lt_arena_free(arena);
+		lt_amdestroy(arena);
 	}
 
 	free(in_files);

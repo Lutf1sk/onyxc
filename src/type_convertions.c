@@ -20,14 +20,14 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		type_t* base = type->base;
 		if (void_arr2)
 			base = from->base;
-		type_t* view_type = lt_arena_reserve(cx->arena, sizeof(type_t));
+		type_t* view_type = lt_amalloc(cx->arena, sizeof(type_t));
 		*view_type = TYPE(TP_ARRAY_VIEW, base);
 
-		expr_t* view = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* view = lt_amalloc(cx->arena, sizeof(expr_t));
 		*view = EXPR(EXPR_VIEW, view_type, (*expr)->tk);
 		view->child_1 = (*expr);
 
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_CONVERT, type, (*expr)->tk);
 		new->child_1 = view;
 
@@ -44,7 +44,7 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 		(type_eq(from, &void_view_def) && type->stype == TP_ARRAY_VIEW) ||
 		(from->stype == TP_ARRAY_VIEW && type_eq(type, &void_view_def)))
 	{
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_CONVERT, type, (*expr)->tk);
 		new->child_1 = old;
 		*expr = new;
@@ -52,7 +52,7 @@ b8 type_convert_implicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	}
 
 	if (type->stype == TP_ARRAY_VIEW && from->stype == TP_ARRAY && type_eq(type->base, from->base)) {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_VIEW, type, (*expr)->tk);
 		new->child_1 = old;
 		*expr = new;
@@ -75,7 +75,7 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	if ((is_int_any_sign_or_ptr(from) || is_float(type) || is_bool(type)) &&
 		(is_int_any_sign_or_ptr(from) || is_float(from) || is_bool(from)))
 	{
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_CONVERT, type, (*expr)->tk);
 		new->child_1 = old;
 		*expr = new;
@@ -83,7 +83,7 @@ b8 type_convert_explicit(parse_ctx_t* cx, type_t* type, expr_t** expr) {
 	}
 
 	if (type->stype == TP_ARRAY_VIEW && from->stype == TP_ARRAY) {
-		expr_t* new = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_VIEW, type, (*expr)->tk);
 		new->child_1 = old;
 		*expr = new;

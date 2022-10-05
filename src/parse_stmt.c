@@ -38,7 +38,7 @@ stmt_t* parse_func_body(parse_ctx_t* cx, symtab_t* label_symtab) {
 		if (!param_names[i].str)
 			continue;
 
-		sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+		sym_t* sym = lt_amalloc(cx->arena, sizeof(sym_t));
 		*sym = SYM(SYM_VAR, param_names[i]);
 		sym->type = param_types[i];
 		sym->flags |= SYMFL_ARG;
@@ -47,7 +47,7 @@ stmt_t* parse_func_body(parse_ctx_t* cx, symtab_t* label_symtab) {
 		param_syms[i] = sym;
 	}
 
-	stmt_t* root = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+	stmt_t* root = lt_amalloc(cx->arena, sizeof(stmt_t));
 	*root = STMT(STMT_COMPOUND);
 
 	stmt_t** current = &root->child;
@@ -71,7 +71,7 @@ stmt_t* parse_compound(parse_ctx_t* cx) {
 
 	PUSH_SCOPE();
 
-	stmt_t* root = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+	stmt_t* root = lt_amalloc(cx->arena, sizeof(stmt_t));
 	*root = STMT(STMT_COMPOUND);
 
 	stmt_t** current = &root->child;
@@ -91,7 +91,7 @@ stmt_t* parse_compound(parse_ctx_t* cx) {
 stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 	tk_t* tk = consume_type(cx, TK_COLON, CLSTR(", expected "A_BOLD"':'"A_RESET" after name in symbol definition"));
 
-	sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+	sym_t* sym = lt_amalloc(cx->arena, sizeof(sym_t));
 	*sym = SYM(SYM_VAR, str);
 
 	type_t* type = try_parse_type(cx);
@@ -145,7 +145,7 @@ stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 			sym->flags |= SYMFL_GLOBAL;
 
 			usz size = type_bytes(sym->type);
-			void* data = lt_arena_reserve(cx->arena, size);
+			void* data = lt_amalloc(cx->arena, size);
 			memset(data, 0, size);
 			u32 seg_i = new_data_seg(cx->gen_cx, SEG_ENT(SEG_DATA, sym->name, size, data));
 			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = seg_i);
@@ -159,7 +159,7 @@ stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 
 	consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after symbol definition"));
 
-	stmt_t* stmt = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+	stmt_t* stmt = lt_amalloc(cx->arena, sizeof(stmt_t));
 	if (sym->stype == SYM_LABEL)
 		*stmt = STMT(STMT_LABEL);
 	else
@@ -176,7 +176,7 @@ stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 
 stmt_t* parse_if(parse_ctx_t* cx) {
 	tk_t* tk = consume(cx);
-	stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+	stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 	*new = STMT(STMT_IF);
 	new->expr = parse_expr(cx, NULL);
 
@@ -202,11 +202,11 @@ struct file_id {
 	u64 inode;
 } file_id_t;
 
-#include "hashtab.h"
-hashtab_t file_tab;
+#include <lt/hashtab.h>
+lt_hashtab_t file_tab;
 
-file_id_t* hashtab_find_fid(hashtab_t* htab, u32 hash, file_id_t* fid)
-	HASHTAB_FIND_IMPL(htab, hash, file_id_t* it, (it->dev == fid->dev && it->inode == fid->inode))
+file_id_t* hashtab_find_fid(lt_hashtab_t* htab, u32 hash, file_id_t* fid)
+	LT_HASHTAB_FIND_IMPL(htab, hash, file_id_t* it, it->dev == fid->dev && it->inode == fid->inode)
 
 #include <sys/stat.h>
 
@@ -226,9 +226,9 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		for (;;) {
 			tk_t* path_tk = consume_type(cx, TK_STRING, CLSTR(", expected a path after 'import'"));
-			char* path = lt_arena_reserve(cx->arena, 0);
+			char* path = lt_amalloc(cx->arena, 0);
 			usz len = unescape_str(path, path_tk);
-			lt_arena_reserve(cx->arena, len + 1);
+			path = lt_amrealloc(cx->arena, path, len + 1); // !!
 			path[len] = 0;
 			LT_ASSERT(len < 4096);
 
@@ -237,12 +237,12 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 				ferr("failed to open '%s'", *path_tk, path);
 
 			file_id_t fid = { st.st_dev, st.st_ino };
-			u32 h = hash(&fid, sizeof(fid));
+			u32 h = lt_hash(&fid, sizeof(fid));
 
 			if (!hashtab_find_fid(&file_tab, h, &fid)) {
-				file_id_t* fid_p = lt_arena_reserve(cx->arena, sizeof(file_id_t));
+				file_id_t* fid_p = lt_amalloc(cx->arena, sizeof(file_id_t));
 				*fid_p = fid;
-				hashtab_insert(&file_tab, h, fid_p);
+				lt_hashtab_insert(&file_tab, h, fid_p, lt_libc_heap);
 
 				cx->lex = lex_file(cx->arena, path, path_tk);
 				*it = parse(cx);
@@ -266,7 +266,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		type_t* ret_type = cx->curr_func_type->base;
 
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_RETURN);
 		if (ret_type->stype != TP_VOID) {
 			new->expr = parse_expr(cx, NULL);
@@ -289,7 +289,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		if (!cx->curr_func_type)
 			goto outside_func;
 
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_WHILE);
 		new->expr = parse_expr(cx, NULL);
 
@@ -303,7 +303,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		if (!cx->curr_func_type)
 			goto outside_func;
 
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_DO);
 		new->child = parse_compound(cx);
 
@@ -330,11 +330,11 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		tk_t ident_tk = *consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
 
-		expr_t* init = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* init = lt_amalloc(cx->arena, sizeof(expr_t));
 		*init = EXPR(EXPR_INTEGER, it_type, tk);
 		init->uint_val = 0;
 
-		sym_t* sym = lt_arena_reserve(cx->arena, sizeof(sym_t));
+		sym_t* sym = lt_amalloc(cx->arena, sizeof(sym_t));
 		*sym = SYM(SYM_VAR, ident_tk.str);
 		sym->type = it_type;
 		sym->expr = init;
@@ -343,7 +343,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		consume_type(cx, TK_DOUBLE_DOT, CLSTR(", expected "A_BOLD"'..'"A_RESET));
 
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_FOR);
 
 		tk = peek(cx, 0);
@@ -364,14 +364,14 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		if (!cx->curr_func_type)
 			goto outside_func;
 
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_GOTO);
 		new->tk = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected a label name"));
 		return new;
 	}
 
 	case TK_KW_BREAK: {
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_BREAK);
 		new->tk = consume(cx);
 		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after break"));
@@ -379,7 +379,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 	}
 
 	case TK_KW_CONTINUE: {
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 		*new = STMT(STMT_CONTINUE);
 		new->tk = consume(cx);
 		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after continue"));
@@ -389,7 +389,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 	case TK_KW_SWITCH: consume(cx); {
 		tk_t* sw_tk = peek(cx, 0);
 
-		stmt_t* sw = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* sw = lt_amalloc(cx->arena, sizeof(stmt_t));
 		*sw = STMT(STMT_SWITCH);
 		sw->expr = parse_expr(cx, NULL);
 
@@ -400,7 +400,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		stmt_t** case_it = &sw->child;
 
 	parse_case:
-		stmt_t* sw_case = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* sw_case = lt_amalloc(cx->arena, sizeof(stmt_t));
 
 		if (peek(cx, 0)->stype == TK_KW_DEFAULT) {
 			*sw_case = STMT(STMT_DEFAULT);
@@ -446,7 +446,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		stmt_t* compound = parse_stmt(cx);
 		POP_SCOPE();
 
-		expr_t* lambda = lt_arena_reserve(cx->arena, sizeof(expr_t));
+		expr_t* lambda = lt_amalloc(cx->arena, sizeof(expr_t));
 		*lambda = EXPR(EXPR_LAMBDA, &void_func_def, tk);
 		lambda->stmt = compound;
 		lambda->label_symtab = lbltab;
@@ -464,8 +464,8 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		x64.arena = cx->arena;
 		x64.seg = cx->gen_cx->seg;
 		x64.seg_count = cx->gen_cx->seg_count;
-		x64.reg_map = lt_arena_reserve(cx->arena, sizeof(amd64_ireg_t) * 2048); // !!
-		x64.reg_lifetimes = lt_arena_reserve(cx->arena, sizeof(usz) * 2048); // !!
+		x64.reg_map = lt_amalloc(cx->arena, sizeof(amd64_ireg_t) * 2048); // !!
+		x64.reg_lifetimes = lt_amalloc(cx->arena, sizeof(usz) * 2048); // !!
 
 		seg_i = amd64_gen_func(&x64, seg_i);
 		lt_printf("\nM-CS %uq '%S':\n", seg_i, x64.seg[seg_i].name);
@@ -479,15 +479,16 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 	case TK_KW_STRUCT: case TK_KW_ENUM:
 	default: {
-		stmt_t* new = lt_arena_reserve(cx->arena, sizeof(stmt_t));
+		stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
 
 		if (tk.stype == TK_IDENTIFIER && peek(cx, 1)->stype == TK_COLON) {
 			consume(cx);
 			return parse_symdef(cx, tk.str);
 		}
 
-		if (!cx->curr_func_type)
+		if (!cx->curr_func_type) {
 			goto outside_func;
+		}
 		*new = STMT(STMT_EXPR);
 		new->expr = parse_expr(cx, NULL);
 

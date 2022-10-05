@@ -30,7 +30,7 @@ static
 tk_t* peek(parse_ctx_t* cx, usz offs) {
 	offs += cx->lex->it;
 	if (offs >= cx->lex->count) {
-		tk_t* eof = lt_arena_reserve(cx->arena, sizeof(tk_t));
+		tk_t* eof = lt_amalloc(cx->arena, sizeof(tk_t));
 		*eof = TK(cx->lex, TK_EOF, CLSTR("EOF"), 0);
 		return eof;
 	}

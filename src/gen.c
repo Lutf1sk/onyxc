@@ -152,7 +152,7 @@ u8* ival_write_comp(gen_ctx_t* cx, seg_ent_t* seg, type_t* type, ival_t v, u8* o
 		case IVAL_SEG | IVAL_REF: ptr = cx->seg[v.uint_val].data; break;
 
 		case IVAL_SEG: {
-			fwd_ref_t* new_ref = lt_arena_reserve(cx->arena, sizeof(fwd_ref_t));
+			fwd_ref_t* new_ref = lt_amalloc(cx->arena, sizeof(fwd_ref_t));
 			new_ref->offs = (usz)out - (usz)seg->data;
 			new_ref->seg = v.uint_val;
 			new_ref->size = size;
@@ -180,7 +180,7 @@ u8* ival_write_comp(gen_ctx_t* cx, seg_ent_t* seg, type_t* type, ival_t v, u8* o
 		return out;
 	}
 	else if (type->stype == TP_ARRAY_VIEW) {
-		fwd_ref_t* new_ref = lt_arena_reserve(cx->arena, sizeof(fwd_ref_t));
+		fwd_ref_t* new_ref = lt_amalloc(cx->arena, sizeof(fwd_ref_t));
 		new_ref->offs = (usz)out - (usz)seg->data;
 		new_ref->seg = v.children[0].uint_val;
 		new_ref->size = ISZ_64;
@@ -468,7 +468,7 @@ ival_t gen_urem(gen_ctx_t* cx, usz size, ival_t a1, ival_t a2) {
 static
 ival_t gen_static_compound(gen_ctx_t* cx, type_t* type, ival_t* v) {
 	usz size = type_bytes(type);
-	void* data = lt_arena_reserve(cx->arena, size);
+	void* data = lt_amalloc(cx->arena, size);
 	memset(data, 0, size);
 
 	u32 seg_i = new_data_seg(cx, SEG_ENT(SEG_DATA, CLSTR("@STATCOM"), size, data));
@@ -561,7 +561,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_STRUCT: {
 		usz max_children = expr->type->child_count;
-		ival_t* children = lt_arena_reserve(cx->arena, max_children * sizeof(ival_t));
+		ival_t* children = lt_amalloc(cx->arena, max_children * sizeof(ival_t));
 
 		expr_t* it = expr->child_1;
 		usz i = 0;
@@ -577,7 +577,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 		LT_ASSERT(!expr->child_2); // !!
 
 		usz child_count = 2;
-		ival_t* children = lt_arena_reserve(cx->arena, child_count * sizeof(ival_t));
+		ival_t* children = lt_amalloc(cx->arena, child_count * sizeof(ival_t));
 		ival_t addr = gen_const_expr(cx, expr->child_1);
 		if (addr.stype == IVAL_COM)
 			addr = gen_static_compound(cx, expr->child_1->type, &addr);
@@ -590,7 +590,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_ARRAY: {
 		usz count = expr->type->child_count;
-		ival_t* children = lt_arena_reserve(cx->arena, count * sizeof(ival_t));
+		ival_t* children = lt_amalloc(cx->arena, count * sizeof(ival_t));
 
 		expr_t* it = expr->child_1;
 		usz i = 0;
@@ -610,7 +610,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_STRING: {
 		// TODO: Write some workaround to make this more space-efficient
 		usz count = expr->str_val.len;
-		ival_t* children = lt_arena_reserve(cx->arena, count * sizeof(ival_t));
+		ival_t* children = lt_amalloc(cx->arena, count * sizeof(ival_t));
 		for (usz i = 0; i < count; ++i)
 			children[i] = IMMI(expr->str_val.str[i]);
 
@@ -945,8 +945,8 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			ret_val = REG(ralloc(cx));
 
 		usz arg_count = expr->child_1->type->child_count;
-		u32* arg_regs = lt_arena_reserve(cx->arena, arg_count * sizeof(u32));
-		usz* arg_sizes = lt_arena_reserve(cx->arena, arg_count * sizeof(usz));
+		u32* arg_regs = lt_amalloc(cx->arena, arg_count * sizeof(u32));
+		usz* arg_sizes = lt_amalloc(cx->arena, arg_count * sizeof(usz));
 
 		expr_t* it = expr->child_2;
 		for (usz i = 0; it; ++i, it = it->next) {
@@ -1278,7 +1278,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	// Misc.
 	case EXPR_SYSCALL: {
-		u32* arg_regs = lt_arena_reserve(cx->arena, 8 * sizeof(u32));
+		u32* arg_regs = lt_amalloc(cx->arena, 8 * sizeof(u32));
 
 		expr_t* it = expr->child_1;
 		usz argc = 0;
@@ -1493,7 +1493,7 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		u32 cond = ival_reg(cx, type_bytes(stmt->expr->type), icode_gen_expr(cx, stmt->expr));
 		usz lbl_end = lalloc(cx);
 
-		usz* case_lbls = lt_arena_reserve(cx->arena, sizeof(usz) * 64); // !!
+		usz* case_lbls = lt_amalloc(cx->arena, sizeof(usz) * 64); // !!
 
 		stmt_t* default_ = NULL;
 
@@ -1590,7 +1590,7 @@ void print_seg(gen_ctx_t* cx, usz i) {
 			for (usz i = 0; i < 2; ++i)
 				if (ic.regs[i])
 					lt_printf("r%ud ", ic.regs[i]);
-			lt_printc('\n');
+			lt_printf("\n");
 			break;
 		}
 	}

@@ -77,7 +77,7 @@ void write_lbl(asm_ctx_t* cx, amd64_lbl_t** cx_lbl, usz offs, u64* imm_val) {
 		*imm_val = cx->base_addr + lbl->m_i;
 	else {
 		if (!lbl->ref_count)
-			lbl->refs = lt_arena_reserve(cx->arena, sizeof(u32) * 32); // !! Terrible, horrible stuff. Fix this
+			lbl->refs = lt_amalloc(cx->arena, sizeof(u32) * 32); // !! Terrible, horrible stuff. Fix this
 		*imm_val = cx->base_addr;
 		lbl->refs[lbl->ref_count++] = offs;
 	}
@@ -88,7 +88,7 @@ static
 void write_seg(asm_ctx_t* cx, usz offs, usz imm_bytes, u64* imm_val, u32 index) {
 	*imm_val = cx->amd64_cx->seg[index].load_at;
 	if (!*imm_val) {
-		fwd_ref_t* new_ref = lt_arena_reserve(cx->arena, sizeof(fwd_ref_t));
+		fwd_ref_t* new_ref = lt_amalloc(cx->arena, sizeof(fwd_ref_t));
 		new_ref->offs = offs;
 		new_ref->seg = index;
 		new_ref->next = cx->refs;
@@ -311,8 +311,8 @@ void* amd64_jit_assemble_function(amd64_ctx_t* cx, usz i) {
 
 	asm_ctx_t asm_cx;
 	asm_cx.bin_size = 0;
-	asm_cx.bin_asize = page_count * lt_page_size();
-	asm_cx.bin_data = lt_vmem_alloc(page_count);
+	asm_cx.bin_asize = page_count * lt_get_pagesize();
+	asm_cx.bin_data = lt_vmalloc(page_count);
 	asm_cx.base_addr = (usz)asm_cx.bin_data;
 	asm_cx.amd64_cx = cx;
 	asm_cx.refs = NULL;
