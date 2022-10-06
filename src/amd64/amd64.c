@@ -68,8 +68,8 @@ u32 sresv(amd64_ctx_t* cx, usz size, usz align) {
 
 static
 void prepass_icode(amd64_ctx_t* cx) {
-	seg_ent_t* seg = &cx->segtab->seg[cx->curr_ifunc];
-	icode_t* ir = &((icode_t*)seg->data)[cx->i];
+	seg_ent_t* seg = &cx->segtab->seg[cx->curr_func];
+	icode_t* ir = &((icode_t*)seg->icode_data)[cx->i];
 
 	#define UPD(r) (cx->reg_lifetimes[r] = cx->i)
 
@@ -170,11 +170,11 @@ amd64_ireg_t* init_new_reg(amd64_ctx_t* cx, u32 dst, u32 src, usz size) {
 
 static
 void convert_icode(amd64_ctx_t* cx) {
-	seg_ent_t* seg = &cx->segtab->seg[cx->curr_ifunc];
+	seg_ent_t* seg = &cx->segtab->seg[cx->curr_func];
 
 	usz i = cx->i;
 
-	icode_t* ir = &((icode_t*)seg->data)[i];
+	icode_t* ir = &((icode_t*)seg->icode_data)[i];
 	amd64_instr_t mi;
 	memset(&mi, 0, sizeof(mi));
 
@@ -480,13 +480,12 @@ void convert_icode(amd64_ctx_t* cx) {
 		ireg_end(cx, ir->regs[1]);
 }
 
-usz amd64_gen_func(amd64_ctx_t* cx, usz i) {
+void amd64_gen_func(amd64_ctx_t* cx, usz i) {
 	seg_ent_t* cs = &cx->segtab->seg[i];
 
 	memset(cx->reg_allocated, 0, sizeof(cx->reg_allocated));
 
-	cx->curr_ifunc = i;
-	cx->curr_func = new_segment(cx->segtab, (seg_ent_t)SEG_MCODE_INIT(cs->name, cs->type, i));
+	cx->curr_func = i;
 	cx->stack_top = 0;
 	cx->arg_num = 0;
 	cx->getarg_offs = 0;
@@ -494,9 +493,7 @@ usz amd64_gen_func(amd64_ctx_t* cx, usz i) {
 		cx->getarg_offs = 1;
 	cx->lbl = NULL;
 
-	seg_ent_t* ms = &cx->segtab->seg[cx->curr_func];
-
-	for (cx->i = 0; cx->i < cs->size; ++cx->i)
+	for (cx->i = 0; cx->i < cs->icode_count; ++cx->i)
 		prepass_icode(cx);
 
 	cx->lbl_it = cx->lbl;
@@ -504,7 +501,7 @@ usz amd64_gen_func(amd64_ctx_t* cx, usz i) {
 	cx->frame_size = sresv(cx, 0, 16);
 	cx->stack_top = 0;
 
-	for (cx->i = 0; cx->i < cs->size; ++cx->i)
+	for (cx->i = 0; cx->i < cs->icode_count; ++cx->i)
 		convert_icode(cx);
 
 #ifdef LT_DEBUG
@@ -514,14 +511,12 @@ usz amd64_gen_func(amd64_ctx_t* cx, usz i) {
 					cs->name, reg_names[i][VARG_64], cx->reg_allocated[i]);
 #endif
 
-	ms->lbl = cx->lbl;
-
-	return cx->curr_func;
+	cs->lbl = cx->lbl;
 }
 
 void amd64_gen(amd64_ctx_t* cx) {
 	for (usz i = 0; i < cx->segtab->count; ++i) {
-		if (cx->segtab->seg[i].stype != SEG_ICODE)
+		if (cx->segtab->seg[i].stype != SEG_CODE)
 			continue;
 		amd64_gen_func(cx, i);
 	}
@@ -537,9 +532,11 @@ void print_modrm(u8 mod, u8 rm, u8 size, u32 disp) {
 	}
 }
 
-void amd64_print_seg(amd64_ctx_t* cx, usz i) {
-	amd64_instr_t* mcode = cx->segtab->seg[i].data;
-	usz mcode_count = cx->segtab->seg[i].size;
+void amd64_print_segment(amd64_ctx_t* cx, usz i) {
+	amd64_instr_t* mcode = cx->segtab->seg[i].mcode_data;
+	usz mcode_count = cx->segtab->seg[i].mcode_count;
+
+	lt_printf("CS %uq '%S':\n", i, cx->segtab->seg[i].name);
 
 	for (usz i = 0; i < mcode_count; ++i) {
 		lt_printf("\t(%uz)\t", i);

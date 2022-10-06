@@ -5,13 +5,19 @@ import "std/io.nyx", "std/mem.nyx", "std/hashtab.nyx", "lex.nyx", "parse.nyx";
 // 		"std/ipv4.nyx", "std/mem.nyx", "std/net.nyx", "std/str.nyx",
 // 		"std/time.nyx", "std/unix.nyx";
 
-// #{
-// 	str :: "asdf\n";
-// 	syscall(SYS.WRITE, 1, str.data, str.count);
-// 	syscall(SYS.EXIT, 5);
-// }
+#{
+	asdf :: void() {
+		str :: "Called inside a macro at compile-time\n";
+		syscall(SYS.WRITE, 1, str.data, str.count);
+		print(str);
+	};
+	asdf();
+}
 
 main :: void() {
+// 	str : u8[] : "Test string\n";
+// 	print(str);
+
 	arena := amcreate(null, 64M, 0);
 	alc := &arena.interf;
 

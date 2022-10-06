@@ -105,12 +105,11 @@ usz assemble_func(asm_ctx_t* cx, seg_ent_t* seg) {
 
 // 	lt_printf("%S: 0x%hz\n", seg->name, load_addr);
 	seg->load_at = load_addr;
-	cx->amd64_cx->segtab->seg[seg->origin].load_at = load_addr;
 
 	cx->amd64_cx->lbl_it = cx->amd64_cx->lbl = NULL;
 
-	amd64_instr_t* instrs = seg->data;
-	usz instr_count = seg->size;
+	amd64_instr_t* instrs = seg->mcode_data;
+	usz instr_count = seg->mcode_count;
 
 	for (usz i = 0; i < instr_count; ++i) {
 		u8 instr[16], *it = instr;
@@ -254,7 +253,7 @@ usz assemble_func(asm_ctx_t* cx, seg_ent_t* seg) {
 	return load_addr;
 }
 
-void* amd64_assemble_program(amd64_ctx_t* cx, usz base_addr, usz* out_size) {
+void* amd64_link_program(amd64_ctx_t* cx, usz base_addr, usz* out_size) {
 	asm_ctx_t asm_cx;
 	asm_cx.bin_size = 0;
 	asm_cx.bin_asize = 1024;
@@ -267,7 +266,7 @@ void* amd64_assemble_program(amd64_ctx_t* cx, usz base_addr, usz* out_size) {
 
 	for (usz i = 0; i < cx->segtab->count; ++i) {
 		seg_ent_t* seg = &cx->segtab->seg[i];
-		if (seg->stype == SEG_MCODE)
+		if (seg->stype == SEG_CODE)
 			assemble_func(&asm_cx, seg);
 		else if (seg->stype == SEG_DATA) {
 			usz seg_offs = write(&asm_cx, seg->data, seg->size, 16);
@@ -304,12 +303,64 @@ void* amd64_assemble_program(amd64_ctx_t* cx, usz base_addr, usz* out_size) {
 	return asm_cx.bin_data;
 }
 
-#include <sys/mman.h>
+#include <lt/asm.h>
 
-void* amd64_jit_assemble_function(amd64_ctx_t* cx, usz i) {
+static
+void disasm(void* data, usz len) {
+	u8 str[256];
+	u8* str_it = str;
+	lt_instr_stream_t s = lt_instr_stream_create(data, len, (lt_io_callback_t)lt_str_io_callb, &str_it);
+	for (;;) {
+		usz offs = s.it - (u8*)data;
+		usz len = lt_x64_disasm_instr(&s);
+		if (!len) {
+			if (s.it == s.end)
+				return;
+			lt_printf("%hz:\t??\n", offs);
+			continue;
+		}
+
+		lt_printf("%hz:\t%S\n", offs, LSTR(str, len));
+		str_it = str;
+	}
+}
+
+void* amd64_jit_link_segment(amd64_ctx_t* cx, usz i) {
+	seg_ent_t* seg = &cx->segtab->seg[i];
+	if (seg->stype != SEG_CODE) {
+		if (seg->jit_data)
+			return seg->jit_data;
+		seg->jit_data = lt_amalloc(cx->arena, seg->size);
+		memcpy(seg->jit_data, seg->data, seg->size);
+	}
+
+	fwd_ref_t* it = seg->ref;
+	while (it) {
+		seg_ent_t* it_seg = &cx->segtab->seg[it->seg];
+
+		if (it_seg->stype == SEG_CODE && !it_seg->mcode_data)
+			amd64_gen_func(cx, it->seg);
+		amd64_jit_assemble_segment(cx, it->seg);
+		amd64_jit_link_segment(cx, it->seg);
+
+		u64 val = 0;
+		memcpy(&val, seg->jit_data + it->offs, it->size);
+		val += (usz)it_seg->jit_data;
+		memcpy(seg->jit_data + it->offs, &val, it->size);
+
+		it = it->next;
+	}
+	return seg->jit_data;
+}
+
+void amd64_jit_assemble_segment(amd64_ctx_t* cx, usz seg_i) {
+	seg_ent_t* seg = &cx->segtab->seg[seg_i];
+	if (seg->stype != SEG_CODE || seg->data)
+		return;
+
 	asm_ctx_t asm_cx;
 	asm_cx.bin_size = 0;
-	asm_cx.bin_asize = 16 * lt_get_pagesize(); // !!
+	asm_cx.bin_asize = 32 * lt_get_pagesize();
 	asm_cx.bin_data = lt_vmalloc(asm_cx.bin_asize);
 	asm_cx.base_addr = (usz)asm_cx.bin_data;
 	asm_cx.amd64_cx = cx;
@@ -317,26 +368,10 @@ void* amd64_jit_assemble_function(amd64_ctx_t* cx, usz i) {
 	asm_cx.arena = cx->arena;
 	LT_ASSERT(asm_cx.bin_data);
 
-	assemble_func(&asm_cx, &cx->segtab->seg[i]);
+	assemble_func(&asm_cx, &cx->segtab->seg[seg_i]);
 
-	mprotect(asm_cx.bin_data, asm_cx.bin_asize, PROT_READ|PROT_WRITE|PROT_EXEC);
-
-	fwd_ref_t* it = asm_cx.refs;
-	while (it) {
-		seg_ent_t* seg = &cx->segtab->seg[it->seg];
-		u64 addr = seg->load_at;
-		if (seg->stype == SEG_DATA)
-			addr = (usz)seg->data;
-		else
-			LT_ASSERT(addr);
-		u64 val = 0;
-		memcpy(&val, asm_cx.bin_data + it->offs, it->size);
-		val += addr;
-		memcpy(asm_cx.bin_data + it->offs, &val, it->size);
-
-		it = it->next;
-	}
-
-	return asm_cx.bin_data;
+	seg->size = asm_cx.bin_size;
+	seg->jit_data = asm_cx.bin_data;
+	seg->ref = asm_cx.refs;
 }
 

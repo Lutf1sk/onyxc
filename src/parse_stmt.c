@@ -148,7 +148,7 @@ stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 			usz size = type_bytes(sym->type);
 			void* data = lt_amalloc(cx->arena, size);
 			memset(data, 0, size);
-			u32 seg_i = new_segment(cx->gen_cx->segtab, SEG_ENT(SEG_DATA, sym->name, size, data));
+			u32 seg_i = new_segment(cx->gen_cx->segtab, DATASEG(sym->name, size, data));
 			sym->val = IVAL(IVAL_SEG | IVAL_REF, .uint_val = seg_i);
 
 			if (expr) {
@@ -458,7 +458,7 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		ival_t seg_v = gen_const_expr(cx->gen_cx, lambda);
 		LT_ASSERT(seg_v.stype == IVAL_SEG);
 		usz seg_i = seg_v.uint_val;
-		print_seg(cx->gen_cx, seg_i);
+		print_segment(cx->gen_cx->segtab, seg_i);
 
 		// Generate low-level IR
 		usz func = jit_compile_seg(cx->gen_cx, seg_i);

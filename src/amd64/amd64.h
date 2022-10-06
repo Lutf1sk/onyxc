@@ -37,7 +37,6 @@ typedef
 struct amd64_ctx {
 	lt_arena_t* arena;
 
-	isz curr_ifunc;
 	isz curr_func;
 
 	segtab_t* segtab;
@@ -61,14 +60,15 @@ struct amd64_ctx {
 } amd64_ctx_t;
 
 // amd64.c
-usz amd64_gen_func(amd64_ctx_t* cx, usz i);
+void amd64_gen_func(amd64_ctx_t* cx, usz i);
 void amd64_gen(amd64_ctx_t* cx);
-void amd64_print_seg(amd64_ctx_t* cx, usz i);
+void amd64_print_segment(amd64_ctx_t* cx, usz i);
 void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr);
 
 // asm.c
-void* amd64_assemble_program(amd64_ctx_t* cx, usz base_addr, usz* out_size);
-void* amd64_jit_assemble_function(amd64_ctx_t* cx, usz i);
+void* amd64_link_program(amd64_ctx_t* cx, usz base_addr, usz* out_size);
+void* amd64_jit_link_segment(amd64_ctx_t* cx, usz i);
+void amd64_jit_assemble_segment(amd64_ctx_t* cx, usz seg_i);
 
 // elf.c
 void amd64_write_elf64(amd64_ctx_t* cx, char* path);

@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
 
 #if 0
 		for (usz i = 0; i < segtab.count; ++i)
-			print_seg(&gen_cx, i);
+			print_segment(&segtab, i);
 #endif
 
 		switch (target) {
@@ -243,8 +243,7 @@ int main(int argc, char** argv) {
 				if (segtab.seg[i].stype != SEG_MCODE)
 					continue;
 
-				lt_printf("\nM-CS %uq '%S':\n", i, segtab.seg[i].name);
-				amd64_print_seg(&x64, i);
+				amd64_print_segment(&x64, i);
 			}
 #endif
 

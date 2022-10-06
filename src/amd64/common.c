@@ -56,11 +56,11 @@ usz emit(amd64_ctx_t* cx, amd64_instr_t mi) {
 	LT_ASSERT(cx->curr_func != -1);
 
 	seg_ent_t* ent = &cx->segtab->seg[cx->curr_func];
-	if (!(ent->size & AMD64_BLOCK_MASK))
-		ent->data = realloc(ent->data, (ent->size + AMD64_BLOCK_SIZE) * sizeof(amd64_instr_t));
+	if (!(ent->mcode_count & AMD64_BLOCK_MASK))
+		ent->mcode_data = realloc(ent->mcode_data, (ent->mcode_count + AMD64_BLOCK_SIZE) * sizeof(amd64_instr_t));
 
-	((amd64_instr_t*)ent->data)[ent->size] = mi;
-	return ent->size++;
+	((amd64_instr_t*)ent->mcode_data)[ent->mcode_count] = mi;
+	return ent->mcode_count++;
 }
 
 static
@@ -165,7 +165,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 	}
 
 	if (best_match < 0) {
-		lt_printf("%uz:%uz Invalid operands to '%S' ", cx->curr_ifunc, cx->i, op->str);
+		lt_printf("%uz:%uz Invalid operands to '%S' ", cx->curr_func, cx->i, op->str);
 		for (usz i = 0; i < arg_count; ++i)
 			lt_printf("(type:%ud,size:%ud) ", args[i].type, args[i].size);
 		lt_printf("\n");

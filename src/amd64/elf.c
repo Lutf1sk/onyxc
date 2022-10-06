@@ -54,11 +54,11 @@ void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
 	fh.ph_offset = sizeof(fh);
 
 	usz bin_size = 0;
-	void* bin_data = amd64_assemble_program(cx, LOAD_ADDR, &bin_size);
+	void* bin_data = amd64_link_program(cx, LOAD_ADDR, &bin_size);
 
 	for (usz i = 0; i < cx->segtab->count; ++i) {
 		seg_ent_t* seg = &cx->segtab->seg[i];
-		if (seg->stype == SEG_MCODE && lt_lstr_eq(seg->name, CLSTR("main")))
+		if (seg->stype == SEG_CODE && lt_lstr_eq(seg->name, CLSTR("main")))
 			fh.entry = seg->load_at;
 	}
 

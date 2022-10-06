@@ -28,6 +28,4 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt);
 
 void icode_gen(gen_ctx_t* cx, stmt_t* root);
 
-void print_seg(gen_ctx_t* cx, usz i);
-
 #endif
