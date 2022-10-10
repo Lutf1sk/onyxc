@@ -454,14 +454,11 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		cx->curr_func_type = old_func_type;
 
-		// Generate IR
 		ival_t seg_v = gen_const_expr(cx->gen_cx, lambda);
 		LT_ASSERT(seg_v.stype == IVAL_SEG);
 		usz seg_i = seg_v.uint_val;
-		print_segment(cx->gen_cx->segtab, seg_i);
 
-		// Generate low-level IR
-		usz func = jit_compile_seg(cx->gen_cx, seg_i);
+		usz func = jit_compile_func(cx->gen_cx, seg_i);
 		((void(*)(void))func)();
 		return NULL;
 	}

@@ -132,8 +132,8 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 					goto next_var;
 				break;
 
-			case IREG_IMM | IREG_REF:
 			case IREG_SEG | IREG_REF:
+			case IREG_IMM | IREG_REF:
 			case IREG_LBL | IREG_REF:
 				LT_ASSERT(ireg->size);
 				if (varg != VARG_MRM || vbytes != ireg->size)
@@ -229,13 +229,13 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 			break;
 
 		case IREG_SEG | IREG_REF:
-			mi.disp_flags = MI_SEG|MI_DISP_ONLY;
+			mi.disp_flags = MI_SEG|MI_IP_DISP;
 			mi.mrm.disp = ireg->seg;
 			mi.mrm.disp2 = ireg->disp;
 			break;
 
 		case IREG_LBL | IREG_REF:
-			mi.disp_flags = MI_LBL|MI_DISP_ONLY;
+			mi.disp_flags = MI_LBL|MI_IP_DISP;
 			mi.mrm.disp = ireg->lbl;
 			mi.mrm.disp2 = ireg->disp;
 			break;

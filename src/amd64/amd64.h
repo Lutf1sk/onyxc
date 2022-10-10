@@ -15,12 +15,11 @@ struct amd64_ireg {
 	u8 type;
 	u8 size;
 	u8 mreg;
-	u8 pad;
-	u32 disp;
+	u64 disp;
 	union {
-		u32 imm;
-		u32 seg;
-		u32 lbl;
+		u64 imm;
+		u64 seg;
+		u64 lbl;
 	};
 } amd64_ireg_t;
 
@@ -68,7 +67,7 @@ void amd64_print_instr(amd64_ctx_t* cx, amd64_instr_t* instr);
 // asm.c
 void* amd64_link_program(amd64_ctx_t* cx, usz base_addr, usz* out_size);
 void* amd64_jit_link_segment(amd64_ctx_t* cx, usz i);
-void amd64_jit_assemble_segment(amd64_ctx_t* cx, usz seg_i);
+void amd64_jit_assemble_func(amd64_ctx_t* cx, usz seg_i);
 
 // elf.c
 void amd64_write_elf64(amd64_ctx_t* cx, char* path);

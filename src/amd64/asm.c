@@ -134,6 +134,7 @@ usz assemble_func(asm_ctx_t* cx, seg_ent_t* seg) {
 		b8 modrm = 0;
 		b8 imm = 0;
 		u8 imm_size = 0;
+		u8 imm_bytes = 0;
 		u8 imm_idx;
 		b8 rex = 0;
 		for (usz i = 0; i < var->arg_count; ++i) {
@@ -142,6 +143,7 @@ usz assemble_func(asm_ctx_t* cx, seg_ent_t* seg) {
 			if (varg == VARG_IMM) {
 				imm = 1;
 				imm_size = vsize;
+				imm_bytes = 1 << imm_size;
 				imm_idx = i;
 			}
 			else if (varg == VARG_MRM) {
@@ -183,6 +185,8 @@ usz assemble_func(asm_ctx_t* cx, seg_ent_t* seg) {
 		else
 			*it++ = var_b + oi_offs;
 
+		// TODO: Ensure that displacement fits within 4 bytes
+
 		if (modrm) {
 			if (ext)
 				reg = var_op[0];
@@ -195,7 +199,24 @@ usz assemble_func(asm_ctx_t* cx, seg_ent_t* seg) {
 			u64 disp_val = mi->mrm.disp;
 			usz disp_bytes = 0;
 
-			if (mi->disp_flags & MI_DISP_ONLY) {
+			if (mi->disp_flags & MI_IP_DISP) {
+				*it++ = MODRM(0, reg, REG_BP);
+
+				disp_bytes = 4;
+				u64 disp_offs = cx->bin_size + (it - instr);
+
+				if (mi->disp_flags & MI_LBL) {
+					write_lbl(cx, &cx->amd64_cx->lbl, disp_offs, &disp_val);
+					disp_val -= cx->base_addr + disp_offs + disp_bytes + imm_bytes;
+					disp_val += mi->mrm.disp2;
+				}
+				if (mi->disp_flags & MI_SEG) {
+					write_seg(cx, disp_offs, disp_bytes, &disp_val, mi->mrm.disp);
+					disp_val -= cx->base_addr + disp_offs + disp_bytes + imm_bytes;
+					disp_val += mi->mrm.disp2;
+				}
+			}
+			else if (mi->disp_flags & MI_DISP_ONLY) {
 				*it++ = MODRM(0, reg, REG_SP);
 				*it++ = SIB(SIB_S1, REG_SP, REG_BP);
 
@@ -229,7 +250,6 @@ usz assemble_func(asm_ctx_t* cx, seg_ent_t* seg) {
 
 		if (imm) {
 			u64 imm_val = mi->imm.imm;
-			u8 imm_bytes = 1 << imm_size;
 			u64 imm_offs = cx->bin_size + (it - instr);
 
 			if (mi->imm_flags & MI_LBL) {
@@ -327,7 +347,13 @@ void disasm(void* data, usz len) {
 
 void* amd64_jit_link_segment(amd64_ctx_t* cx, usz i) {
 	seg_ent_t* seg = &cx->segtab->seg[i];
-	if (seg->stype != SEG_CODE) {
+	if (seg->stype == SEG_CODE) {
+		if (!seg->jit_data)
+			amd64_jit_assemble_func(cx, i);
+		else
+			return seg->jit_data;
+	}
+	else {
 		if (seg->jit_data)
 			return seg->jit_data;
 		seg->jit_data = lt_amalloc(cx->arena, seg->size);
@@ -338,9 +364,6 @@ void* amd64_jit_link_segment(amd64_ctx_t* cx, usz i) {
 	while (it) {
 		seg_ent_t* it_seg = &cx->segtab->seg[it->seg];
 
-		if (it_seg->stype == SEG_CODE && !it_seg->mcode_data)
-			amd64_gen_func(cx, it->seg);
-		amd64_jit_assemble_segment(cx, it->seg);
 		amd64_jit_link_segment(cx, it->seg);
 
 		u64 val = 0;
@@ -350,13 +373,22 @@ void* amd64_jit_link_segment(amd64_ctx_t* cx, usz i) {
 
 		it = it->next;
 	}
+
+// 	if (seg->stype == SEG_CODE) {
+// 		lt_printf("JIT '%S' 0x%hz\n", seg->name, seg->jit_data);
+// 		disasm(seg->jit_data, seg->size);
+// 	}
+
 	return seg->jit_data;
 }
 
-void amd64_jit_assemble_segment(amd64_ctx_t* cx, usz seg_i) {
+void amd64_jit_assemble_func(amd64_ctx_t* cx, usz seg_i) {
 	seg_ent_t* seg = &cx->segtab->seg[seg_i];
-	if (seg->stype != SEG_CODE || seg->data)
+	if (seg->jit_data) // !!
 		return;
+
+	if (!seg->mcode_data)
+		amd64_gen_func(cx, seg_i);
 
 	asm_ctx_t asm_cx;
 	asm_cx.bin_size = 0;

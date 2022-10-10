@@ -5,19 +5,7 @@ import "std/io.nyx", "std/mem.nyx", "std/hashtab.nyx", "lex.nyx", "parse.nyx";
 // 		"std/ipv4.nyx", "std/mem.nyx", "std/net.nyx", "std/str.nyx",
 // 		"std/time.nyx", "std/unix.nyx";
 
-#{
-	asdf :: void() {
-		str :: "Called inside a macro at compile-time\n";
-		syscall(SYS.WRITE, 1, str.data, str.count);
-		print(str);
-	};
-	asdf();
-}
-
 main :: void() {
-// 	str : u8[] : "Test string\n";
-// 	print(str);
-
 	arena := amcreate(null, 64M, 0);
 	alc := &arena.interf;
 
@@ -41,7 +29,7 @@ main :: void() {
 	in_data[0] = 0;
 	in_data[st.st_size] = 0;
 	invw := (in_data + 1)[0..st.st_size];
-	if fread(in_f, invw) != st.st_size {
+	if isz:fread(in_f, invw) != st.st_size {
 		print("read() failed\n");
 		goto err1;
 	}
@@ -84,4 +72,9 @@ err0 :: here;
 	amdestroy(arena);
 	exit(1);
 };
+
+#{
+	print("ASDF\n");
+// 	main();
+}
 

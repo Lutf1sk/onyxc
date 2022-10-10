@@ -146,8 +146,11 @@ void x64_mcopy(amd64_ctx_t* cx, amd64_ireg_t dst, amd64_ireg_t src, usz bytes) {
 
 // 	amd64_instr_t mi;
 // 	memset(&mi, 0, sizeof(mi));
+
+// 	mi.op = X64_CLD;
+// 	emit(cx, mi);
+
 // 	mi.op = X64_MOVSB;
-// 	mi.var = 0;
 // 	mi.prefix[0] = 0xF3;
 // 	emit(cx, mi);
 }

@@ -5,6 +5,6 @@
 
 #include "fwd.h"
 
-usz jit_compile_seg(gen_ctx_t* cx, usz seg_i);
+usz jit_compile_func(gen_ctx_t* cx, usz seg_i);
 
 #endif

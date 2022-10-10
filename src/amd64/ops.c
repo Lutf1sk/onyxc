@@ -354,7 +354,7 @@ amd64_op_t ops[] = {
 		VAR1(RM64, REXW|OPXT,	{ 5, 0xF7 })),	// IMUL r/m64
 
 	OP("movsb", 1,
-		VAR0(REXW, { 0xA4 })),
+		VAR0(0, { 0xA4 })),
 	OP("movsq", 1,
 		VAR0(REXW, { 0xA5 })),
 
@@ -495,6 +495,12 @@ amd64_op_t ops[] = {
 		VAR1(RM64|VARG_DST, REXW|OPXT,	{ 2, 0xF7 })),	// NOT r/m64
 
 	OP("ir_lbl", 0),
+
+	OP("cld", 1,
+		VAR0(0, { 0xFC })), // CLD
+
+	OP("std", 1,
+		VAR0(0, { 0xFD })), // STD
 };
 
 void zero_reg(amd64_ctx_t* cx, u8 mreg) {

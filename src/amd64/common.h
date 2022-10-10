@@ -78,6 +78,7 @@
 #define MI_SEG 1
 #define MI_LBL 2
 #define MI_DISP_ONLY 4
+#define MI_IP_DISP 8
 
 typedef
 struct modrm {
