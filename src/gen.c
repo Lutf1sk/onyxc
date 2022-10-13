@@ -653,6 +653,8 @@ ival_t gen_view_count(gen_ctx_t* cx, ival_t v) {
 }
 
 ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
+	LT_ASSERT(expr->type);
+
 	switch (expr->stype) {
 	// Literals
 	case EXPR_LAMBDA:

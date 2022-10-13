@@ -8,7 +8,6 @@ OBJS = \
 	src/err.o \
 	src/gen.o \
 	src/interm.o \
-	src/exec.o \
 	src/lex.o \
 	src/segment.o \
 	src/expr_ast.o \

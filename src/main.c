@@ -14,8 +14,6 @@
 #include "gen.h"
 #include "segment.h"
 
-#include "exec.h"
-
 #include "target.h"
 #include "amd64/amd64.h"
 
@@ -200,26 +198,7 @@ int main(int argc, char** argv) {
 		icode_gen(&gen_cx, root);
 
 		if (run_mode) {
-			// Execute intermediate code
-// 			u64* stack = lt_amalloc(arena, LT_MB(1));
-			u64 code = 0;
-
-			sym_t* main = symtab_find(&symtab, CLSTR("main"));
-			if (!main)
-				lt_ferr(CLSTR("program has no entry point\n"));
-			if (main->type->stype != TP_FUNC || !(main->flags & SYMFL_CONST) || main->val.stype != IVAL_SEG)
-				lt_ferr(CLSTR("'main' symbol must be a function\n"));
-
-			exec_ctx_t exec_cx;
-// 			exec_cx.sp = (u8*)stack;
-// 			exec_cx.bp = (u8*)stack;
-// 			exec_cx.ip = gen_cx.seg[main->val.uint_val].data;
-// 			exec_cx.seg = gen_cx.seg;
-// 			exec_cx.ret_ptr = (u8*)&code;
-// 			exec_cx.reg_offs = 0;
-
-			icode_exec(&exec_cx);
-			return code;
+			return 0;
 		}
 
 #if 0
