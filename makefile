@@ -55,6 +55,14 @@ $(LT_PATH):
 run: all
 	./$(OUT) main.nyx
 
+install: all
+	@-rm -rf /usr/lib/onyxc/
+
+	cp $(OUT) /usr/local/bin/
+	
+	mkdir -p /usr/lib/onyxc
+	cp -r std /usr/lib/onyxc/
+
 prof: all
 	valgrind --dump-instr=yes --tool=callgrind ./$(OUT) test.nyx
 	kcachegrind ./callgrind.out*
@@ -72,4 +80,4 @@ $(OUT):	$(OBJS)
 clean:
 	rm $(OBJS) $(DEPS)
 
-.PHONY: all clean run sync
+.PHONY: all clean run sync install

@@ -1,7 +1,5 @@
 import "std/io.nyx", "std/mem.nyx", "std/hashtab.nyx", "lex.nyx", "parse.nyx";
 
-import "io.nyx", "mem.nyx";
-
 // import	"std/bitmath.nyx", "std/char.nyx", "std/conf.nyx", "std/dns.nyx",
 // 		"std/dynlib.nyx", "std/elf.nyx", "std/hashtab.nyx", "std/io.nyx",
 // 		"std/ipv4.nyx", "std/mem.nyx", "std/net.nyx", "std/str.nyx",

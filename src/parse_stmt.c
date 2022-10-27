@@ -228,30 +228,30 @@ file_id_t* hashtab_find_fid(lt_hashtab_t* htab, u32 hash, file_id_t* fid)
 
 #include <lt/strstream.h>
 
-lstr_t make_path(lstr_t include_dir, lstr_t path, lt_alloc_t* alc) {
-	lt_strstream_t s;
-	LT_ASSERT(lt_strstream_create(&s, alc));
-	LT_ASSERT(lt_strstream_writels(&s, include_dir));
-	LT_ASSERT(lt_strstream_writec(&s, '/'));
-	LT_ASSERT(lt_strstream_writels(&s, path));
-	return s.str;
-}
-
 stmt_t* import_file(parse_ctx_t* cx, tk_t* path_tk) {
 	file_id_t fid;
+
+	lstr_t path = NLSTR();
 
 	lstr_t esc_str = unescape_str(path_tk, (lt_alloc_t*)cx->arena);
 	if (!esc_str.len)
 		ferr("import string cannot be empty", *path_tk);
 	if (esc_str.str[0] == '/') {
-		if (get_fileid(esc_str, &fid))
+		if (get_fileid(esc_str, &fid)) {
+			path = esc_str;
 			goto success;
+		}
 		else
 			goto fail;
 	}
 
 	for (usz i = 0; i < cx->include_dir_count; ++i) {
-		lstr_t path = make_path(cx->include_dirs[i], esc_str, (lt_alloc_t*)cx->arena);
+		lt_strstream_t s;
+		LT_ASSERT(lt_strstream_create(&s, (lt_alloc_t*)cx->arena));
+		LT_ASSERT(lt_strstream_writels(&s, cx->include_dirs[i]));
+		LT_ASSERT(lt_strstream_writec(&s, '/'));
+		LT_ASSERT(lt_strstream_writels(&s, esc_str));
+		path = s.str;
 		if (get_fileid(path, &fid))
 			goto success;
 	}
@@ -266,7 +266,7 @@ success:
 		lt_hashtab_insert(&file_tab, h, fid_p, lt_libc_heap);
 
 		lex_ctx_t* old_lex_cx = cx->lex;
-		cx->lex = lex_file(cx->arena, esc_str, path_tk);
+		cx->lex = lex_file(cx->arena, path, path_tk);
 		stmt_t* stmt = parse(cx);
 		cx->lex = old_lex_cx;
 

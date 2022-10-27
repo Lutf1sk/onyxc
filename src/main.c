@@ -88,6 +88,12 @@ void stmt_print(lt_arena_t* arena, stmt_t* st) {
 
 #define PRIMITIVE_INITIALIZER(T) CLSTR(#T), { SYM_TYPE, 0, CLSTR(#T), &T##_def, NULL }
 
+#if defined(LT_UNIX)
+#	define STDPATH CLSTR("/usr/lib/onyxc")
+#elif defined(LT_WINDOWS)
+#	define STDPATH CLSTR("??")
+#endif
+
 int main(int argc, char** argv) {
 	char** in_files = malloc(argc * sizeof(char*));
 	if (!in_files)
@@ -100,8 +106,8 @@ int main(int argc, char** argv) {
 	lt_arg_iterator_t arg_it = lt_arg_iterator_create(argc, argv);
 
 #define INCLUDE_DIR_MAX 128
-	lstr_t include_dirs[INCLUDE_DIR_MAX] = { CLSTR(".") };
-	usz include_dir_count = 1;
+	lstr_t include_dirs[INCLUDE_DIR_MAX] = { CLSTR("."), STDPATH };
+	usz include_dir_count = 2;
 
 	while (lt_arg_next(&arg_it)) {
 		if (lt_arg_flag(&arg_it, 'h', CLSTR("help"))) {
