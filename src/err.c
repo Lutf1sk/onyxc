@@ -42,7 +42,7 @@ void ferr(char* fmt, tk_t tk, ...) {
 
 	va_list args;
 	va_start(args, 0);
-	lt_file_vprintf(lt_stdout, fmt, args);
+	lt_vfprintf(lt_stdout, fmt, args);
 	va_end(args);
 
 	lt_printf("\n %uz| %S"A_RED A_BOLD"%S"A_RESET"%S\n", line, line_beg, tk.str, line_end);
@@ -59,7 +59,7 @@ void werr(char* fmt, tk_t tk, ...) {
 
 	va_list args;
 	va_start(args, 0);
-	lt_file_vprintf(lt_stdout, fmt, args);
+	lt_vfprintf(lt_stdout, fmt, args);
 	va_end(args);
 
 	lt_printf("\n %uz| %S"A_MAGENTA A_BOLD"%S"A_RESET"%S\n", line, line_beg, tk.str, line_end);

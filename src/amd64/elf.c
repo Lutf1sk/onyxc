@@ -47,7 +47,7 @@ static u8 align_buf[ALIGN_BYTES];
 
 #define LOAD_ADDR 0x70000000
 
-void amd64_write_elf64(amd64_ctx_t* cx, char* path) {
+void amd64_write_elf64(amd64_ctx_t* cx, lstr_t path) {
 	lt_elf64_fh_t fh;
 	fill_fh(&fh);
 	fh.ph_count = 1;

@@ -98,7 +98,7 @@ isz type_to_str(char* out_str, type_t* type) {
 
 	case TP_ARRAY:
 		it += type_to_str(it, type->base);
-		it += lt_str_printf(it, "[%uz]", type->child_count);
+		it += lt_sprintf(it, "[%uz]", type->child_count);
 		return it - out_str;
 
 	case TP_ARRAY_VIEW:

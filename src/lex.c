@@ -8,7 +8,7 @@
 #include <lt/io.h>
 #include <lt/ctype.h>
 
-lex_ctx_t* lex_file(lt_arena_t* arena, char* path, tk_t* path_tk) {
+lex_ctx_t* lex_file(lt_arena_t* arena, lstr_t path, tk_t* path_tk) {
 	// Read source file
 	lt_file_t* fp = lt_file_open(path, LT_FILE_R, 0, &arena->interf);
 

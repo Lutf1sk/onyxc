@@ -94,19 +94,24 @@ int main(int argc, char** argv) {
 		lt_ferr(CLSTR("memory allocation failed\n"));
 	usz in_file_count = 0;
 
-	char* out_path = "out";
+	lstr_t out_path = CLSTR("out");
 	b8 run_mode = 0;
 
 	lt_arg_iterator_t arg_it = lt_arg_iterator_create(argc, argv);
+
+#define INCLUDE_DIR_MAX 128
+	lstr_t include_dirs[INCLUDE_DIR_MAX] = { CLSTR(".") };
+	usz include_dir_count = 1;
 
 	while (lt_arg_next(&arg_it)) {
 		if (lt_arg_flag(&arg_it, 'h', CLSTR("help"))) {
 			lt_printf(
 				"usage: onyxc [OPTIONS] FILE...\n"
 				"options:\n"
-				"  -h, --help     Display this information.\n"
-				"  -r, --run      JIT compile and run instead of producing an executable.\n"
-				"  -o, --out=OUT  Store compiled program in OUT\n"
+				"  -h, --help          Display this information.\n"
+				"  -r, --run           JIT compile and run instead of producing an executable.\n"
+				"  -o, --out=OUT       Store compiled program in OUT\n"
+				"  -I  --include=PATH  Add include directory PATH\n"
 			);
 			return 0;
 		}
@@ -114,8 +119,16 @@ int main(int argc, char** argv) {
 			run_mode = 1;
 			continue;
 		}
-		if (lt_arg_str(&arg_it, 'o', CLSTR("out"), &out_path))
+		if (lt_arg_str(&arg_it, 'o', CLSTR("out"), &out_path.str)) {
+			out_path.len = strlen(out_path.str);
 			continue;
+		}
+		char* dir;
+		if (lt_arg_str(&arg_it, 'I', CLSTR("include"), &dir)) {
+			LT_ASSERT(include_dir_count < INCLUDE_DIR_MAX);
+			include_dirs[include_dir_count++] = LSTR(dir, strlen(dir));
+			continue;
+		}
 
 		in_files[in_file_count++] = *arg_it.it;
 	}
@@ -127,7 +140,7 @@ int main(int argc, char** argv) {
 		lt_ferrf("No input file provided\n");
 
 	for (isz file_index = 0; file_index < in_file_count; ++file_index) {
-		char* in_path = in_files[file_index];
+		lstr_t in_path = LSTR(in_files[file_index], strlen(in_files[file_index]));
 
 		lt_arena_t* arena = lt_amcreate(NULL, LT_GB(1), 0);
 		lex_ctx_t* lex_cx = lex_file(arena, in_path, NULL);
@@ -187,6 +200,8 @@ int main(int argc, char** argv) {
 		parse_cx.label_symtab = NULL;
 		parse_cx.lex = lex_cx;
 		parse_cx.gen_cx = &gen_cx;
+		parse_cx.include_dirs = include_dirs;
+		parse_cx.include_dir_count = include_dir_count;
 		stmt_t* root = parse(&parse_cx);
 
 #if 0

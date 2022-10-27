@@ -3,6 +3,7 @@
 
 #include "fwd.h"
 
+#include <lt/fwd.h>
 #include <lt/lt.h>
 
 #define FOR_EACH_TK() \
@@ -105,7 +106,7 @@ typedef struct tk {
 
 lstr_t tk_type_str(tk_stype_t stype);
 
-usz unescape_str(char* out, tk_t* tk);
+lstr_t unescape_str(tk_t* tk, lt_alloc_t* alloc);
 
 #define TK_INIT(cx, stype, str, line) { (stype), (line), (str), (cx) }
 #define TK(cx, stype, str, line) ((tk_t)TK_INIT(cx, stype, str, line))

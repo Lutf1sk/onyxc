@@ -197,11 +197,28 @@ stmt_t* parse_if(parse_ctx_t* cx) {
 	return new;
 }
 
+#include <sys/stat.h>
+
 typedef
 struct file_id {
 	u64 dev;
 	u64 inode;
 } file_id_t;
+
+b8 get_fileid(lstr_t path_, file_id_t* id) {
+	if (path_.len > LT_PATH_MAX)
+		return 0;
+	char path[LT_PATH_MAX];
+	memcpy(path, path_.str, path_.len);
+	path[path_.len] = 0;
+
+	struct stat st;
+	if (stat(path, &st) < 0)
+		return 0;
+
+	*id = (file_id_t){ st.st_dev, st.st_ino };
+	return 1;
+}
 
 #include <lt/hashtab.h>
 lt_hashtab_t file_tab;
@@ -209,7 +226,56 @@ lt_hashtab_t file_tab;
 file_id_t* hashtab_find_fid(lt_hashtab_t* htab, u32 hash, file_id_t* fid)
 	LT_HASHTAB_FIND_IMPL(htab, hash, file_id_t* it, it->dev == fid->dev && it->inode == fid->inode)
 
-#include <sys/stat.h>
+#include <lt/strstream.h>
+
+lstr_t make_path(lstr_t include_dir, lstr_t path, lt_alloc_t* alc) {
+	lt_strstream_t s;
+	LT_ASSERT(lt_strstream_create(&s, alc));
+	LT_ASSERT(lt_strstream_writels(&s, include_dir));
+	LT_ASSERT(lt_strstream_writec(&s, '/'));
+	LT_ASSERT(lt_strstream_writels(&s, path));
+	return s.str;
+}
+
+stmt_t* import_file(parse_ctx_t* cx, tk_t* path_tk) {
+	file_id_t fid;
+
+	lstr_t esc_str = unescape_str(path_tk, (lt_alloc_t*)cx->arena);
+	if (!esc_str.len)
+		ferr("import string cannot be empty", *path_tk);
+	if (esc_str.str[0] == '/') {
+		if (get_fileid(esc_str, &fid))
+			goto success;
+		else
+			goto fail;
+	}
+
+	for (usz i = 0; i < cx->include_dir_count; ++i) {
+		lstr_t path = make_path(cx->include_dirs[i], esc_str, (lt_alloc_t*)cx->arena);
+		if (get_fileid(path, &fid))
+			goto success;
+	}
+fail:
+	ferr("failed to open imported file", *path_tk);
+success:
+	u32 h = lt_hash(&fid, sizeof(fid));
+
+	if (!hashtab_find_fid(&file_tab, h, &fid)) {
+		file_id_t* fid_p = lt_amalloc(cx->arena, sizeof(file_id_t));
+		*fid_p = fid;
+		lt_hashtab_insert(&file_tab, h, fid_p, lt_libc_heap);
+
+		lex_ctx_t* old_lex_cx = cx->lex;
+		cx->lex = lex_file(cx->arena, esc_str, path_tk);
+		stmt_t* stmt = parse(cx);
+		cx->lex = old_lex_cx;
+
+		lt_amfree(cx->arena, esc_str.str);
+		return stmt;
+	}
+	lt_amfree(cx->arena, esc_str.str);
+	return NULL;
+}
 
 stmt_t* parse_stmt(parse_ctx_t* cx) {
 	tk_t tk = *peek(cx, 0);
@@ -221,37 +287,13 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 		return parse_compound(cx);
 
 	case TK_KW_IMPORT: consume(cx); {
-		lex_ctx_t* old_lex_cx = cx->lex;
 		stmt_t* stmt = NULL;
  		stmt_t** it = &stmt;
-
 		for (;;) {
 			tk_t* path_tk = consume_type(cx, TK_STRING, CLSTR(", expected a path after 'import'"));
-			char* path = lt_amalloc(cx->arena, 0);
-			usz len = unescape_str(path, path_tk);
-			path = lt_amrealloc(cx->arena, path, len + 1); // !!
-			path[len] = 0;
-			LT_ASSERT(len < 4096);
-
-			struct stat st;
-			if (stat(path, &st) < 0)
-				ferr("failed to open '%s'", *path_tk, path);
-
-			file_id_t fid = { st.st_dev, st.st_ino };
-			u32 h = lt_hash(&fid, sizeof(fid));
-
-			if (!hashtab_find_fid(&file_tab, h, &fid)) {
-				file_id_t* fid_p = lt_amalloc(cx->arena, sizeof(file_id_t));
-				*fid_p = fid;
-				lt_hashtab_insert(&file_tab, h, fid_p, lt_libc_heap);
-
-				cx->lex = lex_file(cx->arena, path, path_tk);
-				*it = parse(cx);
-				cx->lex = old_lex_cx;
-
-				if (*it)
-					it = &(*it)->child;
-			}
+			*it = import_file(cx, path_tk);
+			if (*it)
+				it = &(*it)->child;
 
 			if (peek(cx, 0)->stype != TK_COMMA) {
 				consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after import statement"));

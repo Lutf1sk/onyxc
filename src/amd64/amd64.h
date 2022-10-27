@@ -70,6 +70,6 @@ void* amd64_jit_link_segment(amd64_ctx_t* cx, usz i);
 void amd64_jit_assemble_func(amd64_ctx_t* cx, usz seg_i);
 
 // elf.c
-void amd64_write_elf64(amd64_ctx_t* cx, char* path);
+void amd64_write_elf64(amd64_ctx_t* cx, lstr_t path);
 
 #endif

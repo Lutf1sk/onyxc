@@ -16,6 +16,9 @@ typedef struct parse_ctx {
 
 	lex_ctx_t* lex;
 	gen_ctx_t* gen_cx;
+
+	lstr_t* include_dirs;
+	usz include_dir_count;
 } parse_ctx_t;
 
 typedef

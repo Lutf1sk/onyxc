@@ -9,6 +9,7 @@
 #include "symtab.h"
 
 #include <lt/str.h>
+#include <lt/strstream.h>
 
 expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	tk_t* tk = peek(cx, 0);
@@ -240,30 +241,26 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &u8_def, tk);
 
-		char* str = lt_amalloc(cx->arena, 0);
-		usz len = unescape_str(str, tk);
-
-		if (len > 1)
+		lstr_t str = unescape_str(tk, (lt_alloc_t*)cx->arena);
+		if (str.len > 1)
 			ferr("character literal exceeds max length", *tk);
-		else if (!len)
+		else if (!str.len)
 			ferr("empty character literal", *tk);
-
-		new->int_val = str[0];
+		new->int_val = str.str[0];
+		lt_amfree(cx->arena, str.str);
 		return new;
 	}
 
 	case TK_STRING: consume(cx); {
-		char* data = lt_amalloc(cx->arena, 0);
-		usz len = unescape_str(data, tk);
-		data = lt_amrealloc(cx->arena, data, len); // !!
+		lstr_t str = unescape_str(tk, (lt_alloc_t*)cx->arena);
 
 		type_t* type = lt_amalloc(cx->arena, sizeof(type_t));
 		*type = TYPE(TP_ARRAY, &u8_def);
-		type->child_count = len;
+		type->child_count = str.len;
 
 		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_STRING, type, tk);
-		new->str_val = LSTR(data, len);
+		new->str_val = str;
 		return new;
 	}
 
