@@ -174,19 +174,17 @@ Switches in onyx cannot fall through, and thus they do not affect 'break' statem
 
 Unhandled cases cause undefined behaviour if a 'default' case has not been specified, this allows for more aggressive optimization.
 ```
-switch 'A' {
+switch 'A'
 case 'C' {
 	do_thing();
-}
-
+},
 case 'D', 'E', 'F' {
-	do_another_thing();
-}
 
+	do_another_thing();
+},
 default {
 	something();
-}
-}
+};
 ```
 
 # Arrays and array views
