@@ -2,6 +2,7 @@
 #include "err.h"
 #include "textattrib.h"
 
+#include <lt/debug.h>
 #include <lt/strstream.h>
 
 lstr_t tk_type_str(tk_stype_t stype) {
@@ -28,7 +29,7 @@ u8 hex_char(u8 c) {
 
 lstr_t unescape_str(tk_t* tk, lt_alloc_t* alloc) {
 	lt_strstream_t stream, *s = &stream;
-	LT_ASSERT(lt_strstream_create(s, alloc));
+	LT_ASSERT(lt_strstream_create(s, alloc) == LT_SUCCESS);
 
 	lstr_t str = LSTR(tk->str.str + 1, tk->str.len - 2);
 

@@ -369,12 +369,12 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			if (it->stype == TP_ARRAY_VIEW || it->stype == TP_ARRAY) {
 				expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 
-				if (lt_lstr_eq(member_name, CLSTR("data"))) {
+				if (lt_lseq(member_name, CLSTR("data"))) {
 					type_t* type = lt_amalloc(cx->arena, sizeof(type_t));
 					*type = TYPE(TP_PTR, it->base);
 					*new = EXPR(EXPR_DATA, type, tk);
 				}
-				else if (lt_lstr_eq(member_name, CLSTR("count")))
+				else if (lt_lseq(member_name, CLSTR("count")))
 					*new = EXPR(EXPR_COUNT, &u64_def, tk);
 				else
 					ferr(A_BOLD"'%S'"A_RESET" has no member named "A_BOLD"'%S'"A_RESET, *tk,
@@ -391,7 +391,7 @@ expr_t* parse_expr_unary_sfx(parse_ctx_t* cx, type_t* type, int precedence) {
 			usz member_count = it->child_count;
 			usz member_index;
 			for (usz i = 0; i < member_count; ++i) {
-				if (lt_lstr_eq(it->child_names[i], member_name)) {
+				if (lt_lseq(it->child_names[i], member_name)) {
 					member_index = i;
 					goto member_found;
 				}

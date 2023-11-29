@@ -1,4 +1,5 @@
 #include <lt/io.h>
+#include <lt/debug.h>
 
 #include "ops.h"
 #include "amd64.h"

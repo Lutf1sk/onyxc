@@ -3,7 +3,7 @@
 #include <lt/align.h>
 #include <lt/str.h>
 #include <lt/mem.h>
-#include <lt/bits.h>
+#include <lt/math.h>
 
 static
 u16 hash_lstr(lstr_t str) {
@@ -20,7 +20,7 @@ sym_t* symtab_find(symtab_t* tab, lstr_t name) {
 	usz count = tab->counts[index];
 
 	for (usz i = 0; i < count; ++i) {
-		if (lt_lstr_eq(pool.keys[i], name))
+		if (lt_lseq(pool.keys[i], name))
 			return pool.values[i];
 	}
 
@@ -35,7 +35,7 @@ b8 symtab_definable(symtab_t* tab, lstr_t name) {
 	usz count = tab->counts[index];
 
 	for (usz i = 0; i < count; ++i) {
-		if (lt_lstr_eq(pool.keys[i], name))
+		if (lt_lseq(pool.keys[i], name))
 			return 0;
 	}
 

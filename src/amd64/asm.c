@@ -6,7 +6,7 @@
 
 #include "../segment.h"
 
-#include <lt/bits.h>
+#include <lt/math.h>
 #include <lt/align.h>
 #include <lt/mem.h>
 #include <lt/io.h>
@@ -329,7 +329,7 @@ static
 void disasm(void* data, usz len) {
 	u8 str[256];
 	u8* str_it = str;
-	lt_instr_stream_t s = lt_instr_stream_create(data, len, (lt_io_callback_t)lt_str_io_callb, &str_it);
+	lt_instr_stream_t s = lt_instr_stream_create((lt_io_callback_t)lt_str_io_callb, &str_it, data, len);
 	for (;;) {
 		usz offs = s.it - (u8*)data;
 		usz len = lt_x64_disasm_instr(&s);

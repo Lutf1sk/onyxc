@@ -19,25 +19,24 @@
 
 #include "textattrib.h"
 
+#include <lt/text.h>
+
 void type_print(lt_arena_t* arena, type_t* type) {
 	char* str_data = lt_amalloc(arena, 0);
 	lstr_t str = LSTR(str_data, type_to_str(str_data, type));
 	lt_printf("%S", str);
 }
 
-void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, int indent);
+void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, char* indent, b8 last);
 
-void print_indent(int indent) {
-	for (int i = 0; i + 1 < indent; ++i)
-		lt_printf("%S", CLSTR("| "));
-	if (indent)
-		lt_printf("%S", CLSTR("|-"));
-}
+void expr_print_recursive(lt_arena_t* arena, expr_t* ex, char* indent, b8 last) {
+	usz indent_len = strlen(indent);
 
-void expr_print_recursive(lt_arena_t* arena, expr_t* ex, int indent) {
 	expr_t* it = ex;
 	while (it) {
-		print_indent(indent);
+		lt_printf(!last ? "%s\u251C" : "%s\u2514", indent);
+		indent[indent_len + lt_sprintf(&indent[indent_len], !last ? "\u2502" : " ")] = 0;
+
 		lt_printf("%S: ", expr_type_str(it->stype));
 		if (it->type) {
 			type_print(arena, it->type);
@@ -47,22 +46,32 @@ void expr_print_recursive(lt_arena_t* arena, expr_t* ex, int indent) {
 			lt_printf("%S ", it->sym->name);
 		if (it->stype == EXPR_INTEGER)
 			lt_printf("%iq ", it->int_val);
-
 		lt_printf("\n");
-		if (it->sym && it->stype == EXPR_LAMBDA)
-			stmt_print_recursive(arena, it->stmt, indent + 1);
-		if (it->child_1)
-			expr_print_recursive(arena, it->child_1, indent + 1);
-		if (it->child_2)
-			expr_print_recursive(arena, it->child_2, indent + 1);
+
+		if (it->sym && it->stype == EXPR_LAMBDA) {
+			stmt_print_recursive(arena, it->stmt, indent, it->child_1 == NULL && it->child_2 == NULL);
+		}
+		if (it->child_1) {
+			expr_print_recursive(arena, it->child_1, indent, it->child_2 == NULL && it->child_1->next == NULL);
+		}
+		if (it->child_2) {
+			expr_print_recursive(arena, it->child_2, indent, it->child_2->next == NULL);
+		}
+
+		indent[indent_len] = 0;
 		it = it->next;
+		if (it)
+			last = it->next == NULL;
 	}
 }
 
-void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, int indent) {
+void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, char* indent, b8 last) {
+	usz indent_len = strlen(indent);
+
 	stmt_t* it = st;
 	while (it) {
-		print_indent(indent);
+		lt_printf(!last ? "%s\u251C" : "%s\u2514", indent);
+		indent[indent_len + lt_sprintf(&indent[indent_len], !last ? "\u2502" : " ")] = 0;
 
 		lt_printf("%S: ", stmt_type_str(it->stype));
 		if (it->type) {
@@ -72,18 +81,28 @@ void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, int indent) {
 		if (it->stype == STMT_SYMDEF)
 			lt_printf("%S ", it->sym->name);
 		lt_printf("\n");
-		if (it->expr)
-			expr_print_recursive(arena, it->expr, indent + 1);
-		if (it->child)
-			stmt_print_recursive(arena, it->child, indent + 1);
-		if (it->child_2)
-			stmt_print_recursive(arena, it->child_2, indent + 1);
+
+		if (it->expr) {
+			expr_print_recursive(arena, it->expr, indent, it->child == NULL && it->child_2 == NULL && it->expr->next == NULL);
+		}
+		if (it->child) {
+			stmt_print_recursive(arena, it->child, indent, it->child_2 == NULL && it->child->next == NULL);
+		}
+		if (it->child_2) {
+			stmt_print_recursive(arena, it->child_2, indent, it->child_2->next == NULL);
+		}
+
+		indent[indent_len] = 0;
 		it = it->next;
+		if (it)
+			last = it->next == NULL;
 	}
 }
 
 void stmt_print(lt_arena_t* arena, stmt_t* st) {
-	stmt_print_recursive(arena, st, 0);
+	char indent_buf[512] = "";
+	lt_printf("ROOT:\n");
+	stmt_print_recursive(arena, st, indent_buf, st->next == NULL);
 }
 
 #define PRIMITIVE_INITIALIZER(T) CLSTR(#T), { SYM_TYPE, 0, CLSTR(#T), &T##_def, NULL }
@@ -240,7 +259,7 @@ int main(int argc, char** argv) {
 #if 0
 			// Print machine code
 			for (usz i = 0; i < segtab.count; ++i) {
-				if (segtab.seg[i].stype != SEG_MCODE)
+				if (segtab.seg[i].stype != SEG_CODE)
 					continue;
 
 				amd64_print_segment(&x64, i);

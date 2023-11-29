@@ -30,7 +30,7 @@ OBJS = \
 DEPS = $(patsubst %.o,%.deps,$(OBJS))
 
 CC = cc
-CC_FLAGS += -O2 -fmax-errors=3 -Wall -Werror -Wno-strict-aliasing -Wno-error=unused-variable -Wno-unused-function -Ilt/include/ -Wno-pedantic -std=c11
+CC_FLAGS += -fno-omit-frame-pointer -O2 -fmax-errors=3 -Wall -Werror -Wno-strict-aliasing -Wno-error=unused-variable -Wno-unused-function -Ilt/include/ -Wno-pedantic -std=c11
 
 LNK = cc
 LNK_FLAGS += -o $(OUT) -rdynamic -g
@@ -45,7 +45,7 @@ ifdef UBSAN
 	CC_FLAGS += -fsanitize=undefined
 endif
 
-LT_PATH = lt/bin/lt.a
+LT_PATH = lt/bin/release/lt.a
 
 all: $(LT_PATH) $(OUT)
 
@@ -53,13 +53,13 @@ $(LT_PATH):
 	make -C lt/
 
 run: all
-	./$(OUT) main.nyx
+	./$(OUT) test.nyx
 
 install: all
 	@-rm -rf /usr/lib/onyxc/
 
 	cp $(OUT) /usr/local/bin/
-	
+
 	mkdir -p /usr/lib/onyxc
 	cp -r std /usr/lib/onyxc/
 

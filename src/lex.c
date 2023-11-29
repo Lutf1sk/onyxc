@@ -10,7 +10,7 @@
 
 lex_ctx_t* lex_file(lt_arena_t* arena, lstr_t path, tk_t* path_tk) {
 	// Read source file
-	lt_file_t* fp = lt_file_open(path, LT_FILE_R, 0, &arena->interf);
+	lt_file_t* fp = lt_fopenp(path, LT_FILE_R, 0, &arena->interf);
 
 	if (!fp) {
 		if (path_tk)
@@ -18,13 +18,13 @@ lex_ctx_t* lex_file(lt_arena_t* arena, lstr_t path, tk_t* path_tk) {
 		lt_ferrf("failed to open '%s'\n", path);
 	}
 
-	usz size = lt_file_size(fp);
+	usz size = lt_fsize(fp);
 	char* data = lt_amalloc(arena, size + 2);
-	if (lt_file_read(fp, data + 1, size) != size)
+	if (lt_fread(fp, data + 1, size) != size)
 		lt_ferrf("failed to read from '%s'\n", path);
 	data[0] = 0;
 	data[size + 1] = 0;
-	lt_file_close(fp, &arena->interf);
+	lt_fclose(fp, &arena->interf);
 
 	// Lex data
 	lex_ctx_t* lex_cx = lt_amalloc(arena, sizeof(lex_ctx_t));
@@ -44,65 +44,65 @@ tk_stype_t identifier_type(lstr_t str) {
 
 	switch (*str.str) {
 	case 'a':
-		if (lt_lstr_eq(str, CLSTR("alignof"))) return TK_KW_ALIGNOF;
+		if (lt_lseq(str, CLSTR("alignof"))) return TK_KW_ALIGNOF;
 		break;
 
 	case 'b':
-		if (lt_lstr_eq(str, CLSTR("break"))) return TK_KW_BREAK;
+		if (lt_lseq(str, CLSTR("break"))) return TK_KW_BREAK;
 		break;
 
 	case 'c':
-		if (lt_lstr_eq(str, CLSTR("continue"))) return TK_KW_CONTINUE;
-		if (lt_lstr_eq(str, CLSTR("case"))) return TK_KW_CASE;
+		if (lt_lseq(str, CLSTR("continue"))) return TK_KW_CONTINUE;
+		if (lt_lseq(str, CLSTR("case"))) return TK_KW_CASE;
 		break;
 
 	case 'd':
-		if (lt_lstr_eq(str, CLSTR("do"))) return TK_KW_DO;
-		if (lt_lstr_eq(str, CLSTR("default"))) return TK_KW_DEFAULT;
+		if (lt_lseq(str, CLSTR("do"))) return TK_KW_DO;
+		if (lt_lseq(str, CLSTR("default"))) return TK_KW_DEFAULT;
 		break;
 
 	case 'e':
-		if (lt_lstr_eq(str, CLSTR("explicit"))) return TK_KW_EXPLICIT;
-		if (lt_lstr_eq(str, CLSTR("else"))) return TK_KW_ELSE;
-		if (lt_lstr_eq(str, CLSTR("elif"))) return TK_KW_ELIF;
-		if (lt_lstr_eq(str, CLSTR("enum"))) return TK_KW_ENUM;
+		if (lt_lseq(str, CLSTR("explicit"))) return TK_KW_EXPLICIT;
+		if (lt_lseq(str, CLSTR("else"))) return TK_KW_ELSE;
+		if (lt_lseq(str, CLSTR("elif"))) return TK_KW_ELIF;
+		if (lt_lseq(str, CLSTR("enum"))) return TK_KW_ENUM;
 		break;
 
 	case 'f':
-		if (lt_lstr_eq(str, CLSTR("for"))) return TK_KW_FOR;
+		if (lt_lseq(str, CLSTR("for"))) return TK_KW_FOR;
 		break;
 
 	case 'g':
-		if (lt_lstr_eq(str, CLSTR("goto"))) return TK_KW_GOTO;
+		if (lt_lseq(str, CLSTR("goto"))) return TK_KW_GOTO;
 		break;
 
 	case 'h':
-		if (lt_lstr_eq(str, CLSTR("here"))) return TK_KW_HERE;
+		if (lt_lseq(str, CLSTR("here"))) return TK_KW_HERE;
 		break;
 
 	case 'i':
-		if (lt_lstr_eq(str, CLSTR("implicit"))) return TK_KW_IMPLICIT;
-		if (lt_lstr_eq(str, CLSTR("import"))) return TK_KW_IMPORT;
-		if (lt_lstr_eq(str, CLSTR("if"))) return TK_KW_IF;
+		if (lt_lseq(str, CLSTR("implicit"))) return TK_KW_IMPLICIT;
+		if (lt_lseq(str, CLSTR("import"))) return TK_KW_IMPORT;
+		if (lt_lseq(str, CLSTR("if"))) return TK_KW_IF;
 		break;
 
 	case 'n':
-		if (lt_lstr_eq(str, CLSTR("null"))) return TK_KW_NULL;
+		if (lt_lseq(str, CLSTR("null"))) return TK_KW_NULL;
 		break;
 
 	case 'r':
-		if (lt_lstr_eq(str, CLSTR("return"))) return TK_KW_RETURN;
+		if (lt_lseq(str, CLSTR("return"))) return TK_KW_RETURN;
 		break;
 
 	case 's':
-		if (lt_lstr_eq(str, CLSTR("switch"))) return TK_KW_SWITCH;
-		if (lt_lstr_eq(str, CLSTR("struct"))) return TK_KW_STRUCT;
-		if (lt_lstr_eq(str, CLSTR("syscall"))) return TK_KW_SYSCALL;
-		if (lt_lstr_eq(str, CLSTR("sizeof"))) return TK_KW_SIZEOF;
+		if (lt_lseq(str, CLSTR("switch"))) return TK_KW_SWITCH;
+		if (lt_lseq(str, CLSTR("struct"))) return TK_KW_STRUCT;
+		if (lt_lseq(str, CLSTR("syscall"))) return TK_KW_SYSCALL;
+		if (lt_lseq(str, CLSTR("sizeof"))) return TK_KW_SIZEOF;
 		break;
 
 	case 'w':
-		if (lt_lstr_eq(str, CLSTR("while"))) return TK_KW_WHILE;
+		if (lt_lseq(str, CLSTR("while"))) return TK_KW_WHILE;
 		break;
 
 	default:

@@ -247,10 +247,10 @@ stmt_t* import_file(parse_ctx_t* cx, tk_t* path_tk) {
 
 	for (usz i = 0; i < cx->include_dir_count; ++i) {
 		lt_strstream_t s;
-		LT_ASSERT(lt_strstream_create(&s, (lt_alloc_t*)cx->arena));
-		LT_ASSERT(lt_strstream_writels(&s, cx->include_dirs[i]));
-		LT_ASSERT(lt_strstream_writec(&s, '/'));
-		LT_ASSERT(lt_strstream_writels(&s, esc_str));
+		LT_ASSERT(lt_strstream_create(&s, (lt_alloc_t*)cx->arena) == LT_SUCCESS);
+		LT_ASSERT(lt_strstream_writels(&s, cx->include_dirs[i]) >= 0);
+		LT_ASSERT(lt_strstream_writec(&s, '/') >= 0);
+		LT_ASSERT(lt_strstream_writels(&s, esc_str) >= 0);
 		path = s.str;
 		if (get_fileid(path, &fid))
 			goto success;
@@ -364,6 +364,16 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 			goto outside_func;
 
 		PUSH_SCOPE();
+
+		if (peek(cx, 0)->stype == TK_LEFT_BRACE) {
+			stmt_t* new = lt_amalloc(cx->arena, sizeof(stmt_t));
+			*new = STMT(STMT_FOR);
+
+			new->expr = NULL;
+			new->sym = NULL;
+			new->child = parse_compound(cx);
+			return new;
+		}
 
 		type_t* it_type = parse_type(cx, NULL);
 

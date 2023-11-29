@@ -1,3 +1,5 @@
+#include <lt/debug.h>
+
 #include "regs.h"
 #include "amd64.h"
 #include "ops.h"

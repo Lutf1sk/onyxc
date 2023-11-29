@@ -58,7 +58,7 @@ void amd64_write_elf64(amd64_ctx_t* cx, lstr_t path) {
 
 	for (usz i = 0; i < cx->segtab->count; ++i) {
 		seg_ent_t* seg = &cx->segtab->seg[i];
-		if (seg->stype == SEG_CODE && lt_lstr_eq(seg->name, CLSTR("main")))
+		if (seg->stype == SEG_CODE && lt_lseq(seg->name, CLSTR("main")))
 			fh.entry = seg->load_at;
 	}
 
@@ -75,15 +75,15 @@ void amd64_write_elf64(amd64_ctx_t* cx, lstr_t path) {
 	ph.mem_size = bin_size;
 	ph.alignment = ALIGN_BYTES;
 
-	lt_file_t* f = lt_file_open(path, LT_FILE_W, LT_FILE_PERMIT_X, &cx->arena->interf);
+	lt_file_t* f = lt_fopenp(path, LT_FILE_W, LT_FILE_PERMIT_X, &cx->arena->interf);
 	if (!f)
 		lt_ferrf("Failed to open output file '%s'\n", path);
 
-	lt_file_write(f, &fh, sizeof(fh));
-	lt_file_write(f, &ph, sizeof(ph));
-	lt_file_write(f, align_buf, ALIGN_BYTES - (sizeof(fh) + sizeof(ph))); // !!
-	lt_file_write(f, bin_data, bin_size);
+	lt_fwrite(f, &fh, sizeof(fh));
+	lt_fwrite(f, &ph, sizeof(ph));
+	lt_fwrite(f, align_buf, ALIGN_BYTES - (sizeof(fh) + sizeof(ph))); // !!
+	lt_fwrite(f, bin_data, bin_size);
 
-	lt_file_close(f, &cx->arena->interf);
+	lt_fclose(f, &cx->arena->interf);
 }
 

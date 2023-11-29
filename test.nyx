@@ -1,0 +1,11 @@
+import "std/io.nyx";
+
+main :: i32() {
+
+	for {
+		print("loop\n");
+		break;
+	}
+
+	exit(0);
+};

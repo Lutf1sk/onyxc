@@ -1410,29 +1410,40 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 		cx->break_lbl = end_lbl;
 		cx->cont_lbl = start_lbl;
 
-		usz it_size = type_bytes(stmt->sym->type);
+		if (stmt->expr) {
+			usz it_size = type_bytes(stmt->sym->type);
 
-		gen_sym_def(cx, stmt->sym, stmt->sym->expr);
+			gen_sym_def(cx, stmt->sym, stmt->sym->expr);
 
-		ldefine(cx, start_lbl);
-		ival_t end = icode_gen_expr(cx, stmt->expr);
-		u32 end_reg = ival_reg(cx, it_size, end);
+			ldefine(cx, start_lbl);
+			ival_t end = icode_gen_expr(cx, stmt->expr);
+			u32 end_reg = ival_reg(cx, it_size, end);
 
-		u32 it_reg = ival_reg(cx, it_size, stmt->sym->val);
+			u32 it_reg = ival_reg(cx, it_size, stmt->sym->val);
 
-		u32 trg = ralloc(cx);
-		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = end_lbl));
-		emit(cx, ICODE3(IR_CJMPAE, it_size, trg, it_reg, end_reg));
+			u32 trg = ralloc(cx);
+			emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = end_lbl));
+			emit(cx, ICODE3(IR_CJMPAE, it_size, trg, it_reg, end_reg));
 
-		icode_gen_stmt(cx, stmt->child);
+			icode_gen_stmt(cx, stmt->child);
 
-		u32 new_it = ralloc(cx);
-		emit(cx, ICODE2(IR_INC, it_size, new_it, it_reg));
-		emit(cx, ICODE2(IR_STOR, it_size, stmt->sym->val.reg, new_it));
+			u32 new_it = ralloc(cx);
+			emit(cx, ICODE2(IR_INC, it_size, new_it, it_reg));
+			emit(cx, ICODE2(IR_STOR, it_size, stmt->sym->val.reg, new_it));
 
-		trg = ralloc(cx);
-		emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = start_lbl));
-		emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
+			trg = ralloc(cx);
+			emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = start_lbl));
+			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
+		}
+		else {
+			ldefine(cx, start_lbl);
+
+			icode_gen_stmt(cx, stmt->child);
+
+			u32 trg = ralloc(cx);
+			emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = start_lbl));
+			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
+		}
 
 		ldefine(cx, end_lbl);
 
