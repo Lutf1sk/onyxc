@@ -14,8 +14,9 @@ main :: i32(argc i32, argv u8**) {
 		break;
 	}
 
-	for i: ..5 {
+	for i: 2..7 {
 		print("printed five times\n");
+		continue;
 	}
 
 	exit(0);

@@ -1403,22 +1403,24 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 	}	break;
 
 	case STMT_FOR: {
-		usz end_lbl = lalloc(cx), start_lbl = lalloc(cx);
+		usz end_lbl = lalloc(cx), cont_lbl = lalloc(cx);
 
 		usz old_break = cx->break_lbl;
 		usz old_cont = cx->cont_lbl;
 		cx->break_lbl = end_lbl;
-		cx->cont_lbl = start_lbl;
+		cx->cont_lbl = cont_lbl;
 
 		if (stmt->expr) {
+			usz start_lbl = lalloc(cx);
+
 			usz it_size = type_bytes(stmt->sym->type);
 
 			gen_sym_def(cx, stmt->sym, stmt->sym->expr);
 
-			ldefine(cx, start_lbl);
 			ival_t end = icode_gen_expr(cx, stmt->expr);
 			u32 end_reg = ival_reg(cx, it_size, end);
 
+			ldefine(cx, start_lbl);
 			u32 it_reg = ival_reg(cx, it_size, stmt->sym->val);
 
 			u32 trg = ralloc(cx);
@@ -1426,6 +1428,8 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 			emit(cx, ICODE3(IR_CJMPAE, it_size, trg, it_reg, end_reg));
 
 			icode_gen_stmt(cx, stmt->child);
+
+			ldefine(cx, cont_lbl);
 
 			u32 new_it = ralloc(cx);
 			emit(cx, ICODE2(IR_INC, it_size, new_it, it_reg));
@@ -1436,12 +1440,12 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 		}
 		else {
-			ldefine(cx, start_lbl);
+			ldefine(cx, cont_lbl);
 
 			icode_gen_stmt(cx, stmt->child);
 
 			u32 trg = ralloc(cx);
-			emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = start_lbl));
+			emit(cx, ICODE(IR_GETLBL, ISZ_64, trg, .uint_val = cont_lbl));
 			emit(cx, ICODE1(IR_JMP, ISZ_64, trg));
 		}
 
