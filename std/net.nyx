@@ -1,10 +1,10 @@
 import "std/unix.nyx";
 
-hton16 :: u16(u16 v) {
+hton16 :: u16(v u16) {
 	return (v >> 8u) | ((v & 0xFF) << 8u);
 };
 
-hton32 :: u32(u32 v) {
+hton32 :: u32(v u32) {
 	return	((v & 0x000000FF) << 24u) |
 			((v & 0x0000FF00) << 8u) |
 			((v & 0x00FF0000) >> 8u) |
@@ -22,7 +22,7 @@ hton32 :: u32(u32 v) {
 // 			((v & 0xFF00000000000000) >> 56u);
 // }
 
-recv :: isz(isz sock, void[] buf) {
+recv :: isz(sock isz, buf void[]) {
 	it := buf.data;
 	end := it + buf.count;
 	while it < end {

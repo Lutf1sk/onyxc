@@ -102,7 +102,7 @@ tk_info :: struct { name_str : u8[]; } [TK.MAX] {
 
 INITIAL_COUNT : usz : 1024;
 
-find_keyword :: TK(u8[] str) {
+find_keyword :: TK(str u8[]) {
 	if str.count < 2u {
 		return TK.IDENT;
 	}
@@ -157,7 +157,7 @@ find_keyword :: TK(u8[] str) {
 	return TK.IDENT;
 };
 
-emit_tk :: ERR(LexCtx* cx, TK type, u8[] str) {
+emit_tk :: ERR(cx LexCtx*, type TK, str u8[]) {
 	if cx.out.count >= INITIAL_COUNT && is_pow2_unsafe(cx.out.count) {
 		cx.out.data = cx.alc.realloc(cx.alc.usr, cx.out.data, cx.out.count * 2 * sizeof(Token));
 		if !cx.out.data {
@@ -170,7 +170,7 @@ emit_tk :: ERR(LexCtx* cx, TK type, u8[] str) {
 	return ERR.OK;
 };
 
-lex :: ERR(LexCtx* cx) {
+lex :: ERR(cx LexCtx*) {
 	cx.out.data = cx.alc.alloc(cx.alc.usr, INITIAL_COUNT * sizeof(Token));
 	if !cx.out.data {
 		cx.err_str = "Memory allocation failed";

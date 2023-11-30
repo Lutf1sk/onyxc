@@ -1,8 +1,8 @@
 import "std/str.nyx", "std/net.nyx";
 
-ipv4_parse_addr :: u8(u8[] str, sockaddr_in_t* out) {
-	nums: u8[][5];
-	j: usz = 0;
+ipv4_parse_addr :: u8(str u8[], out sockaddr_in_t*) {
+	nums : u8[][5];
+	j : usz = 0;
 
 	num_start := str.data;
 	for usz i..str.count {
@@ -27,7 +27,7 @@ ipv4_parse_addr :: u8(u8[] str, sockaddr_in_t* out) {
 	}
 	nums[j] = num_start[0..usz:(str.count - (num_start - str.data))];
 
-	addr: u32 = 0;
+	addr : u32 = 0;
 	for usz i..4 {
 		v: u64;
 		if stou(nums[i], &v) || v > 0xFF {

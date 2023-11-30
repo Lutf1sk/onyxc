@@ -83,7 +83,7 @@ DNS_RsrcRecord :: struct {
 
 import "std/net.nyx", "std/ipv4.nyx";
 
-dns_encode_name :: isz(u8[] domain, u8[] out) {
+dns_encode_name :: isz(domain u8[], out u8[]) {
 	q_it := out.data;
 	q_max := q_it + out.count;
 	substr := domain.data;
@@ -118,7 +118,7 @@ dns_encode_name :: isz(u8[] domain, u8[] out) {
 	return usz:(q_it - out.data);
 };
 
-dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
+dnslookup_ipv4 :: u8(dns_host u8[], domain u8[], out sockaddr_in_t*) {
 	saddr : sockaddr_in_t;
 	mset8(&saddr, 0, sizeof(sockaddr_in_t));
 	saddr.sin_family = AF.INET;

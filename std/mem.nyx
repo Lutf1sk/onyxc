@@ -1,6 +1,6 @@
 import "std/unix.nyx", "std/bitmath.nyx";
 
-mcopy :: void(void* dst, void* src, usz bytes) {
+mcopy :: void(dst void*, src void*, bytes usz) {
 	dst_it : u8* = dst;
 	src_it : u8* = src;
 
@@ -9,14 +9,14 @@ mcopy :: void(void* dst, void* src, usz bytes) {
 	}
 };
 
-mset8 :: void(void* dst, u8 v, usz bytes) {
+mset8 :: void(dst void*, v u8, bytes usz) {
 	it : u8* = dst;
 	while bytes-- {
 		*it++ = v;
 	}
 };
 
-vmem_alloc :: void*(usz size) {
+vmem_alloc :: void*(size usz) {
 	addr := isz:mmap(0, size, PROT.READ|PROT.WRITE|PROT.EXEC, MAP.PRIVATE|MAP.ANONYMOUS, -1, 0);
 	if (addr < 0) {
 		return null;
@@ -24,7 +24,7 @@ vmem_alloc :: void*(usz size) {
 	return void*:addr;
 };
 
-vmem_free :: void(void* mem, usz size) {
+vmem_free :: void(mem void*, size usz) {
 	munmap(usz:mem, size);
 };
 
@@ -36,15 +36,20 @@ ALLOC_FLAGS :: enum usz {
 	DONT_UNMAP : 0x02, // The memory should not be unmapped/deallocated after destruction
 };
 
+AllocFunc :: void*(alloc void*, size usz);
+ReallocFunc :: void*(alloc void*, mem void*, new_size usz);
+FreeFunc :: void(alloc void*, mem void*);
+SizeFunc :: usz(alloc void*, mem void*);
+
 Allocator :: struct {
-	alloc	: void*(void*, usz);
-	realloc	: void*(void*, void*, usz);
-	free	: void(void*, void*);
-	size	: usz(void*, void*);
+	alloc	: AllocFunc;
+	realloc	: ReallocFunc;
+	free	: FreeFunc;
+	size	: SizeFunc;
 	usr		: void*;
 };
 
-malloc_init :: void[](Allocator* alc, void[] arr) {
+malloc_init :: void[](alc Allocator*, arr void[]) {
 	data := alc.alloc(alc.usr, arr.count);
 	if !data {
 		return null[0..0];
@@ -64,7 +69,7 @@ Pool :: struct {
 	interf		: Allocator;
 };
 
-_pmalloc_if :: void*(Pool* pool, usz size) {
+_pmalloc_if :: void*(pool Pool*, size usz) {
 	head : void** = pool.head;
 	if !head || size > pool.chunk_size {
 		return null;
@@ -73,18 +78,18 @@ _pmalloc_if :: void*(Pool* pool, usz size) {
 	return head;
 };
 
-_pmrealloc_if :: void*(Pool* pool, void* ptr, usz new_size) {
+_pmrealloc_if :: void*(pool Pool*, ptr void*, new_size usz) {
 	if new_size > pool.chunk_size {
 		return null;
 	}
 	return ptr;
 };
 
-_pmsize_if :: usz(Pool* pool, void* ptr) {
+_pmsize_if :: usz(pool Pool*, ptr void*) {
 	return pool.chunk_size;
 };
 
-pmalloc :: void*(Pool* pool) {
+pmalloc :: void*(pool Pool*) {
 	head : void** = pool.head;
 	if !head {
 		return null;
@@ -93,12 +98,12 @@ pmalloc :: void*(Pool* pool) {
 	return head;
 };
 
-pmfree :: void(Pool* pool, void* ptr) {
+pmfree :: void(pool Pool*, ptr void*) {
 	*void**:ptr = pool.head;
 	pool.head = ptr;
 };
 
-pmreset :: void(Pool* pool) {
+pmreset :: void(pool Pool*) {
 	last := &pool.head;
 	it := pool.base;
 	for usz i..pool.chunk_count {
@@ -109,7 +114,7 @@ pmreset :: void(Pool* pool) {
 	*last = null;
 };
 
-pmcreatem :: Pool*(Allocator* parent, void* mem, usz size, usz chunk_size, usz flags) {
+pmcreatem :: Pool*(parent Allocator*, mem void*, size usz, chunk_size usz, flags usz) {
 	headersz := alignf(sizeof(Pool), ALLOC_DEFAULT_ALIGN);
 
 	if size < headersz || !chunk_size {
@@ -127,17 +132,17 @@ pmcreatem :: Pool*(Allocator* parent, void* mem, usz size, usz chunk_size, usz f
 	pool.chunk_count = (size - headersz) / chunk_size;
 	pool.flags = flags;
 	pool.parent = parent;
-	pool.interf.alloc = void*(void*, usz): _pmalloc_if;
-	pool.interf.realloc = void*(void*, void*, usz): _pmrealloc_if;
-	pool.interf.free = void(void*, void*): pmfree;
-	pool.interf.size = usz(void*, void*): _pmsize_if;
+	pool.interf.alloc = AllocFunc: _pmalloc_if;
+	pool.interf.realloc = ReallocFunc: _pmrealloc_if;
+	pool.interf.free = FreeFunc: pmfree;
+	pool.interf.size = SizeFunc: _pmsize_if;
 	pool.interf.usr = pool;
 
 	pmreset(pool);
 	return pool;
 };
 
-pmcreate :: Pool*(Allocator* parent, usz size, usz chunk_size, usz flags) {
+pmcreate :: Pool*(parent Allocator*, size usz, chunk_size usz, flags usz) {
 	base := null;
 	if !parent {
 		size = alignf(size, VMEM_BLOCK_SIZE);
@@ -153,7 +158,7 @@ pmcreate :: Pool*(Allocator* parent, usz size, usz chunk_size, usz flags) {
 	return pmcreatem(parent, base, size, chunk_size, flags);
 };
 
-pmdestroy :: void(Pool* pool) {
+pmdestroy :: void(pool Pool*) {
 	if (pool.flags & ALLOC_FLAGS.DONT_UNMAP) { return; }
 
 	if pool.parent {
@@ -173,7 +178,7 @@ Arena :: struct {
 	interf	: Allocator;
 };
 
-amalloc :: void*(Arena* arena, usz size) {
+amalloc :: void*(arena Arena*, size usz) {
 	start := void*:alignf(usz:arena.top, ALLOC_DEFAULT_ALIGN);
 	new_top := start + ALLOC_DEFAULT_ALIGN + size;
 
@@ -185,7 +190,7 @@ amalloc :: void*(Arena* arena, usz size) {
 	return start + ALLOC_DEFAULT_ALIGN;
 };
 
-amrealloc :: void*(Arena* arena, void* ptr, usz new_size) {
+amrealloc :: void*(arena Arena*, ptr void*, new_size usz) {
 	psize := usz*:(ptr - ALLOC_DEFAULT_ALIGN);
 
 	if arena.top == ptr + *psize {
@@ -205,26 +210,26 @@ amrealloc :: void*(Arena* arena, void* ptr, usz new_size) {
 	return new_ptr;
 };
 
-amfree :: void(Arena* arena, void* ptr) {
+amfree :: void(arena Arena*, ptr void*) {
 	old_size := *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
 	if arena.top == ptr + old_size {
 		arena.top = ptr - ALLOC_DEFAULT_ALIGN;
 	}
 };
 
-amsize :: usz(Arena* arena, void* ptr) {
+amsize :: usz(arena Arena*, ptr void*) {
 	return *usz*:(ptr - ALLOC_DEFAULT_ALIGN);
 };
 
-amsave :: void*(Arena* arena) {
+amsave :: void*(arena Arena*) {
 	return arena.top;
 };
 
-amrestore :: void(Arena* arena, void* old) {
+amrestore :: void(arena Arena*, old void*) {
 	arena.top = old;
 };
 
-amcreatem :: Arena*(Allocator* parent, void* mem, usz size, usz flags) {
+amcreatem :: Arena*(parent Allocator*, mem void*, size usz, flags usz) {
 	if size < usz:sizeof(Arena) {
 		return null;
 	}
@@ -235,15 +240,15 @@ amcreatem :: Arena*(Allocator* parent, void* mem, usz size, usz flags) {
 	arena.top = mem + sizeof(Arena); // Reserve enough memory to cover the header
 	arena.flags = flags;
 	arena.parent = parent;
-	arena.interf.alloc = void*(void*, usz): amalloc;
-	arena.interf.realloc = void*(void*, void*, usz): amrealloc;
-	arena.interf.free = void(void*, void*): amfree;
-	arena.interf.size = usz(void*, void*): amsize;
+	arena.interf.alloc = AllocFunc: amalloc;
+	arena.interf.realloc = ReallocFunc: amrealloc;
+	arena.interf.free = FreeFunc: amfree;
+	arena.interf.size = SizeFunc: amsize;
 	arena.interf.usr = arena;
 	return arena;
 };
 
-amcreate :: Arena*(Allocator* parent, usz size, usz flags) {
+amcreate :: Arena*(parent Allocator*, size usz, flags usz) {
 	base : = null;
 	if !parent {
 		size = alignf(size, VMEM_BLOCK_SIZE);
@@ -259,7 +264,7 @@ amcreate :: Arena*(Allocator* parent, usz size, usz flags) {
 	return amcreatem(parent, base, size, flags);
 };
 
-amdestroy :: void(Arena* arena) {
+amdestroy :: void(arena Arena*) {
 	if (arena.flags & ALLOC_FLAGS.DONT_UNMAP) { return; }
 
 	if arena.parent {

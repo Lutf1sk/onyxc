@@ -1,5 +1,5 @@
 
-cstr :: u8*(u8[] path, u8[] out) {
+cstr :: u8*(path u8[], out u8[]) {
 	if path.count >= out.count {
 		return null;
 	}
@@ -11,7 +11,7 @@ cstr :: u8*(u8[] path, u8[] out) {
 	return out.data;
 };
 
-cstrlen :: usz(u8* str) {
+cstrlen :: usz(str u8*) {
 	it := str;
 	while *it {
 		++it;
@@ -20,7 +20,7 @@ cstrlen :: usz(u8* str) {
 };
 
 
-stou :: u8(u8[] str, u64* out) {
+stou :: u8(str u8[], out u64*) {
 	it := str.data;
 	end := it + str.count;
 
@@ -44,7 +44,7 @@ stou :: u8(u8[] str, u64* out) {
 	return 0;
 };
 
-stoi :: u8(u8[] str, i64* out) {
+stoi :: u8(str u8[], out i64*) {
 	it := str.data;
 	end := it + str.count;
 
@@ -79,7 +79,7 @@ stoi :: u8(u8[] str, i64* out) {
 	return 0;
 };
 
-streq :: u8(u8[] s1, u8[] s2) {
+streq :: u8(s1 u8[], s2 u8[]) {
 	if s1.count != s2.count {
 		return 0;
 	}

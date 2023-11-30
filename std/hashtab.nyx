@@ -10,7 +10,7 @@ HashTable :: struct {
 	vals	: void**[HASHTAB_COUNT];
 };
 
-hash :: u32(void[] mem) {
+hash :: u32(mem void[]) {
 	p : u8* = mem.data;
 	hash : u32 = mem.count;
 
@@ -21,7 +21,7 @@ hash :: u32(void[] mem) {
 	return hash;
 };
 
-htinsert :: u8(HashTable* ht, u32 hash, void* val) {
+htinsert :: u8(ht HashTable*, hash u32, val void*) {
 	hash &= HASHTAB_MASK;
 
 	pcount := &ht.counts[hash];
@@ -46,7 +46,7 @@ htinsert :: u8(HashTable* ht, u32 hash, void* val) {
 	return 0;
 };
 
-htfind :: void*(HashTable* ht, u32 hash, u8(void*, void*) cmp, void* usr) {
+htfind :: void*(ht HashTable*, hash u32, cmp u8(a void*, b void*), usr void*) {
 	hash &= HASHTAB_MASK;
 	count := ht.counts[hash];
 

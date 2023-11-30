@@ -118,14 +118,12 @@ parse_postfix:
 			while (peek(cx, 0)->stype != TK_RIGHT_PARENTH) {
 				if (func->child_count)
 					consume_type(cx, TK_COMMA, CLSTR(", expected "A_BOLD"','"A_RESET" or "A_BOLD"')'"A_RESET));
+
+				lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected parameter name"))->str;
+
 				type_t* new = parse_type(cx, NULL);
-
 				if (new->stype == TP_VOID)
-					ferr("parameter cannot have type "A_BOLD"'void'"A_RESET, tk);
-
-				lstr_t name = NLSTR();
-				if (peek(cx, 0)->stype == TK_IDENTIFIER)
-					 name = consume(cx)->str;
+					ferr("function parameter cannot have type "A_BOLD"'void'"A_RESET, tk);
 
 				type_add_child(func, new, name, NULL);
 			}

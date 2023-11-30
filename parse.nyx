@@ -10,7 +10,7 @@ ParseCtx :: struct {
 
 PARSE_STACK_ALLOC_COUNT: usz : 512;
 
-put_back :: u8(ParseCtx* cx, Token* tk) {
+put_back :: u8(cx ParseCtx*, tk Token*) {
 	if !cx.stack_alloc_count {
 		cx.stack.data = cx.alc.alloc(cx.alc.usr, PARSE_STACK_ALLOC_COUNT * sizeof(Token*));
 		if !cx.stack.data { return 1; }
@@ -23,12 +23,12 @@ put_back :: u8(ParseCtx* cx, Token* tk) {
 	cx.stack[cx.stack.count++] = tk;
 };
 
-eof_token: Token = {
+eof_token : Token = {
 	TK.EOF, 0, 0, 0,
 	"end-of-file"
 };
 
-consume :: Token*(ParseCtx* cx) {
+consume :: Token*(cx ParseCtx*) {
 	tk : Token* = null;
 
 	if cx.stack.count {
@@ -42,7 +42,7 @@ consume :: Token*(ParseCtx* cx) {
 	return tk;
 };
 
-peek :: Token*(ParseCtx* cx, usz n) {
+peek :: Token*(cx ParseCtx*, n usz) {
 	while cx.stack.count <= n {
 		tk := consume(cx);
 		if tk.type == TK.EOF || put_back(cx, tk) { return &eof_token; }
@@ -87,13 +87,13 @@ Expr :: struct {
 	next	: void*;
 };
 
-new_expr :: Expr*(Allocator* alc, EXPR type) {
+new_expr :: Expr*(alc Allocator*, type EXPR) {
 	expr : Expr* = alc.alloc(alc.usr, sizeof(Expr));
 	expr.type = type;
 	return expr;
 };
 
-parse_expr :: Expr*(ParseCtx* cx) {
+parse_expr :: Expr*(cx ParseCtx*) {
 	return null;
 };
 
@@ -115,13 +115,13 @@ Stmt :: struct {
 	next	: void*;
 };
 
-new_stmt :: Stmt*(Allocator* alc, STMT type) {
+new_stmt :: Stmt*(alc Allocator*, type STMT) {
 	stmt : Stmt* = alc.alloc(alc.usr, sizeof(Stmt));
 	stmt.type = type;
 	return stmt;
 };
 
-parse_compound :: Stmt*(ParseCtx* cx) {
+parse_compound :: Stmt*(cx ParseCtx*) {
 	tk : Token* = null;
 
 	if (tk = consume(cx)).type != TK.LBRACE {
@@ -149,7 +149,7 @@ parse_compound :: Stmt*(ParseCtx* cx) {
 	return stmt;
 };
 
-parse_stmt :: Stmt*(ParseCtx* cx) {
+parse_stmt :: Stmt*(cx ParseCtx*) {
 	switch peek(cx, 0).type
 	case TK.KW_IMPORT {
 		consume(cx);

@@ -28,27 +28,27 @@ ctype_tab :: CTYPE[256] {
 	CTYPE.ALPHA, CTYPE.ALPHA, CTYPE.ALPHA, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE, CTYPE.NONE,		// 120..127
 };
 
-is_alpha8 :: u8(u8 c) {
+is_alpha8 :: u8(c u8) {
 	return ctype_tab[c] & CTYPE.ALPHA;
 };
 
-is_alpha32 :: u8(u32 c) {
+is_alpha32 :: u8(c u32) {
 	return c < ctype_tab.count && ctype_tab[c] & CTYPE.ALPHA;
 };
 
-is_digit8 :: u8(u8 c) {
+is_digit8 :: u8(c u8) {
 	return ctype_tab[c] & CTYPE.DIGIT;
 };
 
-is_digit32 :: u8(u32 c) {
+is_digit32 :: u8(c u32) {
 	return c < ctype_tab.count && ctype_tab[c] & CTYPE.DIGIT;
 };
 
-is_space8 :: u8(u8 c) {
+is_space8 :: u8(c u8) {
 	return ctype_tab[c] & CTYPE.SPACE;
 };
 
-is_space32 :: u8(u32 c) {
+is_space32 :: u8(c u32) {
 	return c < ctype_tab.count && ctype_tab[c] & CTYPE.SPACE;
 };
 

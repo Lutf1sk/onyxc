@@ -39,19 +39,19 @@ S_IRUSR 	:: 0x100;
 S_IWUSR 	:: 0x80;
 S_IXUSR 	:: 0x40;
 
-read :: isz(isz fd, void[] data) {
+read :: isz(fd isz, data void[]) {
 	return syscall(SYS.READ, fd, data.data, data.count);
 };
 
-write :: isz(isz fd, void[] data) {
+write :: isz(fd isz, data void[]) {
 	return syscall(SYS.WRITE, fd, data.data, data.count);
 };
 
-open :: isz(u8* path, i32 flags, i32 mode) {
+open :: isz(path u8*, flags i32, mode i32) {
 	return syscall(SYS.OPEN, path, flags, mode);
 };
 
-close :: isz(isz fd) {
+close :: isz(fd isz) {
 	return syscall(SYS.CLOSE, fd);
 };
 
@@ -78,15 +78,15 @@ stat_t :: struct {
 	unused			: i64[3];
 };
 
-stat :: isz(u8* path, stat_t* buf) {
+stat :: isz(path u8*, buf stat_t*) {
 	syscall(SYS.STAT, path, buf);
 };
 
-fstat :: isz(isz fd, stat_t* buf) {
+fstat :: isz(fd isz, buf stat_t*) {
 	syscall(SYS.FSTAT, fd, buf);
 };
 
-lstat :: isz(u8* path, stat_t* buf) {
+lstat :: isz(path u8*, buf stat_t*) {
 	syscall(SYS.LSTAT, path, buf);
 };
 
@@ -115,15 +115,15 @@ PROT :: enum usz {
 	SEM		: 0x08,
 };
 
-mmap :: void*(usz addr, usz size, PROT prot, MAP flags, usz fd, usz off) {
+mmap :: void*(addr usz, size usz, prot PROT, flags MAP, fd usz, off usz) {
 	return void*:syscall(SYS.MMAP, addr, size, prot, flags, fd, off);
 };
 
-mprotect :: i64(usz addr, usz size, usz prot) {
+mprotect :: i64(addr usz, size usz, prot usz) {
 	return syscall(SYS.MPROTECT, addr, size, prot);
 };
 
-munmap :: void*(usz addr, usz size) {
+munmap :: void*(addr usz, size usz) {
 	return void*:syscall(SYS.MUNMAP, addr, size);
 };
 
@@ -141,7 +141,7 @@ timespec_t :: struct {
 	tv_nsec	: u64;
 };
 
-clock_gettime :: isz(CLOCK clockid, timespec_t* ts) {
+clock_gettime :: isz(clockid CLOCK, ts timespec_t*) {
 	return syscall(SYS.CLOCK_GETTIME, clockid, ts);
 };
 
@@ -205,45 +205,45 @@ sockaddr_in6_t :: struct {
 	sin6_scope_id	: u32;
 };
 
-socket :: isz(AF family, SOCK type, PF protocol) {
+socket :: isz(family AF, type SOCK, protocol PF) {
 	return syscall(SYS.SOCKET, family, type, protocol);
 };
 
-connect :: isz(isz fd, sockaddr_t* addr, i32 addrlen) {
+connect :: isz(fd isz, addr sockaddr_t*, addrlen i32) {
 	return syscall(SYS.CONNECT, fd, addr, addrlen);
 };
 
-accept :: isz(isz fd, sockaddr_t* addr_out, i32 addrlen) {
+accept :: isz(fd isz, addr_out sockaddr_t*, addrlen i32) {
 	return syscall(SYS.ACCEPT, fd, addr_out, addrlen);
 };
 
-sendto :: isz(isz fd, void* buf, usz len, u32 flags, sockaddr_t* addr, i32 addrlen) {
+sendto :: isz(fd isz, buf void*, len usz, flags u32, addr sockaddr_t*, addrlen i32) {
 	return syscall(SYS.SENDTO, fd, buf, len, flags, addr, addrlen);
 };
 
-recvfrom :: isz(isz fd, void* buf, usz len, u32 flags, sockaddr_t* addr, i32 addrlen) {
+recvfrom :: isz(fd isz, buf void*, len usz, flags u32, addr sockaddr_t*, addrlen i32) {
 	return syscall(SYS.RECVFROM, fd, buf, len, flags, addr, addrlen);
 };
 
-bind :: isz(isz fd, sockaddr_t* addr, i32 addrlen) {
+bind :: isz(fd isz, addr sockaddr_t*, addrlen i32) {
 	return syscall(SYS.BIND, fd, addr, addrlen);
 };
 
-listen :: isz(isz fd, i32 backlog) {
+listen :: isz(fd isz, backlog i32) {
 	return syscall(SYS.LISTEN, fd, backlog);
 };
 
-setsockopt :: isz(isz fd, i32 level, SO optname, void* optval, i32 optlen) {
+setsockopt :: isz(fd isz, level i32, optname SO, optval void*, optlen i32) {
 	return syscall(SYS.SETSOCKOPT, fd, level, optname, optval, optlen);
 };
 
-getsockopt :: isz(isz fd, i32 level, SO optname, void* optval, i32* optlen) {
+getsockopt :: isz(fd isz, level i32, optname SO, optval void*, optlen i32*) {
 	return syscall(SYS.GETSOCKOPT, fd, level, optname, optval, optlen);
 };
 
 // ----- Misc.
 
-exit :: void(i32 code) {
+exit :: void(code i32) {
 	syscall(SYS.EXIT, code);
 };
 

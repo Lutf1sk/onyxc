@@ -2,7 +2,7 @@
 
 import "std/unix.nyx", "std/elf.nyx", "std/mem.nyx", "std/str.nyx";
 
-elf_verify_magic :: u8(ELF64_FileHeader* fh) {
+elf_verify_magic :: u8(fh ELF64_FileHeader*) {
 	for usz i..fh.magic.count {
 		if fh.magic[i] != ELFMAGIC[i] {
 			return 0;
@@ -29,20 +29,20 @@ DynLibrary :: struct {
 	deps		: void*;
 };
 
-elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
+elf_getsh :: ELF64_SectHeader*(fh ELF64_FileHeader*, i usz) {
 	return ELF64_SectHeader*:fh + fh.sh_offs + fh.sh_size * i;
 };
 
-elf_getph :: ELF64_ProgHeader*(ELF64_FileHeader* fh, usz i) {
+elf_getph :: ELF64_ProgHeader*(fh ELF64_FileHeader*, i usz) {
 	return ELF64_ProgHeader*:fh + fh.ph_offs + fh.ph_size * i;
 };
 
-elf_getstr :: u8[](u8* strtab, usz offs) {
+elf_getstr :: u8[](strtab u8*, offs usz) {
 	str := strtab + offs;
 	return str[0..cstrlen(str)];
 };
 
-elf_img_size :: usz(ELF64_FileHeader* fh) {
+elf_img_size :: usz(fh ELF64_FileHeader*) {
 	max : usz = 0;
 	for usz i..fh.sh_count {
 		sh := elf_getsh(fh, i);
@@ -54,7 +54,7 @@ elf_img_size :: usz(ELF64_FileHeader* fh) {
 	return max;
 };
 
-elf_map_sections :: void(ELF64_FileHeader* fh, u8* img_base) {
+elf_map_sections :: void(fh ELF64_FileHeader*, img_base u8*) {
 	for usz i..fh.sh_count {
 		sh := elf_getsh(fh, i);
 		if sh.type == ELFSH.PROGBITS {
@@ -66,7 +66,7 @@ elf_map_sections :: void(ELF64_FileHeader* fh, u8* img_base) {
 	}
 };
 
-elf_find_symdef :: ELF64_Sym*(DynLibrary* lib, u8[] name) {
+elf_find_symdef :: ELF64_Sym*(lib DynLibrary*, name u8[]) {
 	weak : ELF64_Sym* = null;
 
 	for usz i..lib.syms.count {
@@ -108,7 +108,7 @@ dlib_list_pool	: Pool* = null;
 
 dlib_list_head := null;
 
-list_find_dlib :: DynLibrary*(void* head, u8[] name) {
+list_find_dlib :: DynLibrary*(head void*, name u8[]) {
 	it : DynLibList* = head;
 	while it {
 		if streq((DynLibrary*:it.lib).name, name) {
@@ -119,16 +119,16 @@ list_find_dlib :: DynLibrary*(void* head, u8[] name) {
 	return null;
 };
 
-list_insert_dlib :: void(void** head, DynLibrary* lib) {
+list_insert_dlib :: void(head void**, lib DynLibrary*) {
 	new_entry : DynLibList* = pmalloc(dlib_list_pool);
 	new_entry.lib = lib;
 	new_entry.next = *head;
 	*head = new_entry;
 };
 
-dlopen_p: DynLibrary*(u8[], Allocator*) = null;
+dlopen_p: DynLibrary*(libname u8[], alc Allocator*) = null;
 
-dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
+dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 	if !dlib_pool {
 		dlib_pool = pmcreate(null, 4096, sizeof(DynLibrary), 0);
 		dlib_list_pool = pmcreate(null, 8192, sizeof(DynLibrary), 0);
@@ -367,7 +367,7 @@ dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	return lib;
 };
 
-dlsym :: void*(DynLibrary* lib, u8[] name) {
+dlsym :: void*(lib DynLibrary*, name u8[]) {
 	for usz i..lib.syms.count {
 		if streq(name, elf_getstr(lib.strtab_sym, lib.syms[i].name)) {
 			return lib.img_base + lib.syms[i].val;

@@ -1,6 +1,6 @@
 import "std/unix.nyx", "std/str.nyx";
 
-filename_from_path :: u8[](u8[] path) {
+filename_from_path :: u8[](path u8[]) {
 	if !path.count {
 		return null[0..0];
 	}
@@ -15,37 +15,37 @@ filename_from_path :: u8[](u8[] path) {
 	return (path.data + i)[0..path.count - i];
 };
 
-fopenw :: u8(isz* fdp, u8[] path) {
+fopenw :: u8(fdp isz*, path u8[]) {
 	path_nt : u8[PATH_MAX];
 	cstr(path, path_nt);
 	*fdp = open(path_nt.data, O_WRONLY|O_TRUNC|O_CREAT, S_IRUSR|S_IWUSR);
 	return *fdp < 0;
 };
 
-fopenr :: u8(isz* fdp, u8[] path) {
+fopenr :: u8(fdp isz*, path u8[]) {
 	path_nt : u8[PATH_MAX];
 	cstr(path, path_nt);
 	*fdp = open(path_nt.data, O_RDONLY, 0);
 	return *fdp < 0;
 };
 
-fclose :: void(isz fd) {
+fclose :: void(fd isz) {
 	close(fd);
 };
 
-fwrite :: void(isz fd, u8[] data) {
+fwrite :: void(fd isz, data u8[]) {
 	write(fd, data);
 };
 
-fread :: usz(isz fd, u8[] data) {
+fread :: usz(fd isz, data u8[]) {
 	return read(fd, data);
 };
 
-print :: isz(u8[] str) {
+print :: isz(str u8[]) {
 	return write(1, str);
 };
 
-print_i64 :: usz(i64 n) {
+print_i64 :: usz(n i64) {
 	if (n < 0) {
 		print("-");
 		n = -n;
@@ -66,7 +66,7 @@ print_i64 :: usz(i64 n) {
 	return view.count;
 };
 
-print_h64 :: usz(u64 n) {
+print_h64 :: usz(n u64) {
 	hex_conv_tab : u8[16] : "0123456789ABCDEF";
 
 	str : u8[16];
