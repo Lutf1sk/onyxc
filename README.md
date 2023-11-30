@@ -6,8 +6,6 @@ See [syntax.md](syntax.md) for example snippets.
 Use ```make all``` to build.
 
 ## Planned features
-- [X] C-like syntax
-- [X] 'Simulation mode' that executes the intermediate code directly
 - [X] Compilation to x64 machine code
 - [ ] Inline assembly
 - [ ] Floating point math

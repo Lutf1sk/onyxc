@@ -24,6 +24,28 @@ Unlike C, onyx attaches subtypes like *, [] and () to the type itself instead of
 | T[N]  | N element array of T           |
 | T(A)  | Pointer to funtion returning T |
 
+Custom types can be defined in the same way as any other value.
+```
+AType :: i32;
+```
+
+### Structs
+```
+AStruct :: struct {
+	a_member : isz;
+	another_member : isz;
+};
+```
+
+### Enums
+All enums must be typed.
+```
+AnEnum :: enum u8 {
+	A_VALUE : 1,
+	ANOTHER_VALUE : 2,
+};
+```
+
 # Type conversions
 All types must be explicitly cast unless specified otherwise.
 
@@ -119,7 +141,7 @@ value of the same type as the first argument of the function.
 Therefore ```1.7->ceil()->fmod();``` is equal to ```fmod(ceil(1.7));```.
 
 # Variables
-```some_var: isz;```
+```some_var : isz;```
 
 ```an_integer := 123;```
 ```a_third_integer: isz = 123;```
@@ -127,13 +149,13 @@ Therefore ```1.7->ceil()->fmod();``` is equal to ```fmod(ceil(1.7));```.
 A compile-time constant can be defined by switching the '=' in the initializer for ':'
 ```
 a_constant :: 1.0;
-another_float_constant: float : 2.0;
+another_float_constant : float : 2.0;
 ```
 
 # Functions
 ### Example function definition
 ```
-fadd :: f32(f32 x, f32 y) {
+fadd :: f32(x f32, y f32) {
 	return x + y
 };
 ```
@@ -167,6 +189,10 @@ do {
 for u64 i..100 {
 	do_a_thing();
 }
+
+for {
+	do_a_thing_forever();
+}
 ```
 
 # Switches
@@ -179,7 +205,6 @@ case 'C' {
 	do_thing();
 },
 case 'D', 'E', 'F' {
-
 	do_another_thing();
 },
 default {
@@ -213,7 +238,7 @@ Assignment to an array view only copies the data pointer and count, not the elem
 
 ### Examples
 ```
-arr: u8[100] = " ello ";
+arr : u8[100] = " ello ";
 view: u8[] = arr; // A view pointing to the contents of arr
 
 // Set the first element to 'H', so that the first six bytes in arr become "Hello "
