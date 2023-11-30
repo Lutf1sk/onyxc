@@ -240,7 +240,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 		case ELFDYN.INIT_ARRAY		{ initarr.data = void*:elf_data + dyn.val; },
 		case ELFDYN.INIT_ARRAYSZ	{ initarr.count = dyn.val / sizeof(void*); },
 		case ELFDYN.SONAME			{ soname_offs = dyn.val; },
-		default {};
+		default {}
 		dyn += sizeof(ELF64_Dyn);
 	}
 
@@ -348,7 +348,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 			print("Unknown relocation type: ");
 			print_i64(reltype);
 			print("\n");
-		};
+		}
 
 		rela += relaent;
 	}

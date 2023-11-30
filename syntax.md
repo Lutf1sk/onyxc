@@ -213,7 +213,7 @@ case 'D', 'E', 'F' {
 },
 default {
 	something();
-};
+}
 ```
 
 # Arrays and array views

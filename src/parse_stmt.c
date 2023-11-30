@@ -486,7 +486,6 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 			consume(cx);
 			goto parse_case;
 		}
-		consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after switch statement"));
 		return sw;
 	}
 

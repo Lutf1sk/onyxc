@@ -175,7 +175,7 @@ parse_stmt :: Stmt*(cx ParseCtx*) {
 		print("unexpected token '");
 		print(consume(cx).str);
 		print("'\n");
-	};
+	}
 
 	return null;
 };

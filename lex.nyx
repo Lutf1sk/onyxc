@@ -152,7 +152,7 @@ find_keyword :: TK(str u8[]) {
 	case 'w' {
 		if streq(str, "while") { return TK.KW_WHILE; }
 	},
-	default {};
+	default {}
 
 	return TK.IDENT;
 };
@@ -340,7 +340,7 @@ lex :: ERR(cx LexCtx*) {
 		default {
 			cx.err_str = "Unexpected symbol";
 			return ERR.LEXER;
-		};
+		}
 	emit :: here;
 		tk_str := tk_start[0..usz:(it - tk_start)];
 		err := emit_tk(cx, tk_type, tk_str);
