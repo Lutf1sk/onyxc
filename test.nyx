@@ -4,11 +4,14 @@ main :: i32(argc i32, argv u8**) {
 	host : u8[] = "lutfisk.net";
 
 	saddr : sockaddr_in_t;
+	mset8(&saddr, 0, sizeof(sockaddr_in_t));
+	saddr.sin_family = AF.INET;
+	saddr.sin_port = hton16(80);
 
 	if dnslookup_ipv4("8.8.8.8", host, &saddr) {
 		print("failed to resolve '");
 		print(host);
-		print("\n");
+		print("'\n");
 		goto err0;
 	}
 
@@ -18,15 +21,25 @@ main :: i32(argc i32, argv u8**) {
 		goto err0;
 	}
 
-	if connect(s, sockaddr_t*:&saddr, sizeof(sockaddr_in_t)) < 0 {
+	if s->connect(sockaddr_t*:&saddr, sizeof(sockaddr_in_t)) < 0 {
 		print("connection failed\n");
 		goto err1;
 	}
 
-	if write(s, "123") < 0 {
-		print("write failed\n");
-		goto err1;
+	s->write("GET / HTTP/1.1\r\n");
+	s->write("Host: "); s->write(host); s->write("\r\n");
+	s->write("Connection: close\r\n");
+	s->write("Upgrade-Insecure-Requests: 0\r\n");
+	s->write("\r\n");
+
+	recv_buf : u8[16K];
+
+	res := s->read(recv_buf);
+	if res < 0 {
+		print("failed to receive response\n");
 	}
+
+	print(recv_buf[0..res]);
 
 	print("connection successful\n");
 

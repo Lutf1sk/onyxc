@@ -128,7 +128,7 @@ dnslookup_ipv4 :: u8(dns_host u8[], domain u8[], out sockaddr_in_t*) {
 		return 1;
 	}
 
-	sock := socket(AF.INET, SOCK.STREAM, 0);
+	sock := socket(AF.INET, SOCK.STREAM, PF.UNSPEC);
 	if sock < 0 {
 		return 1;
 	}

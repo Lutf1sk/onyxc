@@ -206,7 +206,7 @@ sockaddr_in6_t :: struct {
 };
 
 socket :: isz(family AF, type SOCK, protocol PF) {
-	return syscall(SYS.SOCKET, family, type, protocol);
+	return syscall(SYS.SOCKET, usz:family, usz:type, usz:protocol);
 };
 
 connect :: isz(fd isz, addr sockaddr_t*, addrlen i32) {
