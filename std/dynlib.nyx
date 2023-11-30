@@ -3,7 +3,7 @@
 import "std/unix.nyx", "std/elf.nyx", "std/mem.nyx", "std/str.nyx";
 
 elf_verify_magic :: u8(fh ELF64_FileHeader*) {
-	for usz i..fh.magic.count {
+	for i: ..fh.magic.count {
 		if fh.magic[i] != ELFMAGIC[i] {
 			return 0;
 		}
@@ -44,7 +44,7 @@ elf_getstr :: u8[](strtab u8*, offs usz) {
 
 elf_img_size :: usz(fh ELF64_FileHeader*) {
 	max : usz = 0;
-	for usz i..fh.sh_count {
+	for i: ..fh.sh_count {
 		sh := elf_getsh(fh, i);
 		top := sh.addr + sh.size;
 		if (sh.type == ELFSH.PROGBITS || sh.type == ELFSH.NOBITS) && top > max {
@@ -55,7 +55,7 @@ elf_img_size :: usz(fh ELF64_FileHeader*) {
 };
 
 elf_map_sections :: void(fh ELF64_FileHeader*, img_base u8*) {
-	for usz i..fh.sh_count {
+	for i: ..fh.sh_count {
 		sh := elf_getsh(fh, i);
 		if sh.type == ELFSH.PROGBITS {
 			mcopy(img_base + sh.addr, fh + sh.offs, sh.size);
@@ -69,7 +69,7 @@ elf_map_sections :: void(fh ELF64_FileHeader*, img_base u8*) {
 elf_find_symdef :: ELF64_Sym*(lib DynLibrary*, name u8[]) {
 	weak : ELF64_Sym* = null;
 
-	for usz i..lib.syms.count {
+	for i: ..lib.syms.count {
 		sym := &lib.syms[i];
 		binding := sym.info & ELFSYM.BIND_MASK;
 		symname := elf_getstr(lib.strtab_sym, sym.name);
@@ -87,7 +87,7 @@ elf_find_symdef :: ELF64_Sym*(lib DynLibrary*, name u8[]) {
 	while lit {
 		lib: DynLibrary* = lit.lib;
 
-		for usz i..lib.syms.count {
+		for i: ..lib.syms.count {
 			sym := &lib.syms[i];
 			binding := sym.info & ELFSYM.BIND_MASK;
 			if binding == ELFSYM.GLOBAL {
@@ -182,7 +182,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 
 	syms : ELF64_Sym[] = null[0..0];
 
-	for usz i..fh.sh_count {
+	for i: ..fh.sh_count {
 		sh := elf_getsh(fh, i);
 		name := elf_getstr(strtab, sh.name);
 
@@ -194,7 +194,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 	interp		: u8[] = null[0..0];
 	dyn_start	: ELF64_Dyn* = null;
 
-	for usz i..fh.ph_count {
+	for i: ..fh.ph_count {
 		ph := elf_getph(fh, i);
 
 		if ph.type == ELFPH.INTERP {
@@ -284,7 +284,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 	rela := rela_ptr;
 	rela_count := relasz / relaent;
 
-	for usz i..rela_count {
+	for i: ..rela_count {
 		reltype := rela.info & ELFREL.TYPE_MASK_64;
 		relsym := rela.info >> ELFREL.SYM_SHIFT_64;
 
@@ -368,7 +368,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 };
 
 dlsym :: void*(lib DynLibrary*, name u8[]) {
-	for usz i..lib.syms.count {
+	for i: ..lib.syms.count {
 		if streq(name, elf_getstr(lib.strtab_sym, lib.syms[i].name)) {
 			return lib.img_base + lib.syms[i].val;
 		}

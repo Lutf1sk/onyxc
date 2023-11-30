@@ -45,7 +45,7 @@ main :: void() {
 		print("\n");
 	}
 
-	for usz i..lcx.out.count {
+	for i: ..lcx.out.count {
 		tk := &lcx.out[i];
 
 		print(tk_info[tk.type].name_str);

@@ -33,11 +33,11 @@ fclose :: void(fd isz) {
 	close(fd);
 };
 
-fwrite :: void(fd isz, data u8[]) {
+fwrite :: isz(fd isz, data u8[]) {
 	write(fd, data);
 };
 
-fread :: usz(fd isz, data u8[]) {
+fread :: isz(fd isz, data u8[]) {
 	return read(fd, data);
 };
 

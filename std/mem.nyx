@@ -106,7 +106,7 @@ pmfree :: void(pool Pool*, ptr void*) {
 pmreset :: void(pool Pool*) {
 	last := &pool.head;
 	it := pool.base;
-	for usz i..pool.chunk_count {
+	for i: ..pool.chunk_count {
 		*last = it;
 		last = it;
 		it += pool.chunk_size;

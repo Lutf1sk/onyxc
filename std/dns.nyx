@@ -87,7 +87,7 @@ dns_encode_name :: isz(domain u8[], out u8[]) {
 	q_it := out.data;
 	q_max := q_it + out.count;
 	substr := domain.data;
-	for usz i..domain.count {
+	for i: ..domain.count {
 		if domain[i] == '.' {
 			substr_len := i - usz:(substr - domain.data);
 			q_it_next := q_it + substr_len + 1;
@@ -95,7 +95,7 @@ dns_encode_name :: isz(domain u8[], out u8[]) {
 				return -1;
 			}
 			*q_it++ = substr_len;
-			for usz j..substr_len {
+			for j: ..substr_len {
 				*q_it++ = substr[j];
 			}
 
@@ -110,7 +110,7 @@ dns_encode_name :: isz(domain u8[], out u8[]) {
 		return -1;
 	}
 	*q_it++ = substr_len;
-	for usz j..substr_len {
+	for j: ..substr_len {
 		*q_it++ = substr[j];
 	}
 
@@ -193,12 +193,12 @@ dnslookup_ipv4 :: u8(dns_host u8[], domain u8[], out sockaddr_in_t*) {
 
 	// TODO: Prevent out-of-bounds writes
 
-	for usz i..rh.qdcount {
+	for i: ..rh.qdcount {
 		while *it { it++; } // QNAME
 		it += sizeof(DNS_Question);
 	}
 
-	for usz i..rh.ancount {
+	for i: ..rh.ancount {
 		while *it { it++; } // NAME
 		rr := DNS_RsrcRecord*:it;
 		rr.type = hton16(rr.type);

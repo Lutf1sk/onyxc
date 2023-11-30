@@ -375,24 +375,27 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 			return new;
 		}
 
-		type_t* it_type = parse_type(cx, NULL);
-
-		tk_t* tk = peek(cx, 0);
-		if (!is_int_any_sign(resolve_enum(it_type)))
-			ferr("for loop iterator must be an integer", *tk);
-
 		tk_t ident_tk = *consume_type(cx, TK_IDENTIFIER, CLSTR(", expected identifier"));
-
-		expr_t* init = lt_amalloc(cx->arena, sizeof(expr_t));
-		*init = EXPR(EXPR_INTEGER, it_type, tk);
-		init->uint_val = 0;
+		consume_type(cx, TK_COLON, CLSTR(", expected "A_BOLD"':'"A_RESET" after loop iterator"));
 
 		sym_t* sym = lt_amalloc(cx->arena, sizeof(sym_t));
 		*sym = SYM(SYM_VAR, ident_tk.str);
-		sym->type = it_type;
-		sym->expr = init;
 		sym->flags = SYMFL_ACCESSED;
 		symtab_insert(cx->symtab, ident_tk.str, sym);
+
+		tk_t* tk = peek(cx, 0);
+		if (tk->stype == TK_DOUBLE_DOT) {
+			sym->expr = lt_amalloc(cx->arena, sizeof(expr_t));
+			*sym->expr = EXPR(EXPR_INTEGER, &i64_def, tk);
+			sym->expr->int_val = 0;
+			sym->type = sym->expr->type;
+		}
+		else {
+			sym->expr = parse_expr(cx, NULL);
+			sym->type = sym->expr->type;
+			if (!is_int_any_sign(resolve_enum(sym->type)))
+				ferr("starting point of for loop must be an integer", *tk);
+		}
 
 		consume_type(cx, TK_DOUBLE_DOT, CLSTR(", expected "A_BOLD"'..'"A_RESET));
 
@@ -401,9 +404,9 @@ stmt_t* parse_stmt(parse_ctx_t* cx) {
 
 		tk = peek(cx, 0);
 		new->expr = parse_expr(cx, NULL);
-		if (!type_convert_implicit(cx, it_type, &new->expr))
-			ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%s'"A_RESET, *tk,
-					type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, it_type));
+		if (!type_convert_implicit(cx, sym->type, &new->expr))
+			ferr("cannot implicitly convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *tk,
+					type_to_reserved_str(cx->arena, new->expr->type), type_to_reserved_str(cx->arena, sym->type));
 
 		new->sym = sym;
 		new->child = parse_compound(cx);

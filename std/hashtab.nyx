@@ -14,7 +14,7 @@ hash :: u32(mem void[]) {
 	p : u8* = mem.data;
 	hash : u32 = mem.count;
 
-	for usz i..mem.count {
+	for i: ..mem.count {
 		hash ^= rotl32(hash, 7) ^ p[i];
 	}
 
@@ -61,7 +61,7 @@ htfind :: void*(ht HashTable*, hash u32, cmp u8(a void*, b void*), usr void*) {
 		return null;
 	}
 
-	for usz i..count {
+	for i: ..count {
 		if cmp(ht.vals[hash][i], usr) {
 			return ht.vals[hash][i];
 		}

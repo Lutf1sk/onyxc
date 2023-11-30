@@ -5,7 +5,7 @@ ipv4_parse_addr :: u8(str u8[], out sockaddr_in_t*) {
 	j : usz = 0;
 
 	num_start := str.data;
-	for usz i..str.count {
+	for i: ..str.count {
 		c := str[i];
 		if c == '.' {
 			if j >= 3u {
@@ -28,7 +28,7 @@ ipv4_parse_addr :: u8(str u8[], out sockaddr_in_t*) {
 	nums[j] = num_start[0..usz:(str.count - (num_start - str.data))];
 
 	addr : u32 = 0;
-	for usz i..4 {
+	for i: ..4 {
 		v: u64;
 		if stou(nums[i], &v) || v > 0xFF {
 			return 1;

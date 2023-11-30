@@ -184,10 +184,14 @@ do {
 
 } while 0;
 ```
-### For example
+### For examples
 ```
-for u64 i..100 {
-	do_a_thing();
+for i: ..100 {
+	do_a_thing_100_times();
+}
+
+for i: 50..100 {
+	do_a_thing_50_times();
 }
 
 for {
