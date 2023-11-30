@@ -38,7 +38,7 @@ void ferr(char* fmt, tk_t tk, ...) {
 
 	const usz line = tk.line_index + 1;
 
-	lt_printf(A_BOLD"%s:%uz:%uz: "A_RED"error:"A_RESET" ", tk.cx->path, line, line_beg.len);
+	lt_printf(A_BOLD"%S:%uz:%uz: "A_RED"error:"A_RESET" ", tk.cx->path, line, line_beg.len);
 
 	va_list args;
 	va_start(args, 0);
@@ -55,7 +55,7 @@ void werr(char* fmt, tk_t tk, ...) {
 
 	const usz line = tk.line_index + 1;
 
-	lt_printf(A_BOLD"%s:%uz:%uz: "A_MAGENTA"warning:"A_RESET" ", tk.cx->path, line, line_beg.len);
+	lt_printf(A_BOLD"%S:%uz:%uz: "A_MAGENTA"warning:"A_RESET" ", tk.cx->path, line, line_beg.len);
 
 	va_list args;
 	va_start(args, 0);
