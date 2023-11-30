@@ -192,7 +192,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 	}
 
 	interp		: u8[] = null[0..0];
-	dyn_star	: ELF64_Dyn* = null;
+	dyn_start	: ELF64_Dyn* = null;
 
 	for usz i..fh.ph_count {
 		ph := elf_getph(fh, i);
