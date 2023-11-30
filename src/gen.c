@@ -673,9 +673,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		if (expr->child_2) {
 			LT_ASSERT(expr->child_2->next);
-			ival_t ptr = icode_gen_expr(cx, expr->child_2);
+			ival_t ptr = icode_gen_expr(cx, expr->child_1);
+			ival_t start_offs = icode_gen_expr(cx, expr->child_2);
 			ival_t count = icode_gen_expr(cx, expr->child_2->next);
-			return gen_ptr_view(cx, ptr, icode_gen_expr(cx, expr->child_1), elem_size, count);
+			return gen_ptr_view(cx, ptr, start_offs, elem_size, count);
 		}
 		else {
 			ival_t v = icode_gen_expr(cx, expr->child_1);
@@ -939,7 +940,7 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 		expr_t* it = expr->child_2;
 		for (usz i = 0; it; ++i, it = it->next) {
-			usz size = type_bytes(it->type);
+			usz size = type_bytes(expr->child_1->type->children[i]);
 			u32 reg;
 			arg_sizes[i] = size;
 			ival_t ival = icode_gen_expr(cx, it);
