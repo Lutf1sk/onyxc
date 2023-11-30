@@ -1,83 +1,96 @@
 
 OUT = onyxc
 
-OBJS = \
-	src/main.o \
-	src/tk.o \
-	src/jit.o \
-	src/err.o \
-	src/gen.o \
-	src/interm.o \
-	src/lex.o \
-	src/segment.o \
-	src/expr_ast.o \
-	src/stmt_ast.o \
-	src/parse.o \
-	src/parse_stmt.o \
-	src/parse_expr.o \
-	src/parse_type.o \
-	src/type_convertions.o \
-	src/type.o \
-	src/symtab.o \
-	src/amd64/amd64.o \
-	src/amd64/asm.o \
-	src/amd64/ops.o \
-	src/amd64/regs.o \
-	src/amd64/common.o \
-	src/amd64/elf.o \
-	src/amd64/lbl.o
+SRC = \
+	src/main.c \
+	src/tk.c \
+	src/jit.c \
+	src/err.c \
+	src/gen.c \
+	src/interm.c \
+	src/lex.c \
+	src/segment.c \
+	src/expr_ast.c \
+	src/stmt_ast.c \
+	src/parse.c \
+	src/parse_stmt.c \
+	src/parse_expr.c \
+	src/parse_type.c \
+	src/type_convertions.c \
+	src/type.c \
+	src/symtab.c \
+	src/amd64/amd64.c \
+	src/amd64/asm.c \
+	src/amd64/ops.c \
+	src/amd64/regs.c \
+	src/amd64/common.c \
+	src/amd64/elf.c \
+	src/amd64/lbl.c
 
-DEPS = $(patsubst %.o,%.deps,$(OBJS))
+LT_PATH := lt
+LT_ENV :=
 
-CC = cc
-CC_FLAGS += -fno-omit-frame-pointer -O2 -fmax-errors=3 -Wall -Werror -Wno-strict-aliasing -Wno-error=unused-variable -Wno-unused-function -Ilt/include/ -Wno-pedantic -std=c11
-
-LNK = cc
-LNK_FLAGS += -o $(OUT) -rdynamic -g
-LNK_LIBS += -lpthread -ldl -lm
+# -----== COMPILER
+CC := cc
+CC_WARN := -Wall -Werror -Wno-strict-aliasing -Wno-error=unused-variable -Wno-unused-function -Wno-pedantic -Wno-unused-label -Wno-unused-but-set-variable
+CC_FLAGS := -I$(LT_PATH)/include/ -std=c11 -fmax-errors=3 $(CC_WARN) -mavx2 -masm=intel
 
 ifdef DEBUG
-	CC_FLAGS += -g
+	CC_FLAGS += -fsanitize=undefined -fno-omit-frame-pointer -O0 -g -DLT_DEBUG=1
+else
+	CC_FLAGS += -O2
 endif
 
-ifdef UBSAN
+# -----== LINKER
+LNK := cc
+LNK_LIBS :=
+LNK_FLAGS :=
+
+ifdef DEBUG
 	LNK_LIBS += -lubsan
-	CC_FLAGS += -fsanitize=undefined
+	LNK_FLAGS += -g -rdynamic
 endif
 
-LT_PATH = lt/bin/release/lt.a
+LNK_LIBS += -lpthread -ldl -lm
 
-all: $(LT_PATH) $(OUT)
+# -----== TARGETS
+ifdef DEBUG
+	BIN_PATH := bin/debug
+	LT_ENV += DEBUG=1
+else
+	BIN_PATH := bin/release
+endif
 
-$(LT_PATH):
-	make -C lt/
+OUT_PATH := $(BIN_PATH)/$(OUT)
 
-run: all
-	./$(OUT) test.nyx
+LT_LIB := $(LT_PATH)/$(BIN_PATH)/lt.a
+
+OBJS := $(patsubst %.c,$(BIN_PATH)/%.o,$(SRC))
+DEPS := $(patsubst %.o,%.deps,$(OBJS))
+
+all: $(OUT_PATH)
 
 install: all
-	@-rm -rf /usr/lib/onyxc/
+	cp $(OUT_PATH) /usr/local/bin/
 
-	cp $(OUT) /usr/local/bin/
+run: all
+	$(OUT_PATH) $(args)
 
-	mkdir -p /usr/lib/onyxc
-	cp -r std /usr/lib/onyxc/
+clean:
+	-rm -r bin
 
-prof: all
-	valgrind --dump-instr=yes --tool=callgrind ./$(OUT) test.nyx
-	kcachegrind ./callgrind.out*
-	rm ./callgrind.out.*
+lt:
+	$(LT_ENV) make -C $(LT_PATH)
 
-$(OUT):	$(OBJS)
-	$(LNK) $(LNK_FLAGS) $(OBJS) $(LT_PATH) $(LNK_LIBS)
+$(LT_LIB): lt
 
-%.o: %.c makefile
-	$(CC) $(CC_FLAGS) -MM -MT $@ -MF $(patsubst %.o,%.deps,$@) $<
-	$(CC) $(CC_FLAGS) -c $< -o $@
+$(OUT_PATH): $(OBJS) lt
+	$(LNK) $(OBJS) $(LT_LIB) $(LNK_LIBS) $(LNK_FLAGS) -o $(OUT_PATH)
+
+$(BIN_PATH)/%.o: %.c makefile
+	@-mkdir -p $(BIN_PATH)/$(dir $<)
+	$(CC) $(CC_FLAGS) -MD -MT $@ -MF $(patsubst %.o,%.deps,$@) -c $< -o $@
 
 -include $(DEPS)
 
-clean:
-	rm $(OBJS) $(DEPS)
-
-.PHONY: all clean run sync install
+.PHONY: all install run clean lt

@@ -37,7 +37,7 @@ void expr_print_recursive(lt_arena_t* arena, expr_t* ex, char* indent, b8 last) 
 		lt_printf(!last ? "%s\u251C" : "%s\u2514", indent);
 		indent[indent_len + lt_sprintf(&indent[indent_len], !last ? "\u2502" : " ")] = 0;
 
-		lt_printf("%S: ", expr_type_str(it->stype));
+		lt_printf("%S ", expr_type_str(it->stype));
 		if (it->type) {
 			type_print(arena, it->type);
 			lt_printf(" ");
@@ -73,13 +73,13 @@ void stmt_print_recursive(lt_arena_t* arena, stmt_t* st, char* indent, b8 last) 
 		lt_printf(!last ? "%s\u251C" : "%s\u2514", indent);
 		indent[indent_len + lt_sprintf(&indent[indent_len], !last ? "\u2502" : " ")] = 0;
 
-		lt_printf("%S: ", stmt_type_str(it->stype));
+		lt_printf("%S ", stmt_type_str(it->stype));
+		if (it->stype == STMT_SYMDEF)
+			lt_printf("%S ", it->sym->name);
 		if (it->type) {
 			type_print(arena, it->type);
 			lt_printf(" ");
 		}
-		if (it->stype == STMT_SYMDEF)
-			lt_printf("%S ", it->sym->name);
 		lt_printf("\n");
 
 		if (it->expr) {
@@ -114,13 +114,19 @@ void stmt_print(lt_arena_t* arena, stmt_t* st) {
 #endif
 
 int main(int argc, char** argv) {
+	LT_DEBUG_INIT();
+
 	char** in_files = malloc(argc * sizeof(char*));
 	if (!in_files)
 		lt_ferr(CLSTR("memory allocation failed\n"));
 	usz in_file_count = 0;
 
 	lstr_t out_path = CLSTR("out");
-	b8 run_mode = 0;
+
+	b8 print_tokens = 0;
+	b8 print_ast = 0;
+	b8 print_icode = 0;
+	b8 print_mcode = 0;
 
 	lt_arg_iterator_t arg_it = lt_arg_iterator_create(argc, argv);
 
@@ -134,14 +140,29 @@ int main(int argc, char** argv) {
 				"usage: onyxc [OPTIONS] FILE...\n"
 				"options:\n"
 				"  -h, --help          Display this information.\n"
-				"  -r, --run           JIT compile and run instead of producing an executable.\n"
 				"  -o, --out=OUT       Store compiled program in OUT\n"
 				"  -I  --include=PATH  Add include directory PATH\n"
+				"  --print-tokens      Print lexer output\n"
+				"  --print-ast         Print AST\n"
+				"  --print-icode       Print generated intermediate code\n"
+				"  --print-mcode       Print generated assembly\n"
 			);
 			return 0;
 		}
-		if (lt_arg_flag(&arg_it, 'r', CLSTR("run"))) {
-			run_mode = 1;
+		if (lt_arg_flag(&arg_it, 0, CLSTR("print-tokens"))) {
+			print_tokens = 1;
+			continue;
+		}
+		if (lt_arg_flag(&arg_it, 0, CLSTR("print-ast"))) {
+			print_ast = 1;
+			continue;
+		}
+		if (lt_arg_flag(&arg_it, 0, CLSTR("print-icode"))) {
+			print_icode = 1;
+			continue;
+		}
+		if (lt_arg_flag(&arg_it, 0, CLSTR("print-mcode"))) {
+			print_mcode = 1;
 			continue;
 		}
 		if (lt_arg_str(&arg_it, 'o', CLSTR("out"), &out_path.str)) {
@@ -170,12 +191,12 @@ int main(int argc, char** argv) {
 		lt_arena_t* arena = lt_amcreate(NULL, LT_GB(1), 0);
 		lex_ctx_t* lex_cx = lex_file(arena, in_path, NULL);
 
-#if 0
-		for (usz i = 0; i < lex_cx->count; ++i) {
-			tk_t* tk = &lex_cx->tk_data[i];
-			lt_printf("[%S] '%S'\n", tk_type_str(tk->stype), tk->str);
+		if (print_tokens) {
+			for (usz i = 0; i < lex_cx->count; ++i) {
+				tk_t* tk = &lex_cx->tk_data[i];
+				lt_printf("[%S] '%S'\n", tk_type_str(tk->stype), tk->str);
+			}
 		}
-#endif
 
 		// Create symtab and add primitives
 		symtab_t symtab;
@@ -229,22 +250,17 @@ int main(int argc, char** argv) {
 		parse_cx.include_dir_count = include_dir_count;
 		stmt_t* root = parse(&parse_cx);
 
-#if 0
-		// Print AST
-		stmt_print(arena, root);
-#endif
+		if (print_ast) {
+			stmt_print(arena, root);
+		}
 
 		// Generate intermediate code
 		icode_gen(&gen_cx, root);
 
-		if (run_mode) {
-			return 0;
+		if (print_icode) {
+			for (usz i = 0; i < segtab.count; ++i)
+				print_segment(&segtab, i);
 		}
-
-#if 0
-		for (usz i = 0; i < segtab.count; ++i)
-			print_segment(&segtab, i);
-#endif
 
 		switch (target) {
 		case TRG_AMD64: {
@@ -256,15 +272,14 @@ int main(int argc, char** argv) {
 
 			amd64_gen(&x64);
 
-#if 0
-			// Print machine code
-			for (usz i = 0; i < segtab.count; ++i) {
-				if (segtab.seg[i].stype != SEG_CODE)
-					continue;
+			if (print_mcode) {
+				for (usz i = 0; i < segtab.count; ++i) {
+					if (segtab.seg[i].stype != SEG_CODE)
+						continue;
 
-				amd64_print_segment(&x64, i);
+					amd64_print_segment(&x64, i);
+				}
 			}
-#endif
 
 			if (format == FMT_ELF64)
 				amd64_write_elf64(&x64, out_path);

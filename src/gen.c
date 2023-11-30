@@ -597,6 +597,7 @@ ival_t gen_const_expr(gen_ctx_t* cx, expr_t* expr) {
 	}
 
 	case EXPR_CONVERT:
+		// !! breaks for compounds
 		return gen_const_expr(cx, expr->child_1);
 
 	case EXPR_REFERENCE: {
@@ -668,9 +669,13 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 
 	case EXPR_VIEW: {
 // 		ival_t ptr, count;
+		usz elem_size = type_bytes(expr->child_1->type->base);
+
 		if (expr->child_2) {
 			LT_ASSERT(expr->child_2->next);
-			return gen_ptr_view(cx, icode_gen_expr(cx, expr->child_1), icode_gen_expr(cx, expr->child_2), type_bytes(expr->child_1->type), icode_gen_expr(cx, expr->child_2->next));
+			ival_t ptr = icode_gen_expr(cx, expr->child_2);
+			ival_t count = icode_gen_expr(cx, expr->child_2->next);
+			return gen_ptr_view(cx, ptr, icode_gen_expr(cx, expr->child_1), elem_size, count);
 		}
 		else {
 			ival_t v = icode_gen_expr(cx, expr->child_1);
@@ -680,9 +685,10 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			LT_ASSERT(v.stype & IVAL_REF);
 			v.stype &= ~IVAL_REF;
 
-// 			count = IMMI(expr->child_1->type->child_count);
-			return gen_ptr_view(cx, v, IMMI(0), 0, IMMI(expr->child_1->type->child_count));
+			ival_t count = IMMI(expr->child_1->type->child_count);
+			return gen_ptr_view(cx, v, IMMI(0), elem_size, count);
 		}
+
 // 		u32 view_start = ralloc(cx);
 // 		emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
 
@@ -790,10 +796,11 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 	case EXPR_CONVERT: {
 		usz to = type_bytes(expr->type), from = type_bytes(expr->child_1->type);
 		ival_t a1 = icode_gen_expr(cx, expr->child_1);
-		if (a1.stype == IVAL_IMM || a1.stype == IVAL_SEG)
+		if (a1.stype == IVAL_IMM || a1.stype == IVAL_SEG) {
 			return a1;
+		}
 
-		if (expr->type->stype == TP_ARRAY_VIEW && expr->child_1->type->stype == TP_ARRAY_VIEW) {\
+		if (expr->type->stype == TP_ARRAY_VIEW && expr->child_1->type->stype == TP_ARRAY_VIEW) {
 			if (type_eq(resolve_enum(expr->type), &void_view_def)) {
 				usz elem_size = type_bytes(expr->child_1->type->base);
 				ival_t count_bytes = IMMI(0);
@@ -827,8 +834,9 @@ ival_t icode_gen_expr(gen_ctx_t* cx, expr_t* expr) {
 			case ISZ_64: op = IR_TOU64; break;
 			}
 		}
-		else
+		else {
 			LT_ASSERT_NOT_REACHED();
+		}
 		u32 r1 = ival_reg(cx, from, a1), dst = ralloc(cx);
 		emit(cx, ICODE2(op, from, dst, r1));
 		return REG(dst);
@@ -1417,10 +1425,10 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 
 			gen_sym_def(cx, stmt->sym, stmt->sym->expr);
 
+			ldefine(cx, start_lbl);
 			ival_t end = icode_gen_expr(cx, stmt->expr);
 			u32 end_reg = ival_reg(cx, it_size, end);
 
-			ldefine(cx, start_lbl);
 			u32 it_reg = ival_reg(cx, it_size, stmt->sym->val);
 
 			u32 trg = ralloc(cx);

@@ -118,14 +118,23 @@ stmt_t* parse_symdef(parse_ctx_t* cx, lstr_t str) {
 				type = expr->type;
 			}
 		}
-		else
+		else {
 			expr = parse_expr(cx, type);
+			if (!type_convert_explicit(cx, type, &expr))
+				ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *expr->tk,
+						type_to_reserved_str(cx->arena, type),
+						type_to_reserved_str(cx->arena, expr->type));
+		}
 	}
 	else if (peek(cx, 0)->stype == TK_EQUAL) {
 		consume(cx);
 		expr = parse_expr(cx, type);
 		if (!type)
 			type = expr->type;
+		else if (!type_convert_explicit(cx, type, &expr))
+			ferr("cannot convert "A_BOLD"'%S'"A_RESET" to "A_BOLD"'%S'"A_RESET, *expr->tk,
+					type_to_reserved_str(cx->arena, type),
+					type_to_reserved_str(cx->arena, expr->type));
 	}
 	else if (type && peek(cx, 0)->stype == TK_SEMICOLON) {}
 	else

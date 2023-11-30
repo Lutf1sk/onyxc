@@ -81,7 +81,7 @@ DNS_RsrcRecord :: struct {
 	rdlen	: u16;
 };
 
-import "std/net.nyx", "std/ipv4.nyx";
+import "std/net.nyx", "std/ipv4.nyx", "std/mem.nyx";
 
 dns_encode_name :: isz(domain u8[], out u8[]) {
 	q_it := out.data;
@@ -91,7 +91,7 @@ dns_encode_name :: isz(domain u8[], out u8[]) {
 		if domain[i] == '.' {
 			substr_len := i - usz:(substr - domain.data);
 			q_it_next := q_it + substr_len + 1;
-			if !substr_len || substr_len > 63u || q_it_next >= q_max {
+			if !substr_len || substr_len > 63 || q_it_next >= q_max {
 				return -1;
 			}
 			*q_it++ = substr_len;

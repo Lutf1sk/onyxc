@@ -22,6 +22,7 @@ ipv4_parse_addr :: u8(str u8[], out sockaddr_in_t*) {
 			num_start = str.data + i + 1;
 		}
 	}
+
 	if j < 3u {
 		return 1;
 	}

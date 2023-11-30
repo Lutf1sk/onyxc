@@ -137,9 +137,8 @@ isz type_to_str(char* out_str, type_t* type) {
 }
 
 lstr_t type_to_reserved_str(lt_arena_t* arena, type_t* type) {
-	char* str_data = lt_amalloc(arena, 0);
+	char* str_data = lt_amalloc(arena, 128);
 	lstr_t str = LSTR(str_data, type_to_str(str_data, type));
-	lt_amalloc(arena, str.len);
 	return str;
 }
 
