@@ -1,11 +1,11 @@
 import "lex.nyx";
 
 ParseCtx :: struct {
-	Allocator* alc;
-	LexCtx* lcx;
+	alc	: Allocator*;
+	lcx	: LexCtx*;
 
-	usz stack_alloc_count;
-	Token*[] stack;
+	stack_alloc_count	: usz;
+	stack				: Token*[];
 };
 
 PARSE_STACK_ALLOC_COUNT: usz : 512;
@@ -29,7 +29,7 @@ eof_token: Token = {
 };
 
 consume :: Token*(ParseCtx* cx) {
-	tk: Token* = null;
+	tk : Token* = null;
 
 	if cx.stack.count {
 		tk = cx.stack[--cx.stack.count];
@@ -82,13 +82,13 @@ EXPR :: enum usz {
 };
 
 Expr :: struct {
-	EXPR type;
-	void* child;
-	void* next;
+	type	: EXPR;
+	child	: void*;
+	next	: void*;
 };
 
 new_expr :: Expr*(Allocator* alc, EXPR type) {
-	expr: Expr* = alc.alloc(alc.usr, sizeof(Expr));
+	expr : Expr* = alc.alloc(alc.usr, sizeof(Expr));
 	expr.type = type;
 	return expr;
 };
@@ -110,19 +110,19 @@ STMT :: enum usz {
 };
 
 Stmt :: struct {
-	STMT type;
-	void* child;
-	void* next;
+	type	: STMT;
+	child	: void*;
+	next	: void*;
 };
 
 new_stmt :: Stmt*(Allocator* alc, STMT type) {
-	stmt: Stmt* = alc.alloc(alc.usr, sizeof(Stmt));
+	stmt : Stmt* = alc.alloc(alc.usr, sizeof(Stmt));
 	stmt.type = type;
 	return stmt;
 };
 
 parse_compound :: Stmt*(ParseCtx* cx) {
-	tk: Token* = null;
+	tk : Token* = null;
 
 	if (tk = consume(cx)).type != TK.LBRACE {
 		print("expected '{', got '");

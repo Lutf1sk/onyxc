@@ -5,9 +5,9 @@ HASHTAB_MASK		: usz : 0xFF;
 HASHTAB_ALLOC_COUNT	: usz : 32;
 
 HashTable :: struct {
-	Allocator* alc;
-	usz[HASHTAB_COUNT] counts;
-	void**[HASHTAB_COUNT] vals;
+	alc		: Allocator*;
+	counts	: usz[HASHTAB_COUNT];
+	vals	: void**[HASHTAB_COUNT];
 };
 
 hash :: u32(void[] mem) {

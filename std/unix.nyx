@@ -56,26 +56,26 @@ close :: isz(isz fd) {
 };
 
 stat_t :: struct {
-	u64 st_dev;
-	u64 st_ino;
-	u64 st_nlink;
+	st_dev		: u64;
+	st_ino		: u64;
+	st_nlink	: u64;
 
-	u32 st_mode;
-	u32 st_uid;
-	u32 st_gid;
-	u32 pad;
-	u64 st_rdev;
-	i64 st_size;
-	i64 st_blksize;
-	i64 st_blocks;
+	st_mode		: u32;
+	st_uid		: u32;
+	st_gid		: u32;
+	pad			: u32;
+	st_rdev		: u64;
+	st_size		: i64;
+	st_blksize	: i64;
+	st_blocks	: i64;
 
-	u64 st_atime;
-	u64 st_atime_nsec;
-	u64 st_mtime;
-	u64 st_mtime_nsec;
-	u64 st_ctime;
-	u64 st_ctime_nsec;
-	i64[3] unused;
+	st_atime		: u64;
+	st_atime_nsec	: u64;
+	st_mtime		: u64;
+	st_mtime_nsec	: u64;
+	st_ctime		: u64;
+	st_ctime_nsec	: u64;
+	unused			: i64[3];
 };
 
 stat :: isz(u8* path, stat_t* buf) {
@@ -137,8 +137,8 @@ CLOCK :: enum usz {
 };
 
 timespec_t :: struct {
-	u64 tv_sec;
-	u64 tv_nsec;
+	tv_sec	: u64;
+	tv_nsec	: u64;
 };
 
 clock_gettime :: isz(CLOCK clockid, timespec_t* ts) {
@@ -186,23 +186,23 @@ SO :: enum u32 {
 };
 
 sockaddr_t :: struct {
-	u16 sa_family;
-	u8[14] sa_data;
+	sa_family	: u16;
+	sa_data		: u8[14];
 };
 
 sockaddr_in_t :: struct {
-	u16 sin_family;
-	u16 sin_port;	// Big-endian
-	u32 sin_addr;	// Big-endian
-	u8[8] pad;
+	sin_family	: u16;
+	sin_port	: u16;	// Big-endian
+	sin_addr	: u32;	// Big-endian
+	pad			: u8[8];
 };
 
 sockaddr_in6_t :: struct {
-	u16 sin6_family;
-	u16 sin6_port;		// Big-endian
-	u32 sin6_flowinfo;	// Big-endian
-	u8[16] sin6_addr;
-	u32 sin6_scope_id;
+	sin6_family		: u16;
+	sin6_port		: u16;	// Big-endian
+	sin6_flowinfo	: u32;	// Big-endian
+	sin6_addr		: u8[16];
+	sin6_scope_id	: u32;
 };
 
 socket :: isz(AF family, SOCK type, PF protocol) {

@@ -12,21 +12,21 @@ elf_verify_magic :: u8(ELF64_FileHeader* fh) {
 };
 
 DynLibList :: struct {
-	void* lib;
-	void* next;
+	lib		: void*;
+	next	: void*;
 };
 
 DynLibrary :: struct {
-	u8[] name;
-	u8* img_base;
-	u8* data;
-	ELF64_FileHeader* fh;
-	u8* strtab;
-	u8* strtab_sym;
-	ELF64_Sym[] syms;
+	name		: u8[];
+	img_base	: u8*;
+	data		: u8*;
+	fh			: ELF64_FileHeader*;
+	strtab		: u8*;
+	strtab_sym	: u8*;
+	syms		: ELF64_Sym[];
 
-	usz ref_count;
-	void* deps;
+	ref_count	: usz;
+	deps		: void*;
 };
 
 elf_getsh :: ELF64_SectHeader*(ELF64_FileHeader* fh, usz i) {
@@ -43,7 +43,7 @@ elf_getstr :: u8[](u8* strtab, usz offs) {
 };
 
 elf_img_size :: usz(ELF64_FileHeader* fh) {
-	max: usz = 0;
+	max : usz = 0;
 	for usz i..fh.sh_count {
 		sh := elf_getsh(fh, i);
 		top := sh.addr + sh.size;
@@ -67,7 +67,7 @@ elf_map_sections :: void(ELF64_FileHeader* fh, u8* img_base) {
 };
 
 elf_find_symdef :: ELF64_Sym*(DynLibrary* lib, u8[] name) {
-	weak: ELF64_Sym* = null;
+	weak : ELF64_Sym* = null;
 
 	for usz i..lib.syms.count {
 		sym := &lib.syms[i];
@@ -103,13 +103,13 @@ elf_find_symdef :: ELF64_Sym*(DynLibrary* lib, u8[] name) {
 	return weak;
 };
 
-dlib_pool: Pool* = null;
-dlib_list_pool: Pool* = null;
+dlib_pool		: Pool* = null;
+dlib_list_pool	: Pool* = null;
 
 dlib_list_head := null;
 
 list_find_dlib :: DynLibrary*(void* head, u8[] name) {
-	it: DynLibList* = head;
+	it : DynLibList* = head;
 	while it {
 		if streq((DynLibrary*:it.lib).name, name) {
 			return it.lib;
@@ -120,7 +120,7 @@ list_find_dlib :: DynLibrary*(void* head, u8[] name) {
 };
 
 list_insert_dlib :: void(void** head, DynLibrary* lib) {
-	new_entry: DynLibList* = pmalloc(dlib_list_pool);
+	new_entry : DynLibList* = pmalloc(dlib_list_pool);
 	new_entry.lib = lib;
 	new_entry.next = *head;
 	*head = new_entry;
@@ -153,17 +153,17 @@ dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	mcopy(libpath.data, libpath_pfx.data, libpath_pfx.count);
 	mcopy(libpath.data + libpath_pfx.count, libname.data, libname.count);
 
-	fd: isz;
+	fd : isz;
 	if &fd->fopenr(libpath) {
 		print("failed to open file\n");
 		return null;
 	}
 	alc.free(alc.usr, libpath.data);
 
-	st: stat_t;
+	st : stat_t;
 	fd->fstat(&st);
 
-	elf_data: u8* = alc.alloc(alc.usr, st.st_size);
+	elf_data : u8* = alc.alloc(alc.usr, st.st_size);
 	if !elf_data {
 		print("allocation failed\n");
 		return null;
@@ -180,7 +180,7 @@ dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 
 	strtab := elf_data + elf_getsh(fh, fh.strtab_index).offs;
 
-	syms: ELF64_Sym[] = null[0..0];
+	syms : ELF64_Sym[] = null[0..0];
 
 	for usz i..fh.sh_count {
 		sh := elf_getsh(fh, i);
@@ -191,8 +191,8 @@ dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		}
 	}
 
-	interp: u8[] = null[0..0];
-	dyn_start: ELF64_Dyn* = null;
+	interp		: u8[] = null[0..0];
+	dyn_star	: ELF64_Dyn* = null;
 
 	for usz i..fh.ph_count {
 		ph := elf_getph(fh, i);
@@ -211,7 +211,7 @@ dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		return null;
 	}
 
-	base: u8* = alc.alloc(alc.usr, elf_img_size(fh));
+	base : u8* = alc.alloc(alc.usr, elf_img_size(fh));
 	if !base {
 		print("allocation failed\n");
 		alc.free(alc.usr, elf_data);
@@ -219,13 +219,13 @@ dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 	}
 	elf_map_sections(fh, base);
 
-	strtab_sym: u8* = null;
-	rela_ptr: ELF64_RelAdd* = null;
-	relasz: usz = 0;
-	relaent: usz = 0;
+	strtab_sym	: u8* = null;
+	rela_ptr	: ELF64_RelAdd* = null;
+	relasz		: usz = 0;
+	relaent		: usz = 0;
 
-	init: void() = null;
-	initarr: void*[] = null[0..0];
+	init	: void() = null;
+	initarr	: void*[] = null[0..0];
 
 	soname_offs: isz = -1;
 
@@ -244,7 +244,7 @@ dlopen :: DynLibrary*(u8[] libname, Allocator* alc) {
 		dyn += sizeof(ELF64_Dyn);
 	}
 
-	soname: u8[] = null[0..0];
+	soname : u8[] = null[0..0];
 	if soname_offs >= 0 {
 		soname = elf_getstr(strtab_sym, soname_offs);
 	}

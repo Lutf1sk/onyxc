@@ -2,19 +2,20 @@ import "std/mem.nyx", "std/char.nyx";
 import "err.nyx";
 
 Token :: struct {
-	u32 type;
-	u32 file;
-	u32 row, col;
-	u8[] str;
+	type	: u32;
+	file	: u32;
+	row		: u32;
+	col		: u32;
+	str		: u8[];
 };
 
 LexCtx :: struct {
-	Allocator* alc;
-	u8[] src;
-	Token[] out;
-	usz it;
-	u8[] err_str;
-	void* next;
+	alc		: Allocator*;
+	src		: u8[];
+	out		: Token[];
+	it		: usz;
+	err_str	: u8[];
+	next	: void*;
 };
 
 TK :: enum u32 {
@@ -59,7 +60,7 @@ TK :: enum u32 {
 	MAX,
 };
 
-tk_info :: struct { u8[] name_str; } [TK.MAX] {
+tk_info :: struct { name_str : u8[]; } [TK.MAX] {
 	{"EOF"},
 	{"IDENT"},
 	{"STR"}, {"CHAR"},
@@ -99,7 +100,7 @@ tk_info :: struct { u8[] name_str; } [TK.MAX] {
 	{"KW_SYSCALL"},
 };
 
-INITIAL_COUNT: usz : 1024;
+INITIAL_COUNT : usz : 1024;
 
 find_keyword :: TK(u8[] str) {
 	if str.count < 2u {

@@ -1,11 +1,13 @@
 import "std/io.nyx";
 
+Asdf :: struct {
+	a : isz;
+	b : isz;
+};
+
 main :: i32() {
 
-	for {
-		print("loop\n");
-		break;
-	}
+	fdsa :: Asdf { 1, 2 };
 
 	exit(0);
 };

@@ -229,7 +229,7 @@ int main(int argc, char** argv) {
 		parse_cx.include_dir_count = include_dir_count;
 		stmt_t* root = parse(&parse_cx);
 
-#if 0
+#if 1
 		// Print AST
 		stmt_print(arena, root);
 #endif

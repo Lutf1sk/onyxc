@@ -37,11 +37,11 @@ ALLOC_FLAGS :: enum usz {
 };
 
 Allocator :: struct {
-	void*(void*, usz) alloc;
-	void*(void*, void*, usz) realloc;
-	void(void*, void*) free;
-	usz(void*, void*) size;
-	void* usr;
+	alloc	: void*(void*, usz);
+	realloc	: void*(void*, void*, usz);
+	free	: void(void*, void*);
+	size	: usz(void*, void*);
+	usr		: void*;
 };
 
 malloc_init :: void[](Allocator* alc, void[] arr) {
@@ -54,14 +54,14 @@ malloc_init :: void[](Allocator* alc, void[] arr) {
 };
 
 Pool :: struct {
-	void* base;
-	usz chunk_size;
-	usz chunk_count;
-	usz size;
-	void* head;
-	usz flags;
-	Allocator* parent;
-	Allocator interf;
+	base		: void*;
+	chunk_size	: usz;
+	chunk_count	: usz;
+	size		: usz;
+	head		: void*;
+	flags		: usz;
+	parent		: Allocator*;
+	interf		: Allocator;
 };
 
 _pmalloc_if :: void*(Pool* pool, usz size) {
@@ -165,12 +165,12 @@ pmdestroy :: void(Pool* pool) {
 };
 
 Arena :: struct {
-	void* base;
-	usz size;
-	void* top;
-	usz flags;
-	Allocator* parent;
-	Allocator interf;
+	base	: void*;
+	size	: usz;
+	top		: void*;
+	flags	: usz;
+	parent	: Allocator*;
+	interf	: Allocator;
 };
 
 amalloc :: void*(Arena* arena, usz size) {
@@ -244,7 +244,7 @@ amcreatem :: Arena*(Allocator* parent, void* mem, usz size, usz flags) {
 };
 
 amcreate :: Arena*(Allocator* parent, usz size, usz flags) {
-	base: = null;
+	base : = null;
 	if !parent {
 		size = alignf(size, VMEM_BLOCK_SIZE);
 		base = vmem_alloc(size);

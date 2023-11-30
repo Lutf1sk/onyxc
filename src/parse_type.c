@@ -85,22 +85,18 @@ type_t* parse_type(parse_ctx_t* cx, type_t* base) {
 		consume_type(cx, TK_LEFT_BRACE, CLSTR(", expected "A_BOLD"'{'"A_RESET" after "A_BOLD"'struct'"A_RESET));
 
 		while (peek(cx, 0)->stype != TK_RIGHT_BRACE) {
-			tk_t* tk = peek(cx, 0);
-			type_t* new = parse_type(cx, NULL);
+			lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"))->str;
 
+			tk_t* tk = peek(cx, 0);
+
+			consume_type(cx, TK_COLON, CLSTR(", expected "A_BOLD"':'"A_RESET" after member name"));
+
+			type_t* new = parse_type(cx, NULL);
 			if (new->stype == TP_VOID)
 				ferr("struct member cannot be of type "A_BOLD"'void'"A_RESET, *tk);
 
-			for (;;) {
-				lstr_t name = consume_type(cx, TK_IDENTIFIER, CLSTR(", expected member name"))->str;
-
-				type_add_child(struc, new, name, NULL);
-
-				if (peek(cx, 0)->stype != TK_COMMA)
-					break;
-				consume(cx);
-			}
-			consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after member name"));
+			type_add_child(struc, new, name, NULL);
+			consume_type(cx, TK_SEMICOLON, CLSTR(", expected "A_BOLD"';'"A_RESET" after member type"));
 		}
 
 		consume_type(cx, TK_RIGHT_BRACE, CLSTR(", expected "A_BOLD"'}'"A_RESET" after struct members"));

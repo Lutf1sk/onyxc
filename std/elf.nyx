@@ -2,14 +2,14 @@
 
 // ----- File Header
 
-ELFCLASS_32: u8: 1;
-ELFCLASS_64: u8: 2;
+ELFCLASS_32	: u8 : 1;
+ELFCLASS_64	: u8 : 2;
 
-ELFABI_SYSV: u8 : 0;
-ELFABI_GNU: u8 : 3;
+ELFABI_SYSV	: u8 : 0;
+ELFABI_GNU	: u8 : 3;
 
-ELFENC_LSB: u8 : 1;
-ELFENC_MSB: u8 : 2;
+ELFENC_LSB	: u8 : 1;
+ELFENC_MSB	: u8 : 2;
 
 ELFOBJ :: enum u16 {
 	REL		: 1,
@@ -26,30 +26,30 @@ ELFARCH :: enum u16 {
 ELFMAGIC :: u8[4] { 0x7F, 'E', 'L', 'F' };
 
 ELF64_FileHeader :: struct {
-	u8[4] magic;
-	u8 class;
-	u8 enc;
-	u8 header_ver;
-	u8 osabi;
-	u8 osabi_ver;
-	u8[7] pad;
+	magic		: u8[4];
+	class		: u8;
+	enc			: u8;
+	header_ver	: u8;
+	osabi		: u8;
+	osabi_ver	: u8;
+	pad			: u8[7];
 
-	u16 objtype;
-	u16 arch;
-	u32 ver;
+	objtype		: u16;
+	arch		: u16;
+	ver			: u32;
 
-	u64 entry;
-	u64 ph_offs;
-	u64 sh_offs;
-	u32 cpuflags;
+	entry		: u64;
+	ph_offs		: u64;
+	sh_offs		: u64;
+	cpuflags	: u32;
 
-	u16 fh_size;
-	u16 ph_size;
-	u16 ph_count;
-	u16 sh_size;
-	u16 sh_count;
+	fh_size		: u16;
+	ph_size		: u16;
+	ph_count	: u16;
+	sh_size		: u16;
+	sh_count	: u16;
 
-	u16 strtab_index;
+	strtab_index : u16;
 };
 
 // ----- Program Header
@@ -70,15 +70,15 @@ ELFPH :: enum u32 {
 };
 
 ELF64_ProgHeader :: struct {
-	u32 type;
-	u32 flags;
+	type		: u32;
+	flags		: u32;
 
-	u64 offs;
-	u64 vaddr;
-	u64 paddr;
-	u64 file_size;
-	u64 mem_size;
-	u64 align;
+	offs		: u64;
+	vaddr		: u64;
+	paddr		: u64;
+	file_size	: u64;
+	mem_size	: u64;
+	align		: u64;
 };
 
 // ----- Section Header
@@ -104,25 +104,25 @@ ELFSH :: enum u32 {
 };
 
 // Special section indices
-ELFSH_UNDEF: u16 : 0;		// Undefined section
-ELFSH_ABS: u16 : 0xFFF1;	// Symbol is absolute
-ELFSH_COMMON: u16 : 0xFFF2;	// Symbol labels an unallocated common block
-ELFSH_XINDEX: u16 : 0xFFFF;	// Index is extra table
+ELFSH_UNDEF		: u16 : 0;		// Undefined section
+ELFSH_ABS		: u16 : 0xFFF1;	// Symbol is absolute
+ELFSH_COMMON	: u16 : 0xFFF2;	// Symbol labels an unallocated common block
+ELFSH_XINDEX	: u16 : 0xFFFF;	// Index is extra table
 
 ELF64_SectHeader :: struct {
-	u32 name;
-	u32 type;
-	u64 flags;
+	name	: u32;
+	type	: u32;
+	flags	: u64;
 
-	u64 addr;
-	u64 offs;
-	u64 size;
+	addr	: u64;
+	offs	: u64;
+	size	: u64;
 
-	u32 link;
-	u32 info;
+	link	: u32;
+	info	: u32;
 
-	u64 addr_align;
-	u64 ent_size;
+	addr_align	: u64;
+	ent_size	: u64;
 };
 
 // ----- Relocation Table
@@ -156,15 +156,15 @@ ELFREL :: enum u64 {
 
 // Located in ELFSH_REL
 ELF64_Rel :: struct {
-	u64 offs;
-	u64 info;
+	offs	: u64;
+	info	: u64;
 };
 
 // Located in ELFSH_RELA
 ELF64_RelAdd :: struct {
-	u64 offs;
-	u64 info;
-	i64 addend;
+	offs	: u64;
+	info	: u64;
+	addend	: i64;
 };
 
 // ----- Dynamic Linking Information
@@ -204,8 +204,8 @@ ELFDYN :: enum u64 {
 };
 
 ELF64_Dyn :: struct {
-	i64 type;
-	u64 val;
+	type	: i64;
+	val		: u64;
 };
 
 // ----- Symbol Table
@@ -236,11 +236,11 @@ ELFSYM :: enum u8 {
 };
 
 ELF64_Sym :: struct {
-	u32 name;
-	u8 info;
-	u8 other;
-	u16 sh_index;
-	u64 val;
-	u64 size;
+	name		: u32;
+	info		: u8;
+	other		: u8;
+	sh_index	: u16;
+	val			: u64;
+	size		: u64;
 };
 

@@ -1,7 +1,7 @@
 import "std/unix.nyx";
 
 time_nsec :: u64() {
-	ts: timespec_t;
+	ts : timespec_t;
 	clock_gettime(CLOCK.MONOTONIC, &ts);
 	return ts.tv_sec * 1000000000 + ts.tv_nsec;
 };

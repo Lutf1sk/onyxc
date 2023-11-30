@@ -61,24 +61,24 @@ DNSC :: enum u16 {
 DNSQC_ALL: u16 : 255;	// All classes
 
 DNS_Header :: struct {
-	u16 id;
-	u16 flags;
-	u16 qdcount;
-	u16 ancount;
-	u16 nscount;
-	u16 arcount;
+	id		: u16;
+	flags	: u16;
+	qdcount	: u16;
+	ancount	: u16;
+	nscount	: u16;
+	arcount	: u16;
 };
 
 DNS_Question :: struct {
-	u16 qtype;
-	u16 qclass;
+	qtype	: u16;
+	qclass	: u16;
 };
 
 DNS_RsrcRecord :: struct {
-	u16 type;
-	u16 class;
-	u32 ttl;
-	u16 rdlen;
+	type	: u16;
+	class	: u16;
+	ttl		: u32;
+	rdlen	: u16;
 };
 
 import "std/net.nyx", "std/ipv4.nyx";
@@ -119,7 +119,7 @@ dns_encode_name :: isz(u8[] domain, u8[] out) {
 };
 
 dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
-	saddr: sockaddr_in_t;
+	saddr : sockaddr_in_t;
 	mset8(&saddr, 0, sizeof(sockaddr_in_t));
 	saddr.sin_family = AF.INET;
 	saddr.sin_port = hton16(53);
@@ -138,7 +138,7 @@ dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 		return 1;
 	}
 
-	dh: DNS_Header;
+	dh : DNS_Header;
 	mset8(&dh, 0, sizeof(DNS_Header));
 	dh.flags = hton16(DNSH.QUERY | DNSH.STANDARD | DNSH.RD);
 	dh.qdcount = hton16(1);
@@ -147,7 +147,7 @@ dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 	dq.qtype = hton16(DNST.A);
 	dq.qclass = hton16(DNSC.IN);
 
-	question: u8[256];
+	question : u8[256];
 	qlen := dns_encode_name(domain, question);
 	if qlen < 0 {
 		sock->close();
@@ -168,7 +168,7 @@ dnslookup_ipv4 :: u8(u8[] dns_host, u8[] domain, sockaddr_in_t* out) {
 	msglen = hton16(msglen);
 
 	// Receive message body
-	buf: u8[4096];
+	buf : u8[4096];
 	if sock->recv(buf[0..msglen]) <= 0 || msglen < u32:sizeof(DNS_Header) {
 		sock->close();
 		return 1;
