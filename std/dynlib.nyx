@@ -198,7 +198,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 		ph := elf_getph(fh, i);
 
 		if ph.type == ELFPH.INTERP {
-			interp = (elf_data + ph.offs)[0..ph.mem_size];
+			interp = elf_data[ph.offs..ph.mem_size];
 		}
 		elif ph.type == ELFPH.DYNAMIC {
 			dyn_start = ELF64_Dyn*:elf_data + ph.offs;

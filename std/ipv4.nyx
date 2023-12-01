@@ -4,29 +4,29 @@ ipv4_parse_addr :: u8(str u8[], out sockaddr_in_t*) {
 	nums : u8[][5];
 	j : usz = 0;
 
-	num_start := str.data;
+	num_start := 0;
 	for i: ..str.count {
 		c := str[i];
 		if c == '.' {
 			if j >= 3u {
 				return 1;
 			}
-			nums[j++] = num_start[0..usz:(i - (num_start - str.data))];
-			num_start = str.data + i + 1;
+			nums[j++] = str[num_start..i];
+			num_start = i + 1;
 		}
 		if c == ':' {
 			if j != 3u {
 				return 1;
 			}
-			nums[j++] = num_start[0..usz:(i - (num_start - str.data))];
-			num_start = str.data + i + 1;
+			nums[j++] = str[num_start..i)];
+			num_start = i + 1;
 		}
 	}
 
 	if j < 3u {
 		return 1;
 	}
-	nums[j] = num_start[0..usz:(str.count - (num_start - str.data))];
+	nums[j] = str[num_start..str.count)];
 
 	addr : u32 = 0;
 	for i: ..4 {

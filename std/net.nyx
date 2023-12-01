@@ -23,10 +23,10 @@ hton32 :: u32(v u32) {
 // }
 
 recv :: isz(sock isz, buf void[]) {
-	it := buf.data;
-	end := it + buf.count;
+	read := 0;
+
 	while it < end {
-		res := sock->read(it[0..usz:(end - it)]);
+		res := sock->read(buf[read..buf.count]);
 		if res <= 0 {
 			return res;
 		}

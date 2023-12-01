@@ -622,13 +622,14 @@ expected_lval:
 }
 
 static
-ival_t gen_ptr_view(gen_ctx_t* cx, ival_t v, ival_t start_index, usz elem_size, ival_t count) {
+ival_t gen_ptr_view(gen_ctx_t* cx, ival_t v, ival_t start_index, usz elem_size, ival_t end_index) {
 	ival_t ptr = gen_add(cx, ISZ_64, v, gen_imul(cx, ISZ_64, start_index, IMMI(elem_size)));
 
 	u32 view_start = ralloc(cx);
 	emit(cx, ICODE3(IR_SRESV, ISZ_64, view_start, 16, 8));
-
 	gen_assign(cx, ISZ_64, REF(view_start), ptr);
+
+	ival_t count = gen_sub(cx, ISZ_64, end_index, start_index);
 	u32 count_ptr = ival_reg(cx, ISZ_64, gen_add(cx, ISZ_64, REG(view_start), IMMI(8)));
 	gen_assign(cx, ISZ_64, REF(count_ptr), count);
 

@@ -4,7 +4,7 @@ cstr :: u8*(path u8[], out u8[]) {
 		return null;
 	}
 
-	for i: 0..path.count {
+	for i: ..path.count {
 		out[i] = path[i];
 	}
 	out[path.count] = 0;
@@ -84,7 +84,7 @@ streq :: u8(s1 u8[], s2 u8[]) {
 		return 0;
 	}
 
-	for i: 0..s1.count {
+	for i: ..s1.count {
 		if s1[i] != s2[i] {
 			return 0;
 		}

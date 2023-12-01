@@ -6,6 +6,9 @@ import "std/io.nyx", "std/mem.nyx", "std/hashtab.nyx", "lex.nyx", "parse.nyx";
 // 		"std/time.nyx", "std/unix.nyx";
 
 main :: void() {
+	print("asdf"[1..3]);
+	exit(0);
+
 	arena := amcreate(null, 64M, 0);
 	alc := &arena.interf;
 
@@ -72,9 +75,3 @@ err0 :: here;
 	amdestroy(arena);
 	exit(1);
 };
-
-#{
-	print("ASDF\n");
-	// main();
-}
-

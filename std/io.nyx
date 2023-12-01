@@ -12,7 +12,7 @@ filename_from_path :: u8[](path u8[]) {
 	if i {
 		++i;
 	}
-	return (path.data + i)[0..path.count - i];
+	return path[i..path.count];
 };
 
 fopenw :: u8(fdp isz*, path u8[]) {
@@ -67,16 +67,14 @@ print_i64 :: usz(n i64) {
 	}
 
 	str : u8[32];
-	end := str.data + str.count;
-	it := end - 1;
-
+	i := str.count - 1;
 	while n >= 10 {
-		*it-- = n % 10 + '0';
+		str[i--] = n % 10 + '0';
 		n /= 10;
 	}
-	*it = n + '0';
+	str[i] = n + '0';
 
-	view := it[0..usz:(end - it)];
+	view := str[i..str.count];
 	print(view);
 	return view.count;
 };
@@ -85,16 +83,15 @@ print_h64 :: usz(n u64) {
 	hex_conv_tab : u8[16] : "0123456789ABCDEF";
 
 	str : u8[16];
-	end := str.data + str.count;
-	it := end - 1;
+	i := str.count - 1;
 
 	while n > 0x0F {
-		*it-- = hex_conv_tab[n & 0x0F];
+		str[i--] = hex_conv_tab[n & 0x0F];
 		n >>= 4u;
 	}
-	*it = hex_conv_tab[n];
+	str[i] = hex_conv_tab[n];
 
-	view := it[0..usz:(end - it)];
+	view := str[i..str.count];
 	print(view);
 	return view.count;
 };
