@@ -132,8 +132,8 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 					goto next_var;
 				break;
 
-			case IREG_SEG | IREG_REF:
 			case IREG_IMM | IREG_REF:
+			case IREG_SEG | IREG_REF:
 			case IREG_LBL | IREG_REF:
 				LT_ASSERT(ireg->size);
 				if (varg != VARG_MRM || vbytes != ireg->size)
@@ -146,6 +146,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 					min_bytes = 4; // This assumes that no labels/segments have offsets greater than 2GiB
 				else
 					min_bytes = 8;
+
 			case IREG_IMM:
 				if (vbytes < min_bytes)
 					goto next_var;
@@ -169,6 +170,7 @@ void emit_instr(amd64_ctx_t* cx, u8 op_i, u8 arg_count, amd64_ireg_t* args_) {
 		for (usz i = 0; i < arg_count; ++i)
 			lt_printf("(type:%ud,size:%ud) ", args[i].type, args[i].size);
 		lt_printf("\n");
+		lt_stack_trace(1);
 		LT_BREAKPOINT();
 		LT_ASSERT_NOT_REACHED();
 		return;

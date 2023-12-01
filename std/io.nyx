@@ -41,6 +41,21 @@ fread :: isz(fd isz, data u8[]) {
 	return read(fd, data);
 };
 
+fremain :: isz(fd isz) {
+	start_offs := lseek(fd, 0, SEEK.CUR);
+	if start_offs < 0 {
+		return -1;
+	}
+
+	end_offs := lseek(fd, 0, SEEK.END);
+	if end_offs < 0 {
+		return -1;
+	}
+
+	lseek(fd, start_offs, SEEK.SET);
+	return end_offs - start_offs;
+};
+
 print :: isz(str u8[]) {
 	return write(1, str);
 };

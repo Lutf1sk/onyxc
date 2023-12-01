@@ -30,6 +30,9 @@ SRC = \
 LT_PATH := lt
 LT_ENV :=
 
+STDLIB_IN_PATH := std/
+STDLIB_OUT_PATH := /usr/lib/onyxc/std
+
 # -----== COMPILER
 CC := cc
 CC_WARN := -Wall -Werror -Wno-strict-aliasing -Wno-error=unused-variable -Wno-unused-function -Wno-pedantic -Wno-unused-label -Wno-unused-but-set-variable
@@ -72,6 +75,9 @@ all: $(OUT_PATH)
 
 install: all
 	cp $(OUT_PATH) /usr/local/bin/
+	mkdir -p $(STDLIB_OUT_PATH)
+	-rm -r $(STDLIB_OUT_PATH)
+	cp -r $(STDLIB_IN_PATH) $(STDLIB_OUT_PATH)
 
 run: all
 	$(OUT_PATH) $(args)

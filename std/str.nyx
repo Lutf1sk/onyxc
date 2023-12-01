@@ -92,4 +92,9 @@ streq :: u8(s1 u8[], s2 u8[]) {
 	return 1;
 };
 
-
+has_prefix :: u8(str u8[], substr u8[]) {
+	if str.count < substr.count {
+		return 0;
+	}
+	return streq(str[0..substr.count], substr);
+};

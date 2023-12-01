@@ -6,6 +6,7 @@ SYS :: enum usz {
 	STAT			: 4,
 	FSTAT			: 5,
 	LSTAT			: 6,
+	LSEEK			: 8,
 	MMAP			: 9,
 	MPROTECT		: 10,
 	MUNMAP			: 11,
@@ -79,15 +80,25 @@ stat_t :: struct {
 };
 
 stat :: isz(path u8*, buf stat_t*) {
-	syscall(SYS.STAT, path, buf);
+	return syscall(SYS.STAT, path, buf);
 };
 
 fstat :: isz(fd isz, buf stat_t*) {
-	syscall(SYS.FSTAT, fd, buf);
+	return syscall(SYS.FSTAT, fd, buf);
 };
 
 lstat :: isz(path u8*, buf stat_t*) {
-	syscall(SYS.LSTAT, path, buf);
+	return syscall(SYS.LSTAT, path, buf);
+};
+
+SEEK :: enum u8 {
+	SET	: 0,
+	CUR : 1,
+	END : 2,
+};
+
+lseek :: isz(fd isz, offs usz, whence SEEK) {
+	return syscall(SYS.LSEEK, fd, offs, usz:whence);
 };
 
 // ----- Memory Allocation

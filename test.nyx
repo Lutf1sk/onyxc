@@ -1,52 +1,242 @@
-import "std/io.nyx", "std/dns.nyx", "std/mem.nyx";
+import "std/io.nyx";
 
-main :: i32(argc i32, argv u8**) {
-	host : u8[] = "lutfisk.net";
-
-	saddr : sockaddr_in_t;
-	mset8(&saddr, 0, sizeof(sockaddr_in_t));
-	saddr.sin_family = AF.INET;
-	saddr.sin_port = hton16(80);
-
-	if dnslookup_ipv4("8.8.8.8", host, &saddr) {
-		print("failed to resolve '");
-		print(host);
-		print("'\n");
-		goto err0;
-	}
-
-	s := socket(AF.INET, SOCK.STREAM, PF.UNSPEC);
-	if s < 0 {
-		print("socket creation failed\n");
-		goto err0;
-	}
-
-	if s->connect(sockaddr_t*:&saddr, sizeof(sockaddr_in_t)) < 0 {
-		print("connection failed\n");
-		goto err1;
-	}
-
-	s->write("GET / HTTP/1.1\r\n");
-	s->write("Host: "); s->write(host); s->write("\r\n");
-	s->write("Connection: close\r\n");
-	s->write("Upgrade-Insecure-Requests: 0\r\n");
-	s->write("\r\n");
-
-	recv_buf : u8[16K];
-
-	res := s->read(recv_buf);
-	if res < 0 {
-		print("failed to receive response\n");
-	}
-
-	print(recv_buf[0..res]);
-
-	print("connection successful\n");
-
-	exit(0);
-
-err1 :: here;
-	close(s);
-err0 :: here;
-	exit(1);
+Test :: struct {
+	name : u8[];
+	func : u8();
 };
+
+tests := Test[] {
+	{ "number_literals", {
+		if 0 { return 0; }
+		if 0x00 { return 0; }
+		if 0b00 { return 0; }
+
+		if !1 { return 0; }
+		if !0x01 { return 0; }
+		if !0b01 { return 0; }
+
+		if 0xFFFFFFFFFFFFFFFF != 18446744073709551615u { return 0; }
+		if 0b1111111111111111111111111111111111111111111111111111111111111111 != 0xFFFFFFFFFFFFFFFF { return 0; }
+
+		if 0x69 != 105u { return 0; }
+		if 0b01101001 != 0x69 { return 0; }
+
+		if i16:i8:0xFF != i16:0xFFFF { return 0; }
+		if u16:u8:0xFF != u16:0xFF { return 0; }
+		if u16:i8:0xFF != u16:0xFF { return 0; }
+		if i16:u8:0xFF != i16:0xFF { return 0; }
+
+		if 100i != 100 { return 0; }
+
+		if 1 == 2 { return 0; }
+
+		return 1;
+	}},
+
+	{ "character_literals", {
+		if ' ' != 0x20 { return 0; }
+		if 'A' != 0x41 { return 0; }
+		if 'a' != 0x61 { return 0; }
+		if '\b' != 0x08 { return 0; }
+		if '\t' != 0x09 { return 0; }
+		if '\n' != 0x0A { return 0; }
+		if '\v' != 0x0B { return 0; }
+		if '\r' != 0x0D { return 0; }
+		if '\x00' != 0x00 { return 0; }
+		if '\x69' != 0x69 { return 0; }
+		if '\xFF' != 0xFF { return 0; }
+		if '\"' != 0x22 { return 0; }
+		if '\'' != 0x27 { return 0; }
+		if 'Ä' != 0x00C4 { return 0; }
+		if 'ä' != 0x00E4 { return 0; }
+
+		return 1;
+	}},
+
+	{ "immediate_arithmetic", {
+		if i8:25 + i8:25 != 50 { return 0; }
+		if i16:25 + i16:25 != 50 { return 0; }
+		if i32:25 + i32:25 != 50 { return 0; }
+		if i64:25 + i64:25 != 50 { return 0; }
+		if u8:25 + u8:25 != u8:50 { return 0; }
+		if u16:25 + u16:25 != u16:50 { return 0; }
+		if u32:25 + u32:25 != u32:50 { return 0; }
+		if u64:25 + u64:25 != u64:50 { return 0; }
+		if void*:25 + void*:25 != void*:50 { return 0; }
+
+		if i8:50 - i8:25 != 25 { return 0; }
+		if i16:50 - i16:25 != 25 { return 0; }
+		if i32:50 - i32:25 != 25 { return 0; }
+		if i64:50 - i64:25 != 25 { return 0; }
+		if u8:50 - u8:25 != u8:25 { return 0; }
+		if u16:50 - u16:25 != u16:25 { return 0; }
+		if u32:50 - u32:25 != u32:25 { return 0; }
+		if u64:50 - u64:25 != u64:25 { return 0; }
+		if void*:50 - void*:25 != void*:25 { return 0; }
+
+		if i8:50 / i8:25 != 2 { return 0; }
+		if i16:50 / i16:25 != 2 { return 0; }
+		if i32:50 / i32:25 != 2 { return 0; }
+		if i64:50 / i64:25 != 2 { return 0; }
+		if u8:50 / u8:25 != u8:2 { return 0; }
+		if u16:50 / u16:25 != u16:2 { return 0; }
+		if u32:50 / u32:25 != u32:2 { return 0; }
+		if u64:50 / u64:25 != u64:2 { return 0; }
+		if void*:50 / void*:25 != void*:2 { return 0; }
+
+		if i8:50 * i8:25 != 1250 { return 0; }
+		if i16:50 * i16:25 != 1250 { return 0; }
+		if i32:50 * i32:25 != 1250 { return 0; }
+		if i64:50 * i64:25 != 1250 { return 0; }
+		if u8:50 * u8:25 != u8:1250 { return 0; }
+		if u16:50 * u16:25 != u16:1250 { return 0; }
+		if u32:50 * u32:25 != u32:1250 { return 0; }
+		if u64:50 * u64:25 != u64:1250 { return 0; }
+		if void*:50 * void*:25 != void*:1250 { return 0; }
+
+		if u8:0x7FFFFFFFFFFFFF01 + u8:0x7FFFFFFFFFFFFF01 != u8:0x02 { return 0; }
+		if u16:0x7FFFFFFFFFFF0001 + u16:0x7FFFFFFFFFFF0001 != u16:0x02 { return 0; }
+		if u32:0x7FFFFFFF00000001 + u32:0x7FFFFFFF00000001 != u32:0x02 { return 0; }
+		if i8:0x7FFFFFFFFFFFFF01 + i8:0x7FFFFFFFFFFFFF01 != i8:0x02 { return 0; }
+		if i16:0x7FFFFFFFFFFF0001 + i16:0x7FFFFFFFFFFF0001 != i16:0x02 { return 0; }
+		if i32:0x7FFFFFFF00000001 + i32:0x7FFFFFFF00000001 != i32:0x02 { return 0; }
+
+		if u8:0xFFFFFFFFFFFFFF01 - u8:0xF0F0F0F0F0F0F001 != u8:0x00 { return 0; }
+		if u16:0xFFFFFFFFFFFF0001 - u16:0xF0F0F0F0F0F00001 != u16:0x00 { return 0; }
+		if u32:0xFFFFFFFF00000001 - u32:0xF0F0F0F000000001 != u32:0x00 { return 0; }
+		if i8:0xFFFFFFFFFFFFFF01 - i8:0xF0F0F0F0F0F0F001 != i8:0x00 { return 0; }
+		if i16:0xFFFFFFFFFFFF0001 - i16:0xF0F0F0F0F0F00001 != i16:0x00 { return 0; }
+		if i32:0xFFFFFFFF00000001 - i32:0xF0F0F0F000000001 != i32:0x00 { return 0; }
+
+		if u8:0xFFFFFFFFFFFFFF09 / u8:0xF0F0F0F0F0F0F003 != u8:0x03 { return 0; }
+		if u16:0xFFFFFFFFFFFF0009 / u16:0xF0F0F0F0F0F00003 != u16:0x03 { return 0; }
+		if u32:0xFFFFFFFF00000009 / u32:0xF0F0F0F000000003 != u32:0x03 { return 0; }
+		if i8:0xFFFFFFFFFFFFFF09 / i8:0xF0F0F0F0F0F0F003 != i8:0x03 { return 0; }
+		if i16:0xFFFFFFFFFFFF0009 / i16:0xF0F0F0F0F0F00003 != i16:0x03 { return 0; }
+		if i32:0xFFFFFFFF00000009 / i32:0xF0F0F0F000000003 != i32:0x03 { return 0; }
+
+		if u8:0xFFFFFFFFFFFFFF03 * u8:0xF0F0F0F0F0F0F003 != u8:0x09 { return 0; }
+		if u16:0xFFFFFFFFFFFF0003 * u16:0xF0F0F0F0F0F00003 != u16:0x09 { return 0; }
+		if u32:0xFFFFFFFF00000003 * u32:0xF0F0F0F000000003 != u32:0x09 { return 0; }
+		if i8:0xFFFFFFFFFFFFFF03 * i8:0xF0F0F0F0F0F0F003 != i8:0x09 { return 0; }
+		if i16:0xFFFFFFFFFFFF0003 * i16:0xF0F0F0F0F0F00003 != i16:0x09 { return 0; }
+		if i32:0xFFFFFFFF00000003 * i32:0xF0F0F0F000000003 != i32:0x09 { return 0; }
+
+		if i8:0x80 + i8:0x80 != 1i { return 0; }
+		if i16:0x8000 + i16:0x8000 != 1i { return 0; }
+		if i32:0x80000000 + i32:0x80000000 != 1i { return 0; }
+		if i64:0x8000000000000000 + i64:0x8000000000000000 != 1i { return 0; }
+		if u8:0x80 + u8:0x80 != 1u { return 0; }
+		if u16:0x8000 + u16:0x8000 != 1u { return 0; }
+		if u32:0x80000000 + u32:0x80000000 != 1u { return 0; }
+		if u64:0x8000000000000000 + u64:0x8000000000000000 != 1u { return 0; }
+
+		return 1;
+	}},
+
+	{ "variable_arithmetic", {
+		v25_i8 : i8 = 25;
+		v25_i16 : i16 = 25;
+		v25_i32 : i32 = 25;
+		v25_i64 : i64 = 25;
+		v25_u8 : u8 = 25;
+		v25_u16 : u16 = 25;
+		v25_u32 : u32 = 25;
+		v25_u64 : u64 = 25;
+		v25_ptr : void* = 25;
+
+		if v25_i8 + v25_i8 != 50 { return 0; }
+		if v25_i16 + v25_i16 != 50 { return 0; }
+		if v25_i32 + v25_i32 != 50 { return 0; }
+		if v25_i64 + v25_i64 != 50 { return 0; }
+		if v25_u8 + v25_u8 != u8:50 { return 0; }
+		if v25_u16 + v25_u16 != u16:50 { return 0; }
+		if v25_u32 + v25_u32 != u32:50 { return 0; }
+		if v25_u64 + v25_u64 != u64:50 { return 0; }
+		if v25_ptr + v25_ptr != void*:50 { return 0; }
+
+		v50_i8 : i8 = 50;
+		v50_i16 : i16 = 50;
+		v50_i32 : i32 = 50;
+		v50_i64 : i64 = 50;
+		v50_u8 : u8 = 50;
+		v50_u16 : u16 = 50;
+		v50_u32 : u32 = 50;
+		v50_u64 : u64 = 50;
+		v50_ptr : void* = 50;
+
+		if v50_i8 - v25_i8 != 50 { return 0; }
+		if v50_i16 - v25_i16 != 50 { return 0; }
+		if v50_i32 - v25_i32 != 50 { return 0; }
+		if v50_i64 - v25_i64 != 50 { return 0; }
+		if v50_u8 - v25_u8 != u8:50 { return 0; }
+		if v50_u16 - v25_u16 != u16:50 { return 0; }
+		if v50_u32 - v25_u32 != u32:50 { return 0; }
+		if v50_u64 - v25_u64 != u64:50 { return 0; }
+		if v50_ptr - v25_ptr != void*:50 { return 0; }
+
+		if v50_i8 / v25_i8 != 2 { return 0; }
+		if v50_i16 / v25_i16 != 2 { return 0; }
+		if v50_i32 / v25_i32 != 2 { return 0; }
+		if v50_i64 / v25_i64 != 2 { return 0; }
+		if v50_u8 / v25_u8 != u8:2 { return 0; }
+		if v50_u16 / v25_u16 != u16:2 { return 0; }
+		if v50_u32 / v25_u32 != u32:2 { return 0; }
+		if v50_u64 / v25_u64 != u64:2 { return 0; }
+		if v50_ptr / v25_ptr != void*:2 { return 0; }
+
+		if v50_i8 * v25_i8 != i8:1250 { return 0; }
+		if v50_i16 * v25_i16 != 1250 { return 0; }
+		if v50_i32 * v25_i32 != 1250 { return 0; }
+		if v50_i64 * v25_i64 != 1250 { return 0; }
+		if v50_u8 * v25_u8 != u8:1250 { return 0; }
+		if v50_u16 * v25_u16 != u16:1250 { return 0; }
+		if v50_u32 * v25_u32 != u32:1250 { return 0; }
+		if v50_u64 * v25_u64 != u64:1250 { return 0; }
+		if v50_ptr * v25_ptr != void*:1250 { return 0; }
+
+		return 1;
+	}},
+};
+
+run_tests :: void() {
+	success_count := 0;
+	fail_count := 0;
+
+	print("running \x1B[93m");
+	print_i64(tests.count);
+	print("\x1B[97m tests...\x1B[0m\n");
+
+	for i: ..tests.count {
+		print("[\x1B[1m");
+		print(tests[i].name);
+		print("\x1b[0m] ");
+		if tests[i].func() {
+			success_count++;
+			print("\x1B[92m succeeded\x1b[0m\n");
+		}
+		else {
+			fail_count++;
+			print("\x1B[91m failed\x1b[0m\n");
+		}
+	}
+
+// 	print("\x1B[91m");
+// 	print_i64(fail_count);
+// 	print("\x1B[97m tests failed, ");
+
+// 	print("\x1B[92m");
+// 	print_i64(success_count);
+// 	print("\x1B[97m succeeded\x1B[0m\n");
+};
+
+main :: void() {
+	print("\n# RUN TIME\n");
+	run_tests();
+	exit(0);
+};
+
+// #{
+// 	print("\n# COMPILE TIME\n");
+// 	run_tests();
+// }
