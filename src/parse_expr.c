@@ -240,14 +240,7 @@ expr_t* parse_expr_primary(parse_ctx_t* cx, type_t* type) {
 	case TK_CHAR: consume(cx); {
 		expr_t* new = lt_amalloc(cx->arena, sizeof(expr_t));
 		*new = EXPR(EXPR_INTEGER, &u8_def, tk);
-
-		lstr_t str = unescape_str(tk, (lt_alloc_t*)cx->arena);
-		if (str.len > 1)
-			ferr("character literal exceeds max length", *tk);
-		else if (!str.len)
-			ferr("empty character literal", *tk);
-		new->int_val = str.str[0];
-		lt_amfree(cx->arena, str.str);
+		new->int_val = unescape_char(tk);
 		return new;
 	}
 

@@ -106,6 +106,7 @@ typedef struct tk {
 
 lstr_t tk_type_str(tk_stype_t stype);
 
+u32 unescape_char(tk_t* tk);
 lstr_t unescape_str(tk_t* tk, lt_alloc_t* alloc);
 
 #define TK_INIT(cx, stype, str, line) { (stype), (line), (str), (cx) }

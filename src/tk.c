@@ -4,6 +4,7 @@
 
 #include <lt/debug.h>
 #include <lt/strstream.h>
+#include <lt/str.h>
 
 lstr_t tk_type_str(tk_stype_t stype) {
 	switch (stype) {
@@ -25,6 +26,51 @@ u8 hex_char(u8 c) {
 		return (c - '0');
 	LT_ASSERT_NOT_REACHED();
 	return 0; // TODO: Error checking
+}
+
+u32 unescape_char(tk_t* tk) {
+	lstr_t str = LSTR(tk->str.str + 1, tk->str.len - 2);
+
+	if (str.len <= 0)
+		ferr("empty character literal", *tk);
+
+	char* it = str.str, *end = it + str.len;
+
+	u32 c;
+	usz len = lt_utf8_decode_len(*it);
+	if (it + len > end)
+		ferr("invalid utf-8 character", *tk);
+	it += lt_utf8_decode(it, &c);
+
+	if (c == '\\') {
+		switch (*it++) {
+		case 'r': c = '\r'; break;
+		case 'v': c = '\v'; break;
+		case 'b': c = '\b'; break;
+		case 't': c = '\t'; break;
+		case 'n': c = '\n'; break;
+		case '"': c = '\"'; break;
+		case '\'': c = '\''; break;
+		case '\\': c = '\\'; break;
+		case 'x': {
+			u64 hex = 0;
+			lt_err_t hex_err = lt_lshextou(lt_lsfrom_range(it, end), &hex);
+			if (hex_err == LT_ERR_OVERFLOW || hex > 0xFFFFFFFF)
+				ferr("character literal overflows", *tk);
+			else if (hex_err != LT_SUCCESS)
+				ferr("invalid hexadecimal escape sequence", *tk);
+			c = hex;
+			it = end;
+		}	break;
+		default:
+			ferr("unknown escape sequence "A_BOLD"'%S'"A_RESET, *tk, lt_lsfrom_range(str.str, end));
+		}
+	}
+
+	if (it != end)
+		ferr("multi-character literal", *tk);
+
+	return c;
 }
 
 lstr_t unescape_str(tk_t* tk, lt_alloc_t* alloc) {
