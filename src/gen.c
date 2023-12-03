@@ -1428,6 +1428,7 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 			gen_sym_def(cx, stmt->sym, stmt->sym->expr);
 
 			ldefine(cx, start_lbl);
+
 			ival_t end = icode_gen_expr(cx, stmt->expr);
 			u32 end_reg = ival_reg(cx, it_size, end);
 
@@ -1440,6 +1441,8 @@ void icode_gen_stmt(gen_ctx_t* cx, stmt_t* stmt) {
 			icode_gen_stmt(cx, stmt->child);
 
 			ldefine(cx, cont_lbl);
+
+			it_reg = ival_reg(cx, it_size, stmt->sym->val);
 
 			u32 new_it = ralloc(cx);
 			emit(cx, ICODE2(IR_INC, it_size, new_it, it_reg));

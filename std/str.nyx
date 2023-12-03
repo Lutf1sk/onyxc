@@ -98,3 +98,25 @@ has_prefix :: u8(str u8[], substr u8[]) {
 	}
 	return streq(str[0..substr.count], substr);
 };
+
+is_space :: u8(c u32) {
+	return c == ' ' || c == '\r' || c == '\n' || c == '\t';
+};
+
+trim_left :: u8[](str u8[]) {
+	for i: ..str.count {
+		if !is_space(str[i]) {
+			return str[i..str.count];
+		}
+	}
+	return "";
+};
+
+split :: u8[](str u8[], delim u32) {
+	for i: ..str.count {
+		if str[i] == delim { // this check should properly read utf-8 characters
+			return str[0..i];
+		}
+	}
+	return str;
+};
