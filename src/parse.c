@@ -53,7 +53,6 @@ stmt_t* parse_initial(parse_ctx_t* cx) {
 	operators[TK_DOUBLE_AMPERSAND]	= (operator_t){ TK_DOUBLE_AMPERSAND,11,	EXPR_LOGIC_AND,			OP_ASSOC_LEFT };
 	operators[TK_DOUBLE_PIPE]		= (operator_t){ TK_DOUBLE_PIPE,		12,	EXPR_LOGIC_OR,			OP_ASSOC_LEFT };
 	operators[TK_EQUAL] 			= (operator_t){ TK_EQUAL,			14,	EXPR_ASSIGN,			OP_ASSOC_RIGHT };
-	operators[TK_MINUS_GREATER]		= (operator_t){ TK_MINUS_GREATER, 	1,	EXPR_UFCS,				OP_ASSOC_LEFT };
 
 	operators[TK_PLUS_EQUAL]			= (operator_t){ TK_PLUS_EQUAL,			14,	EXPR_ADD_ASSIGN,			OP_ASSOC_RIGHT };
 	operators[TK_MINUS_EQUAL]			= (operator_t){ TK_MINUS_EQUAL,			14,	EXPR_SUBTRACT_ASSIGN,		OP_ASSOC_RIGHT };
@@ -81,6 +80,7 @@ stmt_t* parse_initial(parse_ctx_t* cx) {
 	sfx_operators[TK_LEFT_PARENTH]	= (operator_t){ TK_LEFT_PARENTH,	1, EXPR_CALL,			OP_ASSOC_LEFT };
 	sfx_operators[TK_LEFT_BRACKET]	= (operator_t){ TK_LEFT_BRACKET,	1, EXPR_SUBSCRIPT,		OP_ASSOC_LEFT };
 	sfx_operators[TK_DOT]			= (operator_t){ TK_DOT,				1, EXPR_MEMBER,			OP_ASSOC_LEFT };
+	sfx_operators[TK_MINUS_GREATER]	= (operator_t){ TK_MINUS_GREATER, 	1, EXPR_UFCS,			OP_ASSOC_LEFT };
 
 	parse = parse_cached;
 	return parse_cached(cx);

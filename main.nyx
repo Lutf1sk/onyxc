@@ -20,7 +20,7 @@ main :: void() {
 	}
 
 	st: stat_t;
-	if fstat(in_f, &st) < 0 {
+	if in_f->fstat(&st) < 0 {
 		print("fstat() failed\n");
 		goto err1;
 	}

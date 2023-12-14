@@ -154,7 +154,7 @@ dlopen :: DynLibrary*(libname u8[], alc Allocator*) {
 	mcopy(libpath.data + libpath_pfx.count, libname.data, libname.count);
 
 	fd : isz;
-	if &fd->fopenr(libpath) {
+	if fopenr(&fd, libpath) {
 		print("failed to open file\n");
 		return null;
 	}

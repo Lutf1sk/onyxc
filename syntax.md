@@ -75,6 +75,7 @@ Unary operators always have precedence over binary operators.
 | []       | 1          | Array subscript  | Left-to-right |
 | .        | 1          | Member access    | Left-to-right |
 | T:       | 1          | Cast             | Left-to-right |
+| ->       | 1          | UFCS operator    | Left-to-right |
 | --       | 2          | Prefix decrement | Right-to-left |
 | ++       | 2          | Prefix increment | Right-to-left |
 | -        | 2          | Negate           | Right-to-left |
@@ -86,7 +87,6 @@ Unary operators always have precedence over binary operators.
 ### Binary operators
 | Operator | Precedence | Description          | Associativity |
 | :------: | :--------: | :------------------: | :-----------: |
-| ->       | 1          | UFCS operator        | Left-to-right |
 | *        | 3          | Multiply             | Left-to-right |
 | /        | 3          | Divide               | Left-to-right |
 | %        | 3          | Modulo               | Left-to-right |
